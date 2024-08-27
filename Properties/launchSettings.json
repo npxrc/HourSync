@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "HourSync (Package)": {
+      "commandName": "MsixPackage",
+      "nativeDebugging": false
+    },
+    "HourSync (Unpackaged)": {
+      "commandName": "Project",
+      "nativeDebugging": false
+    }
+  }
+}
