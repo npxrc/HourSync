@@ -1,22 +1,22 @@
+#pragma warning disable IDE0079 // Remove unnecessary suppression
 #pragma warning disable IDE0007 // Use implicit type
+#pragma warning disable IDE0044 // Add readonly modifier
+#pragma warning disable IDE0052 // Remove unread private members
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
-using Windows.Storage.Pickers;
-using Windows.Storage;
-using System.Threading.Tasks;
-using System.Runtime.InteropServices.WindowsRuntime;
-using WinRT.Interop;
-using System.Xml;
 using Newtonsoft.Json;
-using System.Reflection.Emit;
-using HtmlAgilityPack;
+using Windows.Storage;
+using Windows.Storage.Pickers;
+using WinRT.Interop;
 
 namespace HourSync;
 public sealed partial class RequestMaker : Page
@@ -35,7 +35,6 @@ public sealed partial class RequestMaker : Page
     {
         InitializeComponent();
     }
-
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
@@ -67,14 +66,15 @@ public sealed partial class RequestMaker : Page
         eventTitle.KeyUp += KeyUp_SaveDraft;
         eventDate.SelectedDateChanged += (sender, e) => KeyUp_SaveDraft(sender, null);
         eventBody.KeyUp += KeyUp_SaveDraft;
-        this.Loaded += OnPageLoaded;
+        Loaded += OnPageLoaded;
     }
-
-    private void OnPageLoaded(object sender, RoutedEventArgs e){
-        this.Loaded -= OnPageLoaded;
+    private void OnPageLoaded(object sender, RoutedEventArgs e)
+    {
+        Loaded -= OnPageLoaded;
         LoadDraft();
     }
 
+    //Button clicks
     private async void ImageUpload_Click(object sender, RoutedEventArgs e)
     {
         // Create and initialize the picker
@@ -107,12 +107,148 @@ public sealed partial class RequestMaker : Page
             foreach (StorageFile file in files)
             {
                 // Handle each file
-                stringOfFileNames += (", "+file.Name);
+                stringOfFileNames += (", " + file.Name);
                 selectedImages.Add(file.Path);
             }
             filesSelectedTextBlock.Text = stringOfFileNames;
         }
     }
+    private async void SubmitButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = "Confirm",
+            Content = "Ready to submit? Click 'Continue' to proceed.",
+            PrimaryButtonText = "Continue",
+            CloseButtonText = "Cancel",
+            XamlRoot = XamlRoot
+        };
+        ContentDialogResult result = await dialog.ShowAsync();
+
+        // Handle the result
+        if (result == ContentDialogResult.Primary)
+        {
+            // User clicked Yes
+            await PostRequestAsync(eventTitle.Text, eventDate.Date.ToString(), numberOfHoursRequested.Value.ToString(), eventBody.Text);
+
+            eventTitle.Text = "";
+            eventDate.SelectedDate = null;
+            numberOfHoursRequested.Value = 0;
+            eventBody.Text = "";
+            SaveDraft();
+        }
+    }
+    private async void ClearButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = "Confirm",
+            Content = "Are you sure you want to clear the form?",
+            PrimaryButtonText = "Continue",
+            CloseButtonText = "Cancel",
+            XamlRoot = XamlRoot
+        };
+        ContentDialogResult result = await dialog.ShowAsync();
+
+        if (result == ContentDialogResult.Primary)
+        {
+            eventTitle.Text = "";
+            eventDate.SelectedDate = null;
+            numberOfHoursRequested.Value = 0;
+            eventBody.Text = "";
+            DraftDeletedSuccessfully.Visibility = Visibility.Visible;
+            DeleteFile("draft.json");
+            LoadDraft();
+        }
+    }
+
+    //POST request
+    private async Task PostRequestAsync(string title, string date, string hours, string desc)
+    {
+        try
+        {
+            string formattedDate = DateTime.Parse(date).ToString("yyyy-MM-dd");
+            var content = CreateMultipartFormDataContent(title, formattedDate, hours, desc);
+
+            Uri uri = new("https://academyendorsement.olatheschools.com/");
+            _cookieContainer.Add(uri, new Cookie("PHPSESSID", phpSessionId));
+
+            if (!_client.DefaultRequestHeaders.Contains("User-Agent"))
+            {
+                _client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+            }
+
+            var response = await _client.PostAsync("https://academyendorsement.olatheschools.com/Student/makeRequest.php", content);
+            var responseString = await response.Content.ReadAsStringAsync();
+
+            await new ContentDialog
+            {
+                Title = "Success",
+                Content = $"{title} was just submitted for ${hours} eHours.",
+                PrimaryButtonText = "OK",
+                XamlRoot = this.XamlRoot
+            }.ShowAsync();
+
+            // Instead of navigating immediately, update the UI on this page
+            UpdateUIAfterSubmission();
+
+            // Optional: Navigate after a short delay to ensure UI updates are visible
+            DeleteFile("draft.json");
+            ((App)Application.Current).UpdateHomeContent(responseString);
+            Frame.Navigate(typeof(Home), new object[] { username, password, phpSessionId, nameOfPerson, nameOfAcademy, responseString, _cookieContainer, _handler, _client });
+        }
+        catch (Exception ex)
+        {
+            LogError(ex.Message);
+            await new ContentDialog
+            {
+                Title = "Error",
+                Content = $"An error occurred when submitting {title}.",
+                PrimaryButtonText = "OK",
+                XamlRoot = this.XamlRoot
+            }.ShowAsync();
+        }
+    }
+
+    private void UpdateUIAfterSubmission()
+    {
+        // Clear form fields
+        eventTitle.Text = "";
+        eventDate.SelectedDate = null;
+        numberOfHoursRequested.Value = 0;
+        eventBody.Text = "";
+        filesSelectedTextBlock.Text = "Selected Files:";
+        selectedImages.Clear();
+
+        Log("done");
+
+        // Save the empty draft
+        SaveDraft();
+    }
+
+    private MultipartFormDataContent CreateMultipartFormDataContent(string title, string formattedDate, string hours, string desc)
+    {
+        var content = new MultipartFormDataContent
+    {
+        { new StringContent(title), "title" },
+        { new StringContent(formattedDate), "activityDate" },
+        { new StringContent(hours), "hours" },
+        { new StringContent(desc), "description" }
+    };
+
+        foreach (var imagePath in selectedImages)
+        {
+            var imageContent = new ByteArrayContent(File.ReadAllBytes(imagePath))
+            {
+                Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg") }
+            };
+            content.Add(imageContent, "img[]", Path.GetFileName(imagePath));
+        }
+
+        return content;
+    }
+
+    //Drafts
     private async void SaveDraft()
     {
         try
@@ -133,201 +269,19 @@ public sealed partial class RequestMaker : Page
             var json = JsonConvert.SerializeObject(draft, Newtonsoft.Json.Formatting.Indented);
             File.WriteAllText(draftFilePath, json);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            var dialog = new ContentDialog()
+            var dialog = new ContentDialog
             {
                 Title = "Save Error",
                 Content = "An error occurred when saving your draft.\r\nIt may be a good idea to also save your request elsewhere.",
                 PrimaryButtonText = "Continue",
-                CloseButtonText = "Cancel"
+                CloseButtonText = "Cancel",
+                XamlRoot = XamlRoot
             };
-            dialog.XamlRoot = this.XamlRoot;
             await dialog.ShowAsync();
         }
     }
-    
-    //Button clicks
-    private async void SubmitButton_Click(object sender, RoutedEventArgs e)
-    {
-        var dialog = new ContentDialog()
-        {
-            Title = "Confirm",
-            Content = "Ready to submit? Click 'Continue' to proceed.",
-            PrimaryButtonText = "Continue",
-            CloseButtonText = "Cancel"
-        };
-        dialog.XamlRoot = this.XamlRoot;
-        ContentDialogResult result = await dialog.ShowAsync();
-
-        // Handle the result
-        if (result == ContentDialogResult.Primary)
-        {
-            // User clicked Yes
-            await PostRequestAsync(eventTitle.Text, eventDate.Date.ToString(), numberOfHoursRequested.Value.ToString(), eventBody.Text);
-
-            eventTitle.Text = "";
-            eventDate.SelectedDate = null;
-            numberOfHoursRequested.Value = 0;
-            eventBody.Text = "";
-            SaveDraft();
-        }
-    }
-    private async void ClearButton_Click(object sender, RoutedEventArgs e)
-    {
-        var dialog = new ContentDialog()
-        {
-            Title = "Confirm",
-            Content = "Are you sure you want to clear the form?",
-            PrimaryButtonText = "Continue",
-            CloseButtonText = "Cancel"
-        };
-        dialog.XamlRoot = this.XamlRoot;
-        ContentDialogResult result = await dialog.ShowAsync();
-
-        if (result == ContentDialogResult.Primary)
-        {
-            eventTitle.Text = "";
-            eventDate.SelectedDate = null;
-            numberOfHoursRequested.Value = 0;
-            eventBody.Text = "";
-            WriteToFile("draft.json", "");
-        }
-    }
-
-    //POST request
-    private async Task PostRequestAsync(string title, string date, string hours, string desc)
-    {
-        if (title.Length < 3)
-        {
-            var dialog = new ContentDialog()
-            {
-                Title = "Confirmation",
-                Content = $"Is your title really {title}...",
-                PrimaryButtonText = "Yes",
-                CloseButtonText = "No"
-            };
-            dialog.XamlRoot = this.XamlRoot;
-            ContentDialogResult result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.Primary)
-            {
-                var yourloss = new ContentDialog()
-                {
-                    Title = "Information",
-                    Content = "Your loss, not mine.",
-                    PrimaryButtonText = "OK"
-                };
-                yourloss.XamlRoot = this.XamlRoot;
-                await yourloss.ShowAsync();
-            } else
-            {
-                var goodjobturningaround = new ContentDialog()
-                {
-                    Title = "Information",
-                    Content = "That's what I thought, go fix it.",
-                    PrimaryButtonText = "OK"
-                };
-                goodjobturningaround.XamlRoot = this.XamlRoot;
-                await goodjobturningaround.ShowAsync();
-                return;
-            }
-        }
-        if (desc.Length < 20)
-        {
-            var dialog = new ContentDialog()
-            {
-                Title = "Confirmation",
-                Content = "Are you sure your academy instructor will accept this with such a short description?",
-                PrimaryButtonText = "Yes",
-                CloseButtonText = "No"
-            };
-            dialog.XamlRoot = this.XamlRoot;
-            ContentDialogResult result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.Primary)
-            {
-                var yourloss = new ContentDialog()
-                {
-                    Title = "Information",
-                    Content = "Your loss, not mine.",
-                    PrimaryButtonText = "OK"
-                };
-                yourloss.XamlRoot = this.XamlRoot;
-                await yourloss.ShowAsync();
-                return;
-            }
-            else
-            {
-                var goodjobturningaround = new ContentDialog()
-                {
-                    Title = "Information",
-                    Content = "That's what I thought, go fix it.",
-                    PrimaryButtonText = "OK"
-                };
-                goodjobturningaround.XamlRoot = this.XamlRoot;
-                await goodjobturningaround.ShowAsync();
-                return;
-            }
-        }
-
-        try
-        {
-            string formattedDate = DateTime.Parse(date).ToString("yyyy-MM-dd");
-
-            // Prepare the content for the POST request
-            var content = new MultipartFormDataContent();
-            content.Add(new StringContent(title), "title");
-            content.Add(new StringContent(formattedDate), "activityDate");
-            content.Add(new StringContent(hours), "hours");
-            content.Add(new StringContent(desc), "description");
-
-            // Add images
-            foreach (var imagePath in selectedImages)
-            {
-                var imageContent = new ByteArrayContent(File.ReadAllBytes(imagePath));
-                imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
-                content.Add(imageContent, "img[]", Path.GetFileName(imagePath));
-                Console.WriteLine(imagePath);
-            }
-
-            // Ensure the PHPSESSID cookie is set for the domain
-            Uri uri = new Uri("https://academyendorsement.olatheschools.com/");
-            _cookieContainer.Add(uri, new Cookie("PHPSESSID", phpSessionId));
-
-            // Set User-Agent if not already set
-            if (!_client.DefaultRequestHeaders.Contains("User-Agent"))
-            {
-                _client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
-            }
-            // Send the POST request
-            var response = await _client.PostAsync("https://academyendorsement.olatheschools.com/Student/makeRequest.php", content);
-            var responseString = await response.Content.ReadAsStringAsync();
-
-            // Handle response (optional)
-            var dialog = new ContentDialog()
-            {
-                Title = "Success",
-                Content = $"\"{title}\" was submitted for {hours} eHours just now.",
-                PrimaryButtonText = "OK"
-            };
-            dialog.XamlRoot = this.XamlRoot;
-            await dialog.ShowAsync();
-
-            Frame.Navigate(typeof(Home), new object[] { username, password, phpSessionId, nameOfPerson, nameOfAcademy, responseString, _cookieContainer, _handler, _client });
-        }
-        catch (Exception ex)
-        {
-            var dialog = new ContentDialog()
-            {
-                Title = "Error",
-                Content = "An error occurred when submitting your request.",
-                PrimaryButtonText = "OK"
-            };
-            dialog.XamlRoot = this.XamlRoot;
-            await dialog.ShowAsync();
-        }
-    }
-
-    //Load Draft
     private async void LoadDraft()
     {
         try
@@ -338,6 +292,12 @@ public sealed partial class RequestMaker : Page
 
             if (File.Exists(draftFilePath))
             {
+                if (ReadFromFile("draft.json").Length <= 92){
+                    DraftLoadedSuccessfully.Visibility = Visibility.Collapsed;
+                    DraftIsCorruptStack.Visibility = Visibility.Visible;
+                    DraftIsCorrupt.CloseButtonClick += OnDraftIsCorruptClose;
+                    return; 
+                }
                 var json = File.ReadAllText(draftFilePath);
                 var draft = JsonConvert.DeserializeObject<Draft>(json);
 
@@ -356,45 +316,92 @@ public sealed partial class RequestMaker : Page
                 }
                 filesSelectedTextBlock.Text = stringOfFileNames;
 
-                var dialog = new ContentDialog()
-                {
-                    Title = "Draft Loaded",
-                    Content = "A previous draft has been loaded. Click \"Clear\" to delete the draft.",
-                    PrimaryButtonText = "OK"
-                };
-                dialog.XamlRoot = this.XamlRoot;
-                await dialog.ShowAsync();
+                DraftLoadedSuccessfully.Visibility = Visibility.Visible;
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            var dialog = new ContentDialog()
+            DraftLoadedSuccessfully.Visibility = Visibility.Collapsed;
+            var dialog = new ContentDialog
             {
                 Title = "Load Draft Error",
                 Content = "An error occurred loading a previous draft.",
-                PrimaryButtonText = "OK"
+                PrimaryButtonText = "OK",
+                XamlRoot = XamlRoot
             };
-            dialog.XamlRoot = this.XamlRoot;
             await dialog.ShowAsync();
+            DeleteFile("draft.json");
         }
     }
 
+    private void OnDraftIsCorruptClose(InfoBar sender, object args)
+    {
+        DraftIsCorruptStack.Visibility = Visibility.Collapsed;
+    }
     private void KeyUp_SaveDraft(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e) => SaveDraft();
 
-    private string ReadFromFile(string filename)
+    private async void OpenDraft_Click(object sender, RoutedEventArgs e)
+    {
+        var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var dataPath = Path.Combine(localAppDataPath, "eHours");
+        var filePath = Path.Combine(dataPath, "draft.json");
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = filePath,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "Open Draft Error",
+                Content = "An error occurred when opening the draft. What is wrong with your computer lil bro?",
+                PrimaryButtonText = "OK",
+                XamlRoot = XamlRoot
+            };
+            await dialog.ShowAsync();
+            Log("An exception occurred at " + DateTime.Now + " when opening the draft. Exception: " + ex.Message);
+        }
+    }
+    private async void Delete_Draft(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = "Confirmation",
+            Content = "Are you sure you want to delete the draft?",
+            PrimaryButtonText = "Yes",
+            SecondaryButtonText = "Open Draft",
+            CloseButtonText = "No",
+            XamlRoot = XamlRoot
+        };
+        ContentDialogResult result = await dialog.ShowAsync();
+        if (result == ContentDialogResult.Primary)
+        {
+            DeleteFile("draft.json");
+            DraftIsCorruptStack.Visibility = Visibility.Collapsed;
+            DraftDeletedSuccessfully.Visibility = Visibility.Visible;
+            LoadDraft();
+        }
+        else if (result == ContentDialogResult.Secondary)
+        {
+            OpenDraft_Click(null, null);
+        }
+    }
+    private static readonly string appDataFolder = "eHours";
+    public static string ReadFromFile(string filename)
     {
         try
         {
             var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-
-            var dataPath = Path.Combine(localAppDataPath, "eHours");
-
+            var dataPath = Path.Combine(localAppDataPath, appDataFolder);
             var filePath = Path.Combine(dataPath, filename);
 
             if (File.Exists(filePath))
             {
-                var textFromFile = File.ReadAllText(filePath);
-                return textFromFile;
+                return File.ReadAllText(filePath);
             }
             else
             {
@@ -407,7 +414,36 @@ public sealed partial class RequestMaker : Page
             return null;
         }
     }
-    private void WriteToFile(string filename, string towrite)
+    public static void WriteToFile(string filename, string content)
+    {
+        try
+        {
+            var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var dataPath = Path.Combine(localAppDataPath, appDataFolder);
+            var filePath = Path.Combine(dataPath, filename);
+
+            Directory.CreateDirectory(dataPath);
+            File.WriteAllText(filePath, content);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+    }
+    public static void Log(string toLog)
+    {
+        string logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "eHours", "log.txt");
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(logFilePath));
+            File.AppendAllText(logFilePath, $"\r\n{toLog}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+    }
+    public static bool DeleteFile(string filename)
     {
         try
         {
@@ -417,18 +453,35 @@ public sealed partial class RequestMaker : Page
 
             var filePath = Path.Combine(dataPath, filename);
 
-            Directory.CreateDirectory(dataPath);
-
-            File.WriteAllText(filePath, towrite);
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+                return true;
+            }
+            else
+            {
+                Console.WriteLine($"File not found: {filePath}");
+                return false;
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
+            Console.WriteLine($"Error deleting file: {ex.Message}");
+            return false;
         }
     }
-    private void Log(string toLog)
+    public static bool LogError(string message)
     {
-        WriteToFile("log.txt", (ReadFromFile("log.txt") + $"\r\n{toLog}"));
+        try
+        {
+            Log("An exception occurred at " + DateTime.Now + ". Exception: " + message);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            ((App)App.Current).m_window.Close();
+            return false;
+        }
     }
 }
 public class Draft
@@ -449,5 +502,5 @@ public class Draft
     {
         get; set;
     }
-    public List<string> ImagePaths { get; set; } = new List<string>();
+    public List<string> ImagePaths { get; set; } = [];
 }

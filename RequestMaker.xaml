@@ -8,51 +8,70 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Margin="32">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="3*" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-        
-        <TextBlock x:Name="pageTitle" Text="Request eHours" Margin="0, 0, 0, 20" Style="{StaticResource TitleTextBlockStyle}"/>
-        
-        <StackPanel Orientation="Vertical" Grid.Row="1">
-            <TextBlock Text="Enter your Event Title:" Margin="0,0,0,10"/>
-            <TextBox x:Name="eventTitle" PlaceholderText="Event Title" Margin="0,0,0,10" MaxLength="75"/>
-        </StackPanel>
-        <StackPanel Orientation="Vertical" Grid.Row="2">
-            <TextBlock Text="Day of Event:" Margin="0,0,0,10"/>
-            <DatePicker x:Name="eventDate" Margin="0,0,0,10"/>
-        </StackPanel>
-        <StackPanel Orientation="Vertical" Grid.Row="3">
-            <TextBlock Text="Requested Number of eHours:"/>
-            <Slider x:Name="numberOfHoursRequested" Maximum="150" Minimum="0" Margin="0,0,0,10" ToolTipService.ToolTip="Select your requested # of eHours" StepFrequency="0.25" TickFrequency="10" TickPlacement="Inline"/>
-        </StackPanel>
-        <StackPanel Orientation="Vertical" Grid.Row="4">
-            <TextBlock Text="Enter your submission details:" Margin="0,0,0,10"/>
-            <TextBox x:Name="eventBody" PlaceholderText="Event Details" TextWrapping="Wrap" AcceptsReturn="True" Height="200" Margin="0,0,0,5" ScrollViewer.VerticalScrollBarVisibility="Visible" ScrollViewer.IsScrollInertiaEnabled="True" Grid.Row="1"/>
-        </StackPanel>
+    <Grid>
+        <TextBlock Text="HourSync is beta software and bugs are possible. Report bugs at https://t.ly/I1i02" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0, 10, 0, 0"/>
+        <ScrollView Margin="32" HorizontalScrollBarVisibility="Hidden" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="pageTitle" Text="Request eHours" Margin="0, 0, 0, 10" Style="{StaticResource TitleTextBlockStyle}"/>
 
-        <Grid Grid.Row="5" Margin="0, 10, 0, 0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Button Content="Submit" Grid.Column="0" Margin="0, 0, 5, 0" Background="{ThemeResource SystemControlHighlightAccentBrush}" Foreground="White" x:Name="SubmitButton" Click="SubmitButton_Click"/>
-            <Button Content="Image Upload" Grid.Column="1" ToolTipService.ToolTip="Supports JPEG, and PNG. Have an HEIC image? Google 'HEIC to PNG converter'." Margin="0, 0, 5, 0" x:Name="ImageUpload" Click="ImageUpload_Click"/>
-            <Button Content="Clear" Grid.Column="3" HorizontalAlignment="Right" Margin="0" Click="ClearButton_Click"/>
-        </Grid>
+                <StackPanel x:Name="DraftLoadedSuccessfully" Grid.Row="1" Margin="0, 0, 0 ,10" Visibility="Collapsed">
+                    <InfoBar x:Name="DraftIsLoaded" IsOpen="True" Severity="Success" Title="Draft Loaded" Message="A previous draft has been loaded." Margin="0, 0, 0 ,5"/>
+                </StackPanel>
+                <StackPanel x:Name="DraftDeletedSuccessfully" Grid.Row="1" Margin="0, 0, 0 ,10" Visibility="Collapsed">
+                    <InfoBar x:Name="DraftIsDeleted" IsOpen="True" Severity="Success" Title="Draft Deleted" Message="Your previous draft has been deleted." Margin="0, 0, 0 ,5"/>
+                </StackPanel>
+                <StackPanel x:Name="DraftIsCorruptStack" Grid.Row="1" Margin="0, 0, 0 ,10" Visibility="Collapsed">
+                    <InfoBar x:Name="DraftIsCorrupt" IsOpen="True" Severity="Warning" Title="Draft Load Failure" Message="The draft which is saved to your %localappdata% folder is corrupt, outdated, or invalid, and was not loaded." Margin="0, 0, 0 ,5"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="OpenDraft" Content="Open Draft" Click="OpenDraft_Click" Margin="0, 0, 5, 0"/>
+                        <Button x:Name="DeleteDraft" Content="Delete Draft" Click="Delete_Draft"/>
+                    </StackPanel>
+                </StackPanel>
 
-        <TextBlock x:Name="filesSelectedTextBlock" Grid.Row="6" Margin="0, 10, 0, 0" Text="No files selected."/>
+                <StackPanel Orientation="Vertical" Grid.Row="2">
+                    <TextBlock Text="Enter your Event Title:" Margin="0,0,0,10"/>
+                    <TextBox x:Name="eventTitle" PlaceholderText="Event Title" Margin="0,0,0,10" MaxLength="75"/>
+                </StackPanel>
+                <StackPanel Orientation="Vertical" Grid.Row="3">
+                    <TextBlock Text="Day of Event:" Margin="0,0,0,10"/>
+                    <DatePicker x:Name="eventDate" Margin="0,0,0,10"/>
+                </StackPanel>
+                <StackPanel Orientation="Vertical" Grid.Row="4">
+                    <TextBlock Text="Requested Number of eHours:"/>
+                    <Slider x:Name="numberOfHoursRequested" Maximum="99.75" Minimum="0" Margin="0,0,0,10" ToolTipService.ToolTip="Select your requested # of eHours" StepFrequency="0.25" TickFrequency="10" TickPlacement="Inline"/>
+                </StackPanel>
+                <StackPanel Orientation="Vertical" Grid.Row="5">
+                    <TextBlock Text="Enter your submission details:" Margin="0,0,0,10"/>
+                    <TextBox x:Name="eventBody" PlaceholderText="Event Details" TextWrapping="Wrap" AcceptsReturn="True" Height="200" Margin="0,0,0,5" ScrollViewer.VerticalScrollBarVisibility="Visible" ScrollViewer.IsScrollInertiaEnabled="True" Grid.Row="1"/>
+                </StackPanel>
+
+                <Grid Grid.Row="6" Margin="0, 10, 0, 0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Content="Submit" Grid.Column="0" Margin="0, 0, 5, 0" Background="{ThemeResource SystemControlHighlightAccentBrush}" Foreground="White" x:Name="SubmitButton" Click="SubmitButton_Click"/>
+                    <Button Content="Image Upload" Grid.Column="1" ToolTipService.ToolTip="Supports JPEG, and PNG. Have an HEIC image? Google 'HEIC to PNG converter'." Margin="0, 0, 5, 0" x:Name="ImageUpload" Click="ImageUpload_Click"/>
+                    <Button Content="Clear" Grid.Column="3" HorizontalAlignment="Right" Margin="0" Click="ClearButton_Click"/>
+                </Grid>
+
+                <TextBlock x:Name="filesSelectedTextBlock" Grid.Row="7" Margin="0, 10, 0, 0" Text="No files selected."/>
+            </Grid>
+        </ScrollView>
     </Grid>
 </Page>

@@ -1,29 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
+﻿#pragma warning disable IDE0079 // Remove unnecessary suppression
+#pragma warning disable IDE0007 // Use implicit type
+#pragma warning disable IDE0044 // Add readonly modifier
+#pragma warning disable IDE0051 // Remove unused private members
+#pragma warning disable IDE0052 // Remove unread private members
+#pragma warning disable IDE1006 // this aint a fucking english class i'm not capitalising shit
+using System;
 using System.Net;
-using System.Runtime.InteropServices.WindowsRuntime;
+using System.Net.Http;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Navigation;
-using Microsoft.UI.Xaml.Shapes;
-using Windows.ApplicationModel;
-using Windows.ApplicationModel.Activation;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
-using Windows.UI;
-using System.Reflection.Metadata;
-using Windows.Media.Protection.PlayReady;
-using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml.Media.Animation;
-using Windows.UI.Notifications;
-using Windows.Data.Xml.Dom;
+using Microsoft.UI.Xaml.Navigation;
 
 namespace HourSync;
 public partial class App : Application
@@ -100,10 +87,11 @@ public partial class App : Application
         NavigationView.ItemInvoked += NavigationView_ItemInvoked;
 
         // Create a new TransitionCollection
-        var transitionCollection = new TransitionCollection();
-
-        // Add a NavigationThemeTransition to the TransitionCollection
-        transitionCollection.Add(new NavigationThemeTransition());
+        TransitionCollection transitionCollection = new()
+        {
+            // Add a NavigationThemeTransition to the TransitionCollection
+            new NavigationThemeTransition()
+        };
 
         // Set the ContentTransitions property of the rootFrame to the created TransitionCollection
         rootFrame.ContentTransitions = transitionCollection;
@@ -178,4 +166,14 @@ public partial class App : Application
         Console.WriteLine($"Error: {e.Exception}");
     }
 
+    public void GoToHomeAfterDel(string getresp)
+    {
+        GetRespOnLogin = getresp;
+        rootFrame.Navigate(typeof(Home), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, getresp, CookieContainer, Handler, Client }, new DrillInNavigationTransitionInfo());
+    }
+
+    public void UpdateHomeContent(string getresp)
+    {
+        GetRespOnLogin = getresp;
+    }
 }

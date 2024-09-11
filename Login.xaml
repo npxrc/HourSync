@@ -15,7 +15,9 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="0.1*"/>
         </Grid.RowDefinitions>
-        
+
+        <TextBlock Text="HourSync is beta software and bugs are possible. Report bugs at https://t.ly/I1i02" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0, 10, 0, 0"/>
+
         <TextBlock x:Name="pageTitle" Text="Login" Margin="36, 29, 0, 36" Style="{StaticResource TitleTextBlockStyle}"/>
 
         <Image x:Name="loginBanner" Grid.Row="1" Source="ms-appx:///Assets/hoursync-login-banner.png" Stretch="Uniform" MaxHeight="375" Margin="0,0,0,20"/>

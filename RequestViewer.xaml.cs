@@ -1,28 +1,19 @@
-using Microsoft.UI.Xaml;
-using System.Net.Http;
-using System.Net;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using Windows.Media.Protection.PlayReady;
+#pragma warning disable IDE0079 // Remove unnecessary suppression
+#pragma warning disable IDE0007 // Use implicit type
+#pragma warning disable IDE0044 // Add readonly modifier
+#pragma warning disable IDE0052 // Remove unread private members
 using System;
+using System.Collections.Generic;
 using System.IO;
-using HtmlAgilityPack;
-using System.Reflection.Metadata;
+using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
 using System.Web;
+using HtmlAgilityPack;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using System.Linq;
-using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media.Imaging;
-using Microsoft.UI.Dispatching;
-using CommunityToolkit.WinUI;
-using Microsoft.UI.Xaml.Media;
-using Windows.Storage.Streams;
-using Windows.Storage;
-using Windows.Storage.Pickers;
-
-
-// To learn more about WinUI, the WinUI project structure,
-// and more about our project templates, see: http://aka.ms/winui-project-info.
+using Windows.Media.Protection.PlayReady;
 
 namespace HourSync;
 public sealed partial class RequestViewer : Window
@@ -33,25 +24,30 @@ public sealed partial class RequestViewer : Window
     private CookieContainer cookieContainer;
     private HttpClientHandler handler;
     private HttpClient client;
+    private string nameOfAcademy;
     private HtmlDocument doc = new();
-    public RequestViewer(string idOfItem, string phpSessionId, string eventName, CookieContainer cookieContainer, HttpClientHandler handler, HttpClient client)
-    {
-        this.InitializeComponent();
-        Microsoft.UI.Xaml.Media.MicaBackdrop micaBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
-        micaBackdrop.Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.Base;
-        this.SystemBackdrop = micaBackdrop;
-        ExtendsContentIntoTitleBar = true;
-        this.Title = "Request Viewer";
 
-        this.id = idOfItem;
+    public RequestViewer(string idOfItem, string phpSessionId, string eventName, CookieContainer cookieContainer, HttpClientHandler handler, HttpClient client, string nameOfAcademy)
+    {
+        InitializeComponent();
+        Microsoft.UI.Xaml.Media.MicaBackdrop micaBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop
+        {
+            Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.Base
+        };
+        SystemBackdrop = micaBackdrop;
+        ExtendsContentIntoTitleBar = true;
+        Title = "Request Viewer";
+
+        id = idOfItem;
         this.phpSessionId = phpSessionId;
         this.eventName = eventName;
         this.cookieContainer = cookieContainer;
         this.handler = handler;
         this.client = client;
+        this.nameOfAcademy = nameOfAcademy;
 
-        Log("Running PostAsync()");
-        PostAsync();
+        FileMgr.Log("Running PostAsync()");
+        _ = PostAsync();
     }
     private async Task PostAsync()
     {
@@ -72,12 +68,15 @@ public sealed partial class RequestViewer : Window
 
         var response = await client.PostAsync("https://academyendorsement.olatheschools.com/Student/eHourDescription.php", content);
         var responseString = await response.Content.ReadAsStringAsync();
+
+        //var responseString = ReadFromFile("eHourReq.html");
+
         doc.LoadHtml(responseString);
 
         var whiteTextNodes = doc.DocumentNode.SelectNodes("//*[@class='whitetext']");
         if (whiteTextNodes != null && whiteTextNodes.Count >= 2)
         {
-            Log("Found the things");
+            FileMgr.Log("Found the things");
             string reqdHrs = HttpUtility.HtmlDecode(whiteTextNodes[0].InnerText);
             string dateSubmitted = HttpUtility.HtmlDecode(whiteTextNodes[1].InnerText);
             string desc = HttpUtility.HtmlDecode(doc.DocumentNode.SelectSingleNode("//textarea[@id='description']")?.InnerText);
@@ -110,7 +109,7 @@ public sealed partial class RequestViewer : Window
             }
             dateSubtd.Text = dateFinalText;
 
-            Log(dateFinalText.TrimStart());
+            FileMgr.Log(dateFinalText.TrimStart());
 
             try
             {
@@ -168,29 +167,29 @@ public sealed partial class RequestViewer : Window
 
             eventBody.Text = desc;
 
-            Log("Adding images to carousel from HTML");
+            FileMgr.Log("Adding images to carousel from HTML");
             try
             {
                 AddImagesToCarouselFromDoc();
             }
             catch (Exception ex)
             {
-                Log($"Exception in AddImagesToCarouselFromDoc: {ex.Message}");
+                FileMgr.Log($"Exception in AddImagesToCarouselFromDoc: {ex.Message}");
             }
         }
         else if (whiteTextNodes != null)
         {
-            Log("Not null");
+            FileMgr.Log("Not null");
         }
         else
         {
-            Log("Null");
+            FileMgr.Log("Null");
         }
     }
 
-    private async void AddImagesToCarouselFromDoc()
+    private void AddImagesToCarouselFromDoc()
     {
-        Log("Loading images from HTML");
+        FileMgr.Log("Loading images from HTML");
 
         // Create a base URL for relative paths
         string baseUrl = "https://academyendorsement.olatheschools.com/";
@@ -206,7 +205,7 @@ public sealed partial class RequestViewer : Window
                 // If src contains "../", it needs to be fixed
                 if (src.StartsWith("../"))
                 {
-                    src = baseUrl + src.Substring(3);
+                    src = string.Concat(baseUrl, src.AsSpan(3));
                 }
 
                 // Create a BitmapImage
@@ -230,68 +229,140 @@ public sealed partial class RequestViewer : Window
         }
         else
         {
-            Log("No images found on the page.");
+            FileMgr.Log("No images found on the page.");
         }
     }
 
-    private void OnImageTapped(string imageUrl)
+    private static void OnImageTapped(string imageUrl)
     {
-        ImageViewer imageViewer = new(imageUrl);
-        imageViewer.Title = "Viewing Image - "+imageUrl.Split('/')[imageUrl.Split('/').Length - 1];
+        ImageViewer imageViewer = new(imageUrl)
+        {
+            Title = "Viewing Image - " + imageUrl.Split('/')[^1]
+        };
         imageViewer.Activate();
     }
-
-    private string ReadFromFile(string filename)
+    private ProgressBar waitForDeleteProgressBar = new()
     {
-        try
+        IsIndeterminate = true,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center,
+        Width = 200, // Set width as needed
+        Height = 20 // Set height as needed
+    };
+    private ContentDialog waitForDelete = new()
+    {
+        Title = "Deleting",
+        CloseButtonText = null,
+        PrimaryButtonText = null // Ensure there's no default button
+    };
+    private async void ShowLoginProgressBarAsync()
+    {
+        // Initialize and configure the ContentDialog
+        waitForDeleteProgressBar = new()
         {
-            string localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            IsIndeterminate = true,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Width = 200, // Set width as needed
+            Height = 20 // Set height as needed
+        };
 
-            string dataPath = Path.Combine(localAppDataPath, "eHours");
+        waitForDelete = new()
+        {
+            Title = "Deleting",
+            CloseButtonText = null,
+            PrimaryButtonText = null, // Ensure there's no default button
+            Content = waitForDeleteProgressBar,
 
-            string filePath = Path.Combine(dataPath, filename);
+            // Ensure the ContentDialog is set to the correct XamlRoot
+            XamlRoot = RootGrid.XamlRoot
+        };
 
-            if (File.Exists(filePath))
+        // Show the ContentDialog asynchronously
+        await waitForDelete.ShowAsync();
+    }
+    private string afterDelReqResp = "";
+    private async void DelReq(object sender, RoutedEventArgs e)
+    {
+        if (doc.DocumentNode.SelectSingleNode("//*[@id='Delete']").InnerHtml.Length > 1)
+        {
+            var dialog = new ContentDialog()
             {
-                string textFromFile = File.ReadAllText(filePath);
-                return textFromFile;
-            }
-            else
+                Title = "Confirm Delete",
+                Content = $"Are you sure you would like to delete {eventName.Split('\n')[0]}?",
+                PrimaryButtonText = "Yes",
+                CloseButtonText = "No",
+                XamlRoot = RootGrid.XamlRoot
+            };
+            ContentDialogResult result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
             {
-                return null;
+                try
+                {
+                    ShowLoginProgressBarAsync();
+                    var values = new Dictionary<string, string>
+                    {
+                        { "del", id }
+                    };
+
+                    var content = new FormUrlEncodedContent(values);
+
+                    Uri uri = new Uri("https://academyendorsement.olatheschools.com/");
+                    //_cookieContainer.Add(uri, new Cookie("PHPSESSID", phpSessionId));
+
+                    if (!client.DefaultRequestHeaders.Contains("User-Agent"))
+                    {
+                        client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+                    }
+
+                    var response = await client.PostAsync("https://academyendorsement.olatheschools.com/deleteRequest.php", content);
+                    var responseString = await response.Content.ReadAsStringAsync();
+
+                    FileMgr.WriteToFile("delreq.txt", responseString);
+                    afterDelReqResp = responseString;
+                    waitForDeleteProgressBar.IsIndeterminate = false;
+                    waitForDeleteProgressBar.Value = 100;
+                    waitForDelete.Title = "Deleted succesfully";
+                    waitForDelete.CloseButtonText = "Close";
+                    waitForDelete.CloseButtonClick += GoBackToHomeAndUpdate;
+                }
+                catch (Exception ex)
+                {
+                    FileMgr.Log("An exception occurred at " + DateTime.Now + " when deleting request " + eventName + ". Exception: " + ex.Message);
+                    waitForDeleteProgressBar.ShowError = true;
+                    waitForDelete.Title = "Error Deleting. Check the log for more info.";
+                    waitForDelete.CloseButtonText = "Close";
+                }
             }
         }
-        catch (Exception ex)
+        else
         {
-            Console.WriteLine(ex.Message);
-            return null;
+            try
+            {
+                await new ContentDialog()
+                {
+                    Title = "Cannot Delete",
+                    Content = "You cannot delete this request because it has already been accepted or denied by your academy instructor. Please contact the instructor of the " + nameOfAcademy + " for further instructions.",
+                    PrimaryButtonText = "OK",
+                    XamlRoot = RootGrid.XamlRoot
+                }.ShowAsync();
+            } catch(Exception ex)
+            {
+                FileMgr.Log(ex.Message);
+                await new ContentDialog()
+                {
+                    Title = "Cannot Delete",
+                    Content = "You cannot delete this request because it has already been accepted or denied by your academy instructor. Please contact the instructor of the " + nameOfAcademy + " for further instructions.",
+                    PrimaryButtonText = "OK",
+                    XamlRoot = RootGrid.XamlRoot
+                }.ShowAsync();
+            }
         }
     }
-    private void WriteToFile(string filename, string toWrite)
+
+    private void GoBackToHomeAndUpdate(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
-        try
-        {
-            string localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-
-            string dataPath = Path.Combine(localAppDataPath, "eHours");
-
-            if (!Directory.Exists(dataPath))
-            {
-                Directory.CreateDirectory(dataPath);
-            }
-
-            string filePath = Path.Combine(dataPath, filename);
-
-            string textToWrite = toWrite;
-            File.WriteAllText(filePath, textToWrite);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An error occurred: {ex.Message}");
-        }
-    }
-    private void Log(string toLog)
-    {
-        WriteToFile("log.txt", (ReadFromFile("log.txt") + $"\r\n{toLog}"));
+        ((App)App.Current).GoToHomeAfterDel(afterDelReqResp);
+        this.Close();
     }
 }

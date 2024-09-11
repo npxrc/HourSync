@@ -1,25 +1,32 @@
 // MainWindow.xaml.cs
-using Microsoft.UI.Xaml;
-using System;
 using System.Net;
 using System.Net.Http;
+using Microsoft.UI.Xaml;
 
 namespace HourSync
 {
     public sealed partial class MainWindow : Window
     {
         private RequestViewer _requestViewer;
-
+        public NetworkMonitor _networkMonitor;
         public MainWindow()
         {
-            this.InitializeComponent();
-            Microsoft.UI.Xaml.Media.MicaBackdrop micaBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
-            micaBackdrop.Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt;
-            this.SystemBackdrop = micaBackdrop;
+            InitializeComponent();
+            Microsoft.UI.Xaml.Media.MicaBackdrop micaBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop
+            {
+                Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt
+            };
+            SystemBackdrop = micaBackdrop;
             ExtendsContentIntoTitleBar = true;
-            this.Title = "HourSync";
+            Title = "HourSync";
 
-            this.Closed += Closing;
+            Closed += Closing;
+            Activated += WindowActivated;
+        }
+
+        private void WindowActivated(object sender, WindowActivatedEventArgs args)
+        {
+            _networkMonitor = new NetworkMonitor(this);
         }
 
         private void Closing(object sender, WindowEventArgs args)
@@ -27,9 +34,9 @@ namespace HourSync
             _requestViewer?.Close();
         }
 
-        public void OpenRequestViewer(string idOfItem, string phpSessionId, string eventName, CookieContainer cookieContainer, HttpClientHandler handler, HttpClient client)
+        public void OpenRequestViewer(string idOfItem, string phpSessionId, string eventName, CookieContainer cookieContainer, HttpClientHandler handler, HttpClient client, string nameOfAcademy)
         {
-            _requestViewer = new RequestViewer(idOfItem, phpSessionId, eventName, cookieContainer, handler, client);
+            _requestViewer = new RequestViewer(idOfItem, phpSessionId, eventName, cookieContainer, handler, client, nameOfAcademy);
             _requestViewer.Activate();
         }
     }
