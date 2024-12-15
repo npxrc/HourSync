@@ -4,7 +4,6 @@
 #pragma warning disable IDE0052 // Remove unread private members
 using System;
 using System.IO;
-using System.Runtime.CompilerServices;
 
 namespace HourSync;
 
@@ -51,7 +50,7 @@ public static class FileMgr
         }
     }
     public static void Log(string toLog)
-    {        
+    {
         string logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "eHours", "log.txt");
         try
         {
@@ -97,7 +96,7 @@ public static class FileMgr
             Log("An exception occurred at " + DateTime.Now + ". Exception: " + message);
             return true;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             ((App)App.Current).m_window.Close();
             return false;

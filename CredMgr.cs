@@ -1,55 +1,73 @@
 ﻿using System;
 using Windows.Security.Credentials;
 
-namespace HourSync
+namespace HourSync;
+public class CredentialManager
 {
-    public class CredentialManager
+    private readonly PasswordVault _vault;
+
+    public CredentialManager()
     {
-        public static (string Username, string Password) ReadCredential(string target)
+        _vault = new PasswordVault();
+    }
+
+    public (string Username, string Password) ReadCredential(string target)
+    {
+        if (string.IsNullOrEmpty(target))
         {
-            var vault = new PasswordVault();
-            try
-            {
-                // Retrieve credentials by resource name
-                var credential = vault.FindAllByResource(target);
-
-                if (credential.Count == 0)
-                {
-                    throw new Exception($"No credentials found for target: {target}");
-                }
-
-                var firstCredential = credential[0];
-
-                // Return username and password
-                return (firstCredential.UserName, firstCredential.Password);
-            }
-            catch (Exception ex)
-            {
-                //Probably not there.
-                Console.WriteLine(ex.Message);
-                return (null, null);
-            }
+            throw new ArgumentException("Target cannot be null or empty.", nameof(target));
         }
 
-        public static void WriteCredential(string target, string username, string password)
+        try
         {
-            var vault = new PasswordVault();
-            try
-            {
-                // Remove any existing credentials with the same target
-                foreach (var cred in vault.FindAllByResource(target))
-                {
-                    vault.Remove(cred);
-                }
+            // Retrieve credentials by resource name
+            var credentials = _vault.FindAllByResource(target);
 
-                // Add the new credential
-                vault.Add(new PasswordCredential(target, username, password));
-            }
-            catch (Exception ex)
+            if (credentials.Count == 0)
             {
-                // Log or handle the error appropriately
-                throw new Exception($"Error saving credential: {ex.Message}");
+                // Return null if no credentials found
+                return (null, null);
             }
+
+            var firstCredential = credentials[0];
+
+            // Return username and password
+            return (firstCredential.UserName, firstCredential.Password);
+        }
+        catch (Exception ex)
+        {
+            // Log unexpected errors
+            FileMgr.Log(ex.Message);
+            return (null, null);
+        }
+    }
+
+    public void WriteCredential(string target, string username, string password)
+    {
+        if (string.IsNullOrEmpty(target) || string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+        {
+            throw new ArgumentException("Target, username, and password cannot be null or empty.");
+        }
+
+        try
+        {
+            RemoveExistingCredentials(target);
+            // Add the new credential
+            _vault.Add(new PasswordCredential(target, username, password));
+        }
+        catch (Exception ex)
+        {
+            // Log or handle the error appropriately
+            FileMgr.Log($"Error saving credential: {ex.Message}");
+        }
+    }
+
+    private void RemoveExistingCredentials(string target)
+    {
+        var existingCredentials = _vault.FindAllByResource(target);
+        foreach (var cred in existingCredentials)
+        {
+            _vault.Remove(cred);
         }
     }
 }

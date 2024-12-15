@@ -8,7 +8,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -129,11 +128,11 @@ public sealed partial class RequestMaker : Page
         if (result == ContentDialogResult.Primary)
         {
             // User clicked Yes
-            await PostRequestAsync(eventTitle.Text, eventDate.Date.ToString(), numberOfHoursRequested.Value.ToString(), eventBody.Text);
+            await PostRequestAsync(eventTitle.Text, eventDate.Date.ToString(), NumericTextBox.Text, eventBody.Text);
 
             eventTitle.Text = "";
             eventDate.SelectedDate = null;
-            numberOfHoursRequested.Value = 0;
+            NumericTextBox.Text = "0";
             eventBody.Text = "";
             SaveDraft();
         }
@@ -154,11 +153,37 @@ public sealed partial class RequestMaker : Page
         {
             eventTitle.Text = "";
             eventDate.SelectedDate = null;
-            numberOfHoursRequested.Value = 0;
+            NumericTextBox.Text = "0";
             eventBody.Text = "";
             DraftDeletedSuccessfully.Visibility = Visibility.Visible;
             DeleteFile("draft.json");
             LoadDraft();
+        }
+    }
+    private async void OpenDraft_Click(object sender, RoutedEventArgs e)
+    {
+        var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var dataPath = Path.Combine(localAppDataPath, "eHours");
+        var filePath = Path.Combine(dataPath, "draft.json");
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = filePath,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "Open Draft Error",
+                Content = "An error occurred when opening the draft. What is wrong with your computer lil bro?",
+                PrimaryButtonText = "OK",
+                XamlRoot = XamlRoot
+            };
+            await dialog.ShowAsync();
+            Log("An exception occurred at " + DateTime.Now + " when opening the draft. Exception: " + ex.Message);
         }
     }
 
@@ -184,9 +209,9 @@ public sealed partial class RequestMaker : Page
             await new ContentDialog
             {
                 Title = "Success",
-                Content = $"{title} was just submitted for ${hours} eHours.",
+                Content = $"{title} was just submitted for {hours} eHours.",
                 PrimaryButtonText = "OK",
-                XamlRoot = this.XamlRoot
+                XamlRoot = XamlRoot
             }.ShowAsync();
 
             // Instead of navigating immediately, update the UI on this page
@@ -205,7 +230,7 @@ public sealed partial class RequestMaker : Page
                 Title = "Error",
                 Content = $"An error occurred when submitting {title}.",
                 PrimaryButtonText = "OK",
-                XamlRoot = this.XamlRoot
+                XamlRoot = XamlRoot
             }.ShowAsync();
         }
     }
@@ -215,7 +240,7 @@ public sealed partial class RequestMaker : Page
         // Clear form fields
         eventTitle.Text = "";
         eventDate.SelectedDate = null;
-        numberOfHoursRequested.Value = 0;
+        NumericTextBox.Text = "0";
         eventBody.Text = "";
         filesSelectedTextBlock.Text = "Selected Files:";
         selectedImages.Clear();
@@ -257,7 +282,7 @@ public sealed partial class RequestMaker : Page
             {
                 Title = eventTitle.Text,
                 Date = eventDate.Date,
-                Hours = (int)numberOfHoursRequested.Value,
+                Hours = (string)NumericTextBox.Text,
                 Description = eventBody.Text,
                 ImagePaths = new List<string>(selectedImages)
             };
@@ -292,18 +317,19 @@ public sealed partial class RequestMaker : Page
 
             if (File.Exists(draftFilePath))
             {
-                if (ReadFromFile("draft.json").Length <= 92){
+                if (ReadFromFile("draft.json").Length <= 92)
+                {
                     DraftLoadedSuccessfully.Visibility = Visibility.Collapsed;
                     DraftIsCorruptStack.Visibility = Visibility.Visible;
                     DraftIsCorrupt.CloseButtonClick += OnDraftIsCorruptClose;
-                    return; 
+                    return;
                 }
                 var json = File.ReadAllText(draftFilePath);
                 var draft = JsonConvert.DeserializeObject<Draft>(json);
 
                 eventTitle.Text = draft.Title;
                 eventDate.SelectedDate = draft.Date;
-                numberOfHoursRequested.Value = draft.Hours;
+                NumericTextBox.Text = draft.Hours;
                 eventBody.Text = draft.Description;
                 selectedImages = new List<string>(draft.ImagePaths);
 
@@ -340,32 +366,33 @@ public sealed partial class RequestMaker : Page
     }
     private void KeyUp_SaveDraft(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e) => SaveDraft();
 
-    private async void OpenDraft_Click(object sender, RoutedEventArgs e)
+
+    //number only textbox
+    private void NumericTextBox_TextChanging(TextBox sender, TextBoxTextChangingEventArgs args)
     {
-        var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var dataPath = Path.Combine(localAppDataPath, "eHours");
-        var filePath = Path.Combine(dataPath, "draft.json");
-        try
+        // Get the current text in the TextBox
+        string currentText = sender.Text;
+
+        // Check if the text is valid numeric
+        if (!IsNumeric(currentText))
         {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = filePath,
-                UseShellExecute = true
-            });
-        }
-        catch (Exception ex)
-        {
-            var dialog = new ContentDialog
-            {
-                Title = "Open Draft Error",
-                Content = "An error occurred when opening the draft. What is wrong with your computer lil bro?",
-                PrimaryButtonText = "OK",
-                XamlRoot = XamlRoot
-            };
-            await dialog.ShowAsync();
-            Log("An exception occurred at " + DateTime.Now + " when opening the draft. Exception: " + ex.Message);
+            // Remove the last character if it's not numeric
+            sender.TextChanging -= NumericTextBox_TextChanging; // Temporarily detach the event
+            sender.Text = RemoveLastCharacter(currentText);
+            sender.SelectionStart = sender.Text.Length; // Set cursor to the end
+            sender.TextChanging += NumericTextBox_TextChanging; // Reattach the event
         }
     }
+    private static bool IsNumeric(string text)
+    {
+        // Check if the text is numeric
+        return double.TryParse(text, out _);
+    }
+    private static string RemoveLastCharacter(string text)
+    {
+        return text.Length > 0 ? text[..^1] : text;
+    }
+
     private async void Delete_Draft(object sender, RoutedEventArgs e)
     {
         var dialog = new ContentDialog
@@ -477,7 +504,7 @@ public sealed partial class RequestMaker : Page
             Log("An exception occurred at " + DateTime.Now + ". Exception: " + message);
             return true;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             ((App)App.Current).m_window.Close();
             return false;
@@ -494,7 +521,7 @@ public class Draft
     {
         get; set;
     }
-    public int Hours
+    public string Hours
     {
         get; set;
     }

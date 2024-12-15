@@ -4,6 +4,8 @@
 #pragma warning disable IDE0051 // Remove unused private members
 #pragma warning disable IDE0052 // Remove unread private members
 #pragma warning disable IDE1006 // this aint a fucking english class i'm not capitalising shit
+#pragma warning disable 0649 // it is actually assigned to!
+#pragma warning disable 0169 // it is actually assigned to!
 using System;
 using System.Net;
 using System.Net.Http;
@@ -66,6 +68,7 @@ public partial class App : Application
     {
         get; set;
     }
+    private string currentPage = "login";
 
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
@@ -87,11 +90,11 @@ public partial class App : Application
         NavigationView.ItemInvoked += NavigationView_ItemInvoked;
 
         // Create a new TransitionCollection
-        TransitionCollection transitionCollection = new()
-        {
+        TransitionCollection transitionCollection =
+        [
             // Add a NavigationThemeTransition to the TransitionCollection
             new NavigationThemeTransition()
-        };
+        ];
 
         // Set the ContentTransitions property of the rootFrame to the created TransitionCollection
         rootFrame.ContentTransitions = transitionCollection;
@@ -109,10 +112,14 @@ public partial class App : Application
             switch (item.Tag.ToString())
             {
                 case "home":
-                    rootFrame.Navigate(typeof(Home), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, new DrillInNavigationTransitionInfo());
+                    if (currentPage == "home") break;
+                    currentPage = "home";
+                    rootFrame.Navigate(typeof(Home), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromLeft });
                     break;
                 case "create":
-                    rootFrame.Navigate(typeof(RequestMaker), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, new DrillInNavigationTransitionInfo());
+                    if (currentPage == "create") break;
+                    currentPage = "create";
+                    rootFrame.Navigate(typeof(RequestMaker), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight });
                     break;
             }
         }

@@ -4,7 +4,6 @@
 #pragma warning disable IDE0052 // Remove unread private members
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -13,7 +12,6 @@ using HtmlAgilityPack;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
-using Windows.Media.Protection.PlayReady;
 
 namespace HourSync;
 public sealed partial class RequestViewer : Window
@@ -226,6 +224,7 @@ public sealed partial class RequestViewer : Window
                 // Add to ImagePanel
                 ImagePanel.Children.Add(img);
             }
+            ImageMainContainer.Visibility = Visibility.Visible;
         }
         else
         {
@@ -255,7 +254,7 @@ public sealed partial class RequestViewer : Window
         CloseButtonText = null,
         PrimaryButtonText = null // Ensure there's no default button
     };
-    private async void ShowLoginProgressBarAsync()
+    private async void ShowDeleteProgressBar()
     {
         // Initialize and configure the ContentDialog
         waitForDeleteProgressBar = new()
@@ -299,7 +298,7 @@ public sealed partial class RequestViewer : Window
             {
                 try
                 {
-                    ShowLoginProgressBarAsync();
+                    ShowDeleteProgressBar();
                     var values = new Dictionary<string, string>
                     {
                         { "del", id }
@@ -308,7 +307,7 @@ public sealed partial class RequestViewer : Window
                     var content = new FormUrlEncodedContent(values);
 
                     Uri uri = new Uri("https://academyendorsement.olatheschools.com/");
-                    //_cookieContainer.Add(uri, new Cookie("PHPSESSID", phpSessionId));
+                    cookieContainer.Add(uri, new Cookie("PHPSESSID", phpSessionId));
 
                     if (!client.DefaultRequestHeaders.Contains("User-Agent"))
                     {
@@ -346,7 +345,8 @@ public sealed partial class RequestViewer : Window
                     PrimaryButtonText = "OK",
                     XamlRoot = RootGrid.XamlRoot
                 }.ShowAsync();
-            } catch(Exception ex)
+            }
+            catch (Exception ex)
             {
                 FileMgr.Log(ex.Message);
                 await new ContentDialog()
@@ -363,6 +363,6 @@ public sealed partial class RequestViewer : Window
     private void GoBackToHomeAndUpdate(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
         ((App)App.Current).GoToHomeAfterDel(afterDelReqResp);
-        this.Close();
+        Close();
     }
 }

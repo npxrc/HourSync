@@ -8,10 +8,16 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using Windows.System;
+using Windows.UI;
+using Windows.UI.Core;
 using Windows.UI.ViewManagement;
 
 namespace HourSync;
@@ -52,7 +58,7 @@ public sealed partial class Login : Page
         {
             Interval = TimeSpan.FromMilliseconds(250) // Check every 250 ms
         };
-        _themeCheckTimer.Tick += (sender, e)=>UpdateTheme();
+        _themeCheckTimer.Tick += (sender, e) => UpdateTheme();
         _themeCheckTimer.Start();
 
         // Initial theme check
@@ -61,6 +67,12 @@ public sealed partial class Login : Page
 
         logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), appDataFolder, "log.txt");
         FileMgr.Log("----------\r\nLogging started for session " + DateTime.Now);
+
+        //get passwords n stuff
+        CredentialManager credMgr = new();
+
+        var (username, password) = credMgr.ReadCredential("HourSync");
+        FileMgr.Log($"{username}, {password}");
     }
 
     private void UpdateTheme()
@@ -70,6 +82,27 @@ public sealed partial class Login : Page
         {
             _currentThemeIsDark = isDarkTheme;
             ApplyTheme(isDarkTheme);
+        }
+
+        if (UsernameTextBox.Text.Length < 1) {
+            UsernameTextBox.BorderBrush = null;
+            UsernameTextBox.BorderThickness = new Thickness(0);
+            return;
+        }
+
+        string pattern = @"^\d{3}[a-zA-Z]{3}(0[1-9]|[12][0-9]|3[01])$";
+
+        if (!Regex.IsMatch(UsernameTextBox.Text, pattern))
+        {
+            // Handle invalid input, e.g., show a message or change the TextBox border color
+            UsernameTextBox.BorderThickness = new Thickness(2);
+            UsernameTextBox.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 200, 50, 30));
+        }
+        else
+        {
+            // Reset the border color if the input is valid
+            UsernameTextBox.BorderBrush = null;
+            UsernameTextBox.BorderThickness = new Thickness(0);
         }
     }
 
@@ -128,7 +161,73 @@ public sealed partial class Login : Page
         await dialog.ShowAsync();
     }
 
+    private bool isShiftPressedInUsernameBox = false;
+    private async void UsernameTextBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            PasswordBox.Focus(FocusState.Keyboard);
+            e.Handled = true; // Optional: to prevent further handling
+        }
+        else if (e.Key == VirtualKey.Shift)
+        {
+            isShiftPressedInUsernameBox = true;
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Number2 && isShiftPressedInUsernameBox)
+        {
+            await new ContentDialog()
+            {
+                Title = "Use your username",
+                Content = "Use the same login you use for the regular eHours portal! You don't have to use your Gmail username; in fact it actually won't work if you do.",
+                PrimaryButtonText = "OK",
+                XamlRoot = XamlRoot
+            }.ShowAsync();
 
+            UsernameTextBox.Text = UsernameTextBox.Text.Remove(UsernameTextBox.Text.Length-1);
+            PasswordBox.Focus(FocusState.Keyboard);
+            isShiftPressedInUsernameBox = false;
+        }
+    }
+    private void UsernameTextBox_KeyUp(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Shift)
+        {
+            isShiftPressedInUsernameBox = false;
+            e.Handled = true;
+        }
+
+        if (UsernameTextBox.Text.Length < 1)
+        {
+            UsernameTextBox.BorderBrush = null;
+            UsernameTextBox.BorderThickness = new Thickness(0);
+            return;
+        }
+
+        string pattern = @"^\d{3}[a-zA-Z]{3}(0[1-9]|[12][0-9]|3[01])$";
+
+        if (!Regex.IsMatch(UsernameTextBox.Text, pattern))
+        {
+            // Handle invalid input, e.g., show a message or change the TextBox border color
+            UsernameTextBox.BorderThickness = new Thickness(2);
+            UsernameTextBox.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 200, 50, 30));
+        }
+        else
+        {
+            // Reset the border color if the input is valid
+            UsernameTextBox.BorderBrush = null;
+            UsernameTextBox.BorderThickness = new Thickness(0);
+        }
+    }
+
+    private void PasswordBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            LoginButton_Click(null, null);
+            e.Handled = true; // Optional: to prevent further handling
+        }
+    }
 
     private ProgressBar waitForLoginProgressBar = new()
     {

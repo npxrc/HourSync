@@ -5,8 +5,6 @@
 using System;
 using System.Net.NetworkInformation;
 using System.Threading.Tasks;
-using CommunityToolkit.WinUI;
-using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Controls;
 
 namespace HourSync;
