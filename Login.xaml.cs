@@ -3,6 +3,7 @@
 #pragma warning disable IDE0044 // Add readonly modifier
 #pragma warning disable IDE0052 // Remove unread private members
 #pragma warning disable CA1861 // Avoid constant arrays as arguments
+#pragma warning disable CsWinRT1029 // Class not trimming / AOT compatible
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -17,7 +18,6 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Windows.System;
 using Windows.UI;
-using Windows.UI.Core;
 using Windows.UI.ViewManagement;
 
 namespace HourSync;
@@ -67,12 +67,6 @@ public sealed partial class Login : Page
 
         logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), appDataFolder, "log.txt");
         FileMgr.Log("----------\r\nLogging started for session " + DateTime.Now);
-
-        //get passwords n stuff
-        CredentialManager credMgr = new();
-
-        var (username, password) = credMgr.ReadCredential("HourSync");
-        FileMgr.Log($"{username}, {password}");
     }
 
     private void UpdateTheme()
@@ -304,29 +298,6 @@ public sealed partial class Login : Page
             waitForLogin.Title = "Incorrect username or password.";
             waitForLogin.CloseButtonText = "OK";
         }
-        /*var resp = FileMgr.ReadFromFile("home.html");
-        resp = resp.Replace("\n", "");
-        if (resp.Contains("<h2>Welcome to your"))
-        {
-            nameOfAcademy = resp.Split(new string[] { "<h2>Welcome to your " }, StringSplitOptions.None)[1].Split(new string[] { " Endorsement" }, StringSplitOptions.None)[0];
-            nameOfPerson = resp.Split(new string[] { "Tracking, " }, StringSplitOptions.None)[1].Split(new string[] { "</h2>" }, StringSplitOptions.None)[0];
-
-            var getresp = FileMgr.ReadFromFile("ehours.html");
-            Frame.Navigate(typeof(Home), new object[] { username, password, phpSessionId, nameOfPerson, nameOfAcademy, getresp, _cookieContainer, _handler, _client });
-
-            // Notify the App instance about successful login
-            ((App)Application.Current).LoggedIn(username, password, phpSessionId, nameOfPerson, nameOfAcademy, getresp, _cookieContainer, _handler, _client);
-        }
-        else
-        {
-            var dialog = new ContentDialog()
-            {
-                Title = "Error",
-                Content = "Incorrect username or password.",
-                CloseButtonText = "OK"
-            };
-            await dialog.ShowAsync();
-        }*/
     }
 
     private async Task<string> Post()

@@ -2,6 +2,8 @@
 #pragma warning disable IDE0007 // Use implicit type
 #pragma warning disable IDE0044 // Add readonly modifier
 #pragma warning disable IDE0052 // Remove unread private members
+#pragma warning disable CA1861 // Avoid constant arrays as arguments
+#pragma warning disable CsWinRT1029 // Class not trimming / AOT compatible
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -15,6 +17,7 @@ using Microsoft.UI.Xaml.Navigation;
 using Newtonsoft.Json;
 using Windows.Storage;
 using Windows.Storage.Pickers;
+using Windows.UI.WebUI;
 using WinRT.Interop;
 
 namespace HourSync;
@@ -33,6 +36,11 @@ public sealed partial class RequestMaker : Page
     public RequestMaker()
     {
         InitializeComponent();
+        Loaded += async (sender, e) =>
+        {
+            await webView.EnsureCoreWebView2Async(null);
+            webView.CoreWebView2.Navigate("https://www.chatgpt.com"); // Example webpage
+        };
     }
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {

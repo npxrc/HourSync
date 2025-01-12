@@ -3,13 +3,16 @@
 #pragma warning disable IDE0044 // Add readonly modifier
 #pragma warning disable IDE0052 // Remove unread private members
 #pragma warning disable CA1861 // Avoid constant arrays as arguments
+#pragma warning disable CsWinRT1029 // Class not trimming / AOT compatible
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Web;
+using HtmlAgilityPack;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -27,7 +30,10 @@ public sealed partial class Home : Page
     private HttpClientHandler _handler;
     private HttpClient _client;
     private HtmlAgilityPack.HtmlDocument doc = new();
-    private List<EHourRequest> eHourRequests = [];
+    private List<EHourRequest> ReturnedRequests = [];
+    private List<EHourRequest> PendingRequests = [];
+    private List<EHourRequest> AcceptedRequests = [];
+    private List<EHourRequest> DeniedRequests = [];
 
     public Home()
     {
@@ -74,9 +80,9 @@ public sealed partial class Home : Page
 
     private void Home_Loaded(object sender, RoutedEventArgs e)
     {
+        ParseProgressTo200();
         ParseEHourRequests();
         CreateLayout();
-        ParseProgressTo200();
     }
 
     private void ParseProgressTo200()
@@ -95,6 +101,67 @@ public sealed partial class Home : Page
 
     private void ParseEHourRequests()
     {
+        StudentEHours.Text = CleanText(doc.DocumentNode.SelectSingleNode("//table[@id='HourCount']").InnerText);
+
+        var separators = doc.DocumentNode.SelectNodes("//table[@id='eHourRequests']//tr[not(@class)]");
+        if (separators != null && separators.Count >= 5)
+        {
+            // Extract contents for each category
+            var contentMap = new Dictionary<string, string>
+        {
+            { "ReturnedRequests", GetContentBetween(separators[1], separators[2]) },
+            { "PendingRequests", GetContentBetween(separators[2], separators[3]) },
+            { "AcceptedRequests", GetContentBetween(separators[3], separators[4]) },
+            { "DeniedRequests", GetContentFrom(separators[4]) }
+        };
+
+            // Process each category
+            foreach (var kvp in contentMap)
+            {
+                if (kvp.Value.Length >= 10)
+                {
+                    ProcessRequests(kvp.Value, kvp.Key);
+                }
+            }
+        }
+        else
+        {
+            FileMgr.Log("Insufficient separators found.");
+        }
+    }
+
+    // Helper methods
+    private static string GetContentBetween(HtmlNode startNode, HtmlNode endNode)
+    {
+        var content = new StringBuilder();
+        var currentNode = startNode.NextSibling;
+
+        while (currentNode != null && currentNode != endNode)
+        {
+            content.Append(currentNode.OuterHtml);
+            currentNode = currentNode.NextSibling;
+        }
+
+        return content.ToString();
+    }
+
+    private static string GetContentFrom(HtmlNode startNode)
+    {
+        var content = new StringBuilder();
+        var currentNode = startNode.NextSibling;
+
+        while (currentNode != null)
+        {
+            content.Append(currentNode.OuterHtml);
+            currentNode = currentNode.NextSibling;
+        }
+
+        return content.ToString();
+    }
+
+    private void ProcessRequests(string htmlContent, string requestType)
+    {
+        doc.LoadHtml(htmlContent);
         var rows = doc.DocumentNode.SelectNodes("//tr[@class='entry']");
 
         if (rows != null)
@@ -111,18 +178,33 @@ public sealed partial class Home : Page
                     var hours = tdNodes[1].InnerText.Trim();
                     var date = tdNodes[2].InnerText.Trim();
 
-                    eHourRequests.Add(new EHourRequest
+                    var request = new EHourRequest
                     {
                         Value = value,
                         Description = description,
                         Hours = hours,
                         Date = date
-                    });
+                    };
+
+                    // Add to the appropriate list
+                    switch (requestType)
+                    {
+                        case "ReturnedRequests":
+                            ReturnedRequests.Add(request);
+                            break;
+                        case "PendingRequests":
+                            PendingRequests.Add(request);
+                            break;
+                        case "AcceptedRequests":
+                            AcceptedRequests.Add(request);
+                            break;
+                        case "DeniedRequests":
+                            DeniedRequests.Add(request);
+                            break;
+                    }
                 }
             }
         }
-
-        StudentEHours.Text = CleanText(doc.DocumentNode.SelectSingleNode("//table[@id='HourCount']").InnerText);
     }
 
     private static string CleanText(string text)
@@ -135,22 +217,39 @@ public sealed partial class Home : Page
 
     private void CreateLayout()
     {
-        RequestsPanel.Children.Clear();
-
-        foreach (var request in eHourRequests)
+        foreach (var request in ReturnedRequests) { CreateButton(request, "returned"); }
+        foreach (var request in PendingRequests)  { CreateButton(request, "pending");  }
+        foreach (var request in AcceptedRequests) { CreateButton(request, "accepted"); }
+        foreach (var request in DeniedRequests)   { CreateButton(request, "denied");   }
+    }
+    private void CreateButton(EHourRequest request, string type)
+    {
+        Button requestButton = new Button
         {
-            Button requestButton = new Button
-            {
-                Content = $"{request.Description}\nHours: {request.Hours}\nDate: {request.Date}",
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                HorizontalContentAlignment = HorizontalAlignment.Left,
-                Height = 80,
-                Margin = new Thickness(0, 0, 0, 10),
-                Tag = request.Value
-            };
-            requestButton.Click += RequestButton_Click;
-            RequestsPanel.Children.Add(requestButton);
+            Content = $"{request.Description}\nHours: {request.Hours}\nDate: {request.Date}",
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            Height = 80,
+            Margin = new Thickness(0, 0, 0, 10),
+            Tag = request.Value
+        };
+        requestButton.Click += RequestButton_Click;
+
+        switch (type) {
+            case "returned":
+                ReturnedReqsPanel.Children.Add(requestButton);
+                break;
+            case "pending":
+                PendingReqsPanel.Children.Add(requestButton);
+                break;
+            case "accepted":
+                AcceptedReqsPanel.Children.Add(requestButton);
+                break;
+            case "denied":
+                DeniedReqsPanel.Children.Add(requestButton);
+                break;
         }
+            
     }
 
     private MainWindow _mainWindow;
@@ -160,7 +259,8 @@ public sealed partial class Home : Page
         Button clickedButton = (Button)sender;
         string value = (string)clickedButton.Tag;
         string evtName = (string)clickedButton.Content;
-        _mainWindow.OpenRequestViewer(value, phpSessionId, evtName, _cookieContainer, _handler, _client, nameOfAcademy);
+        string status = "";
+        _mainWindow.OpenRequestViewer(value, phpSessionId, evtName, _cookieContainer, _handler, _client, nameOfAcademy, status);
     }
 
     private async void Logout_Click(object sender, RoutedEventArgs e)
@@ -179,6 +279,71 @@ public sealed partial class Home : Page
         if (result == ContentDialogResult.Primary)
         {
             ((App)Application.Current).LoggedOut();
+        }
+    }
+
+    private void SortDateOtoN(object sender, RoutedEventArgs e)
+    {
+        Sort("date", "old");
+    }
+    private void SortDateNtoO(object sender, RoutedEventArgs e)
+    {
+        Sort("date", "new");
+    }
+    private void SortNameAtoZ(object sender, RoutedEventArgs e)
+    {
+        Sort("name", "a");
+    }
+    private void SortNameZtoA(object sender, RoutedEventArgs e)
+    {
+        Sort("name", "z");
+    }
+    private void SortHoursLtoH(object sender, RoutedEventArgs e)
+    {
+        Sort("hours", "low");
+    }
+    private void SortHoursHtoL(object sender, RoutedEventArgs e)
+    {
+        Sort("hours", "high");
+    }
+
+    private void Sort(string way, string from) // sorting will come soon i promise :D
+    {
+        switch (way)
+        {
+            case "date":
+                switch (from)
+                {
+                    case "old":
+
+                        break;
+                    case "new":
+
+                        break;
+                }
+                break;
+            case "name":
+                switch (from)
+                {
+                    case "a":
+
+                        break;
+                    case "z":
+
+                        break;
+                }
+                break;
+            case "hours":
+                switch (from)
+                {
+                    case "low":
+
+                        break;
+                    case "high":
+
+                        break;
+                }
+                break;
         }
     }
 }

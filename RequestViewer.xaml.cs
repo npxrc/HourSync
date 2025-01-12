@@ -23,9 +23,10 @@ public sealed partial class RequestViewer : Window
     private HttpClientHandler handler;
     private HttpClient client;
     private string nameOfAcademy;
+    private string status;
     private HtmlDocument doc = new();
 
-    public RequestViewer(string idOfItem, string phpSessionId, string eventName, CookieContainer cookieContainer, HttpClientHandler handler, HttpClient client, string nameOfAcademy)
+    public RequestViewer(string idOfItem, string phpSessionId, string eventName, CookieContainer cookieContainer, HttpClientHandler handler, HttpClient client, string nameOfAcademy, string status)
     {
         InitializeComponent();
         Microsoft.UI.Xaml.Media.MicaBackdrop micaBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop
@@ -43,6 +44,7 @@ public sealed partial class RequestViewer : Window
         this.handler = handler;
         this.client = client;
         this.nameOfAcademy = nameOfAcademy;
+        this.status = status;
 
         FileMgr.Log("Running PostAsync()");
         _ = PostAsync();

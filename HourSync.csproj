@@ -17,6 +17,7 @@
     
     <!-- Uncomment the following line to build an unpackaged (self-contained) app -->
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <Content Remove="Assets\BadgeLogo.scale-100.png" />

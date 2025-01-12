@@ -2,6 +2,8 @@
 #pragma warning disable IDE0007 // Use implicit type
 #pragma warning disable IDE0044 // Add readonly modifier
 #pragma warning disable IDE0052 // Remove unread private members
+#pragma warning disable CA1861 // Avoid constant arrays as arguments
+#pragma warning disable CsWinRT1029 // Class not trimming / AOT compatible
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
@@ -9,7 +11,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.UI.Xaml.Controls;
 
 namespace HourSync;
-public class NavigationViewModel : INotifyPropertyChanged
+public partial class NavigationViewModel : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler PropertyChanged;
 
@@ -46,7 +48,8 @@ public class NavigationViewModel : INotifyPropertyChanged
         [
             new(){ Content = "Login", Tag = "login", Icon = new SymbolIcon(Symbol.Contact) },
             new(){ Content = "Home", Tag = "home", Icon = new SymbolIcon(Symbol.Home) },
-            new(){ Content = "Create Submission", Tag = "create", Icon = new SymbolIcon(Symbol.NewWindow) }
+            new(){ Content = "Create Submission", Tag = "create", Icon = new SymbolIcon(Symbol.NewWindow) },
+            new(){ Content = "Settings", Tag="settings", Icon = new SymbolIcon(Symbol.Setting), IsEnabled=false }
         ];
         RefreshMenuItems(isLoggedIn: false);
     }
