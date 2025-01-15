@@ -41,9 +41,9 @@ public sealed partial class MainWindow : Window
         _requestViewer?.Close();
     }
 
-    public void OpenRequestViewer(string idOfItem, string phpSessionId, string eventName, CookieContainer cookieContainer, HttpClientHandler handler, HttpClient client, string nameOfAcademy, string status)
+    public void OpenRequestViewer(string idOfItem, string phpSessionId, string eventName, CookieContainer cookieContainer, HttpClientHandler handler, HttpClient client, string nameOfAcademy, string status, string username, string password)
     {
-        _requestViewer = new RequestViewer(idOfItem, phpSessionId, eventName, cookieContainer, handler, client, nameOfAcademy, status);
+        _requestViewer = new RequestViewer(idOfItem, phpSessionId, eventName, cookieContainer, handler, client, nameOfAcademy, status, username, password);
         _requestViewer.Activate();
     }
 }

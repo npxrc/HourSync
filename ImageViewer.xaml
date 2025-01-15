@@ -12,6 +12,6 @@
         <ScrollViewer x:Name="ScrollViewer">
             <Image x:Name="DisplayedImage" Stretch="Uniform" />
         </ScrollViewer>
-        <TextBlock x:Name="Title" Style="{ThemeResource TitleTextBlockStyle}" Text="Loading image..." Margin="36" Canvas.ZIndex="1" VerticalAlignment="Top"/>
+        <TextBlock x:Name="ImgTitle" Style="{ThemeResource TitleTextBlockStyle}" Text="Loading image..." Margin="36" Canvas.ZIndex="1" VerticalAlignment="Top"/>
     </Grid>
 </Window>

@@ -6,12 +6,15 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Reflection.Metadata;
 using System.Threading.Tasks;
 using System.Web;
 using HtmlAgilityPack;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Media.Protection.PlayReady;
 
 namespace HourSync;
 public sealed partial class RequestViewer : Window
@@ -23,10 +26,14 @@ public sealed partial class RequestViewer : Window
     private HttpClientHandler handler;
     private HttpClient client;
     private string nameOfAcademy;
+    private string nameOfPerson;
     private string status;
     private HtmlDocument doc = new();
 
-    public RequestViewer(string idOfItem, string phpSessionId, string eventName, CookieContainer cookieContainer, HttpClientHandler handler, HttpClient client, string nameOfAcademy, string status)
+    private string username;
+    private string password;
+
+    public RequestViewer(string idOfItem, string phpSessionId, string eventName, CookieContainer cookieContainer, HttpClientHandler handler, HttpClient client, string nameOfAcademy, string status, string username, string password)
     {
         InitializeComponent();
         Microsoft.UI.Xaml.Media.MicaBackdrop micaBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop
@@ -45,6 +52,8 @@ public sealed partial class RequestViewer : Window
         this.client = client;
         this.nameOfAcademy = nameOfAcademy;
         this.status = status;
+        this.username = username;
+        this.password = password;
 
         FileMgr.Log("Running PostAsync()");
         _ = PostAsync();
@@ -181,10 +190,93 @@ public sealed partial class RequestViewer : Window
         {
             FileMgr.Log("Not null");
         }
+        else // you've been logged out
+        {
+            FileMgr.Log("Null, logging in again.");
+            bool isLoggedInAgain = await LogInAgain();
+            if (isLoggedInAgain)
+            {
+                await PostAsync();
+            }
+            else
+            {
+                await new ContentDialog()
+                {
+                    Title = "Incorrect credentials",
+                    Content = $"Your credentials for the user {username} are incorrect. Please log in again.",
+                    PrimaryButtonText = "OK",
+                    XamlRoot = RootGrid.XamlRoot
+                }.ShowAsync();
+            }
+        }
+    }
+
+    private async Task<bool> LogInAgain()
+    {
+        FileMgr.Log("Running await Post()");
+        var resp = await Post();
+        FileMgr.Log("POSTed");
+
+        resp = resp.Replace("\n", "");
+        if (resp.Contains("<h2>Welcome to your"))
+        {
+            FileMgr.Log("Successful login");
+            nameOfAcademy = resp.Split(new string[] { "<h2>Welcome to your " }, StringSplitOptions.None)[1].Split(new string[] { " Endorsement" }, StringSplitOptions.None)[0];
+            nameOfPerson = resp.Split(new string[] { "Tracking, " }, StringSplitOptions.None)[1].Split(new string[] { "</h2>" }, StringSplitOptions.None)[0];
+
+            FileMgr.Log("Getting home page");
+            var getresp = await Get("https://academyendorsement.olatheschools.com/Student/studentEHours.php");
+            FileMgr.Log("Successfully got home");
+            ((App)Application.Current).GetRespOnLogin = getresp;
+            return true;
+        }
         else
         {
-            FileMgr.Log("Null");
+            return false;
         }
+    }
+
+    private async Task<string> Post()
+    {
+        var values = new Dictionary<string, string>
+        {
+            { "uName", username },
+            { "uPass", password }
+        };
+
+        var content = new FormUrlEncodedContent(values);
+
+        var response = await client.PostAsync("https://academyendorsement.olatheschools.com/loginuserstudent.php", content);
+        var responseString = await response.Content.ReadAsStringAsync();
+
+        Uri uri = new Uri("https://academyendorsement.olatheschools.com/");
+        var cookies = cookieContainer.GetCookies(uri);
+        phpSessionId = cookies["PHPSESSID"]?.Value;
+
+        return responseString;
+    }
+    
+    private async Task<string> Get(string url)
+    {
+        if (string.IsNullOrEmpty(phpSessionId))
+        {
+            var dialog = new ContentDialog()
+            {
+                Title = "Error",
+                Content = "PHPSESSID cookie is not set.",
+                CloseButtonText = "OK"
+            };
+            await dialog.ShowAsync();
+            return "$$FAIL$$";
+        }
+
+        Uri uri = new Uri(url);
+        cookieContainer.Add(uri, new Cookie("PHPSESSID", phpSessionId));
+
+        var response = await client.GetAsync(url);
+        var responseString = await response.Content.ReadAsStringAsync();
+
+        return responseString;
     }
 
     private void AddImagesToCarouselFromDoc()

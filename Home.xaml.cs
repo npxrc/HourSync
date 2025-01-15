@@ -260,7 +260,7 @@ public sealed partial class Home : Page
         string value = (string)clickedButton.Tag;
         string evtName = (string)clickedButton.Content;
         string status = "";
-        _mainWindow.OpenRequestViewer(value, phpSessionId, evtName, _cookieContainer, _handler, _client, nameOfAcademy, status);
+        _mainWindow.OpenRequestViewer(value, phpSessionId, evtName, _cookieContainer, _handler, _client, nameOfAcademy, status, username, password);
     }
 
     private async void Logout_Click(object sender, RoutedEventArgs e)

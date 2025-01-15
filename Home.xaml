@@ -41,13 +41,13 @@
 
         <!-- Main content grid in the second row -->
         <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="1*"/>
+            </Grid.ColumnDefinitions>
             <!-- ScrollViewer in the first column -->
             <ScrollViewer Grid.Column="0" VerticalScrollMode="Auto" VerticalScrollBarVisibility="Auto">
                 <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2*"/>
-                        <ColumnDefinition Width="1*"/>
-                    </Grid.ColumnDefinitions>
                     <StackPanel x:Name="RequestsPanel" Margin="20 10 20 10">
                         <TextBlock Text="Pending Requests:"/>
                         <StackPanel x:Name="PendingReqsPanel" Margin="0 10 0 10"/>

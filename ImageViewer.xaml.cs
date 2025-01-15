@@ -19,7 +19,7 @@ public sealed partial class ImageViewer : Window
         DisplayedImage.Source = bitmapImage;
 
         // Update the title with the image file name
-        Title.Text = imageUrl.Split('/')[^1];
+        ImgTitle.Text = imageUrl.Split('/')[^1];
 
         Microsoft.UI.Xaml.Media.MicaBackdrop micaBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop
         {
