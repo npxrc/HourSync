@@ -10,12 +10,15 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Navigation;
+using Windows.Security.Credentials;
 using Windows.System;
 using Windows.UI;
 using Windows.UI.ViewManagement;
@@ -67,6 +70,59 @@ public sealed partial class Login : Page
 
         logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), appDataFolder, "log.txt");
         FileMgr.Log("----------\r\nLogging started for session " + DateTime.Now);
+    }
+
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+
+        bool isFirstTime = (bool)e.Parameter;
+
+        // Check if the credential thing works or not
+        (string UserNameFromVault, string PassFromVault) = GetCredentialsForHourSync();
+        if (PassFromVault.Length > 0)
+        {
+            FileMgr.Log("Credentials successfully retrieved for user " + UserNameFromVault + ".\r\n Logging in for user.");
+            UsernameTextBox.Text = UserNameFromVault;
+            PasswordBox.Password = PassFromVault;
+            if (isFirstTime)
+            {
+                Loaded += (sender, e) => LoginButton_Click(null, null);
+            }
+        }
+    }
+
+    public (string userName, string password) GetCredentialsForHourSync()
+    {
+        PasswordCredential credential = null;
+        var vault = new PasswordVault();
+
+        try
+        {
+            // Retrieve all credentials associated with the resource name "HourSync"
+            var credentialList = vault.FindAllByResource("HourSync");
+
+            if (credentialList.Count > 0)
+            {
+                // Use the default user credential
+                credential = credentialList[0];
+            }
+        }
+        catch (Exception)
+        {
+            return (null, null); // Handle exception appropriately
+        }
+
+        if (credential != null)
+        {
+            credential.RetrievePassword();
+            return (credential.UserName, credential.Password);
+        }
+        else
+        {
+            // Handle the case when no credentials are found
+            return (null, null);
+        }
     }
 
     private void UpdateTheme()
@@ -282,6 +338,23 @@ public sealed partial class Login : Page
             FileMgr.Log("Getting home page");
             var getresp = await Get("https://academyendorsement.olatheschools.com/Student/studentEHours.php");
             FileMgr.Log("Successfully got home");
+
+            // Remove previous credentials and add new ones
+            var vault = new PasswordVault();
+            try
+            {
+                var credentialList = vault.FindAllByResource("HourSync");
+                foreach (var cred in credentialList)
+                {
+                    vault.Remove(cred);
+                }
+            }
+            catch (Exception)
+            {
+                // Handle exception appropriately
+            }
+            vault.Add(new PasswordCredential("HourSync", username, password));
+            FileMgr.Log("Updated credentials in vault");
 
             FileMgr.Log("Navigating to Home");
             waitForLogin.Hide();

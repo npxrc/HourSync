@@ -99,10 +99,11 @@ public partial class App : Application
         // Set the ContentTransitions property of the rootFrame to the created TransitionCollection
         rootFrame.ContentTransitions = transitionCollection;
 
-        rootFrame.Navigate(typeof(Login));
-
         m_window.Content = NavigationView;
         m_window.Activate();
+
+        // Pass the isFirstTime parameter as true
+        rootFrame.Navigate(typeof(Login), true);
     }
 
     private void NavigationView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
@@ -155,7 +156,7 @@ public partial class App : Application
         Client = null;
 
         NavigationViewModel.RefreshMenuItems(isLoggedIn: false);
-        rootFrame.Navigate(typeof(Login));
+        rootFrame.Navigate(typeof(Login), false);
     }
 
     public void BackClicked()
