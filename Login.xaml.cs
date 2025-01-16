@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -79,7 +80,12 @@ public sealed partial class Login : Page
         bool isFirstTime = (bool)e.Parameter;
 
         // Check if the credential thing works or not
-        (string UserNameFromVault, string PassFromVault) = GetCredentialsForHourSync();
+        (string UserNameFromVault, string PassFromVault) = GetCreds();
+        if (UserNameFromVault == null || PassFromVault == null)
+        {
+            FileMgr.Log("No credentials found in vault.");
+            return;
+        }
         if (PassFromVault.Length > 0)
         {
             FileMgr.Log("Credentials successfully retrieved for user " + UserNameFromVault + ".\r\n Logging in for user.");
@@ -92,35 +98,49 @@ public sealed partial class Login : Page
         }
     }
 
-    public (string userName, string password) GetCredentialsForHourSync()
+    public (string userName, string password) GetCreds()
     {
         PasswordCredential credential = null;
         var vault = new PasswordVault();
 
         try
         {
-            // Retrieve all credentials associated with the resource name "HourSync"
-            var credentialList = vault.FindAllByResource("HourSync");
+            // Retrieve all credentials from the vault
+            IReadOnlyList<PasswordCredential> allCredentials = vault.RetrieveAll();
+
+            // Filter credentials for the resource "HourSync"
+            List<PasswordCredential> credentialList = new List<PasswordCredential>();
+            foreach (var cred in allCredentials)
+            {
+                if (cred.Resource == "HourSync")
+                {
+                    credentialList.Add(cred);
+                }
+            }
 
             if (credentialList.Count > 0)
             {
-                // Use the default user credential
+                // Use the first available credential
                 credential = credentialList[0];
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            return (null, null); // Handle exception appropriately
+            // Log any exceptions
+            FileMgr.Log("Exception occurred: " + ex.Message);
+            return (null, null);
         }
 
         if (credential != null)
         {
             credential.RetrievePassword();
+            FileMgr.WriteToFile("log.txt", credential.UserName + ", " + credential.Password);
             return (credential.UserName, credential.Password);
         }
         else
         {
-            // Handle the case when no credentials are found
+            // Handle the case when no credentials are available
+            FileMgr.Log("Null.");
             return (null, null);
         }
     }
