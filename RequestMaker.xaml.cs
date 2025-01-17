@@ -15,6 +15,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Newtonsoft.Json;
+using Windows.Media.Protection.PlayReady;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.UI.WebUI;
@@ -214,21 +215,44 @@ public sealed partial class RequestMaker : Page
             var response = await _client.PostAsync("https://academyendorsement.olatheschools.com/Student/makeRequest.php", content);
             var responseString = await response.Content.ReadAsStringAsync();
 
-            await new ContentDialog
+            if (responseString.Contains("See your current eHours"))
             {
-                Title = "Success",
-                Content = $"{title} was just submitted for {hours} eHours.",
-                PrimaryButtonText = "OK",
-                XamlRoot = XamlRoot
-            }.ShowAsync();
+                await new ContentDialog
+                {
+                    Title = "Success",
+                    Content = $"{title} was just submitted for {hours} eHours.",
+                    PrimaryButtonText = "OK",
+                    XamlRoot = XamlRoot
+                }.ShowAsync();
 
-            // Instead of navigating immediately, update the UI on this page
-            UpdateUIAfterSubmission();
+                // Instead of navigating immediately, update the UI on this page
+                UpdateUIAfterSubmission();
 
-            // Optional: Navigate after a short delay to ensure UI updates are visible
-            DeleteFile("draft.json");
-            ((App)Application.Current).UpdateHomeContent(responseString);
-            Frame.Navigate(typeof(Home), new object[] { username, password, phpSessionId, nameOfPerson, nameOfAcademy, responseString, _cookieContainer, _handler, _client });
+                // Optional: Navigate after a short delay to ensure UI updates are visible
+                DeleteFile("draft.json");
+                ((App)Application.Current).UpdateHomeContent(responseString);
+                Frame.Navigate(typeof(Home), new object[] { username, password, phpSessionId, nameOfPerson, nameOfAcademy, responseString, _cookieContainer, _handler, _client });
+            }
+            else
+            {
+                FileMgr.Log("Null, logging in again.");
+                bool isLoggedInAgain = await LogInAgain();
+                if (isLoggedInAgain)
+                {
+                    await PostRequestAsync(title, date, hours, desc);
+                }
+                else
+                {
+                    await new ContentDialog()
+                    {
+                        Title = "Incorrect credentials",
+                        Content = $"Your credentials for the user {username} are incorrect. Please log in again.",
+                        PrimaryButtonText = "OK",
+                        XamlRoot = XamlRoot
+                    }.ShowAsync();
+                }
+            }
+
         }
         catch (Exception ex)
         {
@@ -279,6 +303,75 @@ public sealed partial class RequestMaker : Page
         }
 
         return content;
+    }
+
+    //Log in again
+    private async Task<bool> LogInAgain()
+    {
+        FileMgr.Log("Running await Post()");
+        var resp = await Post();
+        FileMgr.Log("POSTed");
+
+        resp = resp.Replace("\n", "");
+        if (resp.Contains("<h2>Welcome to your"))
+        {
+            FileMgr.Log("Successful login");
+            nameOfAcademy = resp.Split(new string[] { "<h2>Welcome to your " }, StringSplitOptions.None)[1].Split(new string[] { " Endorsement" }, StringSplitOptions.None)[0];
+            nameOfPerson = resp.Split(new string[] { "Tracking, " }, StringSplitOptions.None)[1].Split(new string[] { "</h2>" }, StringSplitOptions.None)[0];
+
+            FileMgr.Log("Getting home page");
+            var getresp = await Get("https://academyendorsement.olatheschools.com/Student/studentEHours.php");
+            FileMgr.Log("Successfully got home");
+            ((App)Application.Current).GetRespOnLogin = getresp;
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    private async Task<string> Post()
+    {
+        var values = new Dictionary<string, string>
+        {
+            { "uName", username },
+            { "uPass", password }
+        };
+
+        var content = new FormUrlEncodedContent(values);
+
+        var response = await _client.PostAsync("https://academyendorsement.olatheschools.com/loginuserstudent.php", content);
+        var responseString = await response.Content.ReadAsStringAsync();
+
+        Uri uri = new Uri("https://academyendorsement.olatheschools.com/");
+        var cookies = _cookieContainer.GetCookies(uri);
+        phpSessionId = cookies["PHPSESSID"]?.Value;
+
+        return responseString;
+    }
+
+    private async Task<string> Get(string url)
+    {
+        if (string.IsNullOrEmpty(phpSessionId))
+        {
+            var dialog = new ContentDialog()
+            {
+                Title = "Error",
+                Content = "PHPSESSID cookie is not set.",
+                CloseButtonText = "OK"
+            };
+            await dialog.ShowAsync();
+            return "$$FAIL$$";
+        }
+
+        Uri uri = new Uri(url);
+        _cookieContainer.Add(uri, new Cookie("PHPSESSID", phpSessionId));
+
+        var response = await _client.GetAsync(url);
+        var responseString = await response.Content.ReadAsStringAsync();
+
+        return responseString;
     }
 
     //Drafts

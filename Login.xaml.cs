@@ -88,7 +88,7 @@ public sealed partial class Login : Page
         }
         if (PassFromVault.Length > 0)
         {
-            FileMgr.Log("Credentials successfully retrieved for user " + UserNameFromVault + ".\r\n Logging in for user.");
+            FileMgr.Log("Credentials successfully retrieved for user " + UserNameFromVault + ".\r\nLogging in for user.");
             UsernameTextBox.Text = UserNameFromVault;
             PasswordBox.Password = PassFromVault;
             if (isFirstTime)
@@ -134,7 +134,6 @@ public sealed partial class Login : Page
         if (credential != null)
         {
             credential.RetrievePassword();
-            FileMgr.WriteToFile("log.txt", credential.UserName + ", " + credential.Password);
             return (credential.UserName, credential.Password);
         }
         else
@@ -361,12 +360,16 @@ public sealed partial class Login : Page
 
             // Remove previous credentials and add new ones
             var vault = new PasswordVault();
-            try
-            {
-                var credentialList = vault.FindAllByResource("HourSync");
-                foreach (var cred in credentialList)
+            try {
+                // Retrieve all credentials from the vault
+                IReadOnlyList<PasswordCredential> allCredentials = vault.RetrieveAll();
+
+                foreach (var cred in allCredentials)
                 {
-                    vault.Remove(cred);
+                    if (cred.Resource == "HourSync")
+                    {
+                        vault.Remove(cred);
+                    }
                 }
             }
             catch (Exception)
