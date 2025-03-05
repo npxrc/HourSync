@@ -13,6 +13,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
+using DiscordRPC;
+using Windows.Graphics.Display;
+using System.Runtime.CompilerServices;
 
 namespace HourSync;
 public partial class App : Application
@@ -69,6 +72,21 @@ public partial class App : Application
         get; set;
     }
     private string currentPage = "login";
+    private string previousPage = "null";
+    
+    public DiscordRpcClient client = new("1342974846090481766");
+    private DiscordRPC.Button[] buttons = new[]{
+        new DiscordRPC.Button()
+        {
+            Label = "Download HourSync",
+            Url = "https://hoursync.net"
+        },
+        new DiscordRPC.Button()
+        {
+            Label = "View on GitHub",
+            Url = "https://github.com/npxrc/HourSync"
+        }
+    };
 
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
@@ -102,6 +120,8 @@ public partial class App : Application
         m_window.Content = NavigationView;
         m_window.Activate();
 
+        client.Initialize();
+
         // Pass the isFirstTime parameter as true
         rootFrame.Navigate(typeof(Login), true);
     }
@@ -110,17 +130,38 @@ public partial class App : Application
     {
         if (args.InvokedItemContainer is NavigationViewItem item)
         {
+            SlideNavigationTransitionInfo effect;
             switch (item.Tag.ToString())
             {
                 case "home":
+                    previousPage = currentPage;
                     if (currentPage == "home") break;
                     currentPage = "home";
-                    rootFrame.Navigate(typeof(Home), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromLeft });
+                    rootFrame.Navigate(typeof(Home), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromLeft});
                     break;
                 case "create":
+                    previousPage = currentPage;
+                    if (previousPage == "home")
+                    {
+                        effect = new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight };
+                    }
+                    else if (previousPage == "settings")
+                    {
+                        effect = new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromLeft };
+                    }
+                    else
+                    {
+                        effect = new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromBottom };
+                    }
                     if (currentPage == "create") break;
                     currentPage = "create";
-                    rootFrame.Navigate(typeof(RequestMaker), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight });
+                    rootFrame.Navigate(typeof(RequestMaker), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, effect);
+                    break;
+                case "settings":
+                    previousPage = currentPage;
+                    if (currentPage == "settings") break;
+                    currentPage = "settings";
+                    rootFrame.Navigate(typeof(Settings), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight });
                     break;
             }
         }
@@ -145,6 +186,7 @@ public partial class App : Application
     public void LoggedOut()
     {
         // Clear user-specific data
+        previousPage = currentPage;
         Username = null;
         Password = null;
         PhpSessionId = null;
@@ -183,5 +225,55 @@ public partial class App : Application
     public void UpdateHomeContent(string getresp)
     {
         GetRespOnLogin = getresp;
+    }
+
+    public void UpdatePresence(string page, string details)
+    {
+        string state = "";
+
+        switch (page)
+        {
+            case "login":
+                state = "Logging in";
+                break;
+            case "home":
+                state = "Viewing Homepage";
+                break;
+            case "create":
+                state = "Submitting eHours";
+                break;
+            case "settings":
+                state = "Changing Settings";
+                break;
+        }
+        if (details.Length > 0)
+        {
+            client.SetPresence(new RichPresence()
+            {
+                Details = details,
+                State = state,
+                Assets = new Assets()
+                {
+                    LargeImageKey = "logo",
+                    LargeImageText = "HourSync",
+                },
+                Buttons = buttons,
+                Type = ActivityType.Playing
+            });
+        }
+        else
+        {
+            client.SetPresence(new RichPresence()
+            {
+                State = state,
+                Assets = new Assets()
+                {
+                    LargeImageKey = "logo",
+                    LargeImageText = "HourSync",
+                },
+                Buttons = buttons,
+                Type = ActivityType.Playing
+            });
+        }
     }
 }

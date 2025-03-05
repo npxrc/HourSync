@@ -39,6 +39,7 @@ public sealed partial class MainWindow : Window
     private void Closing(object sender, WindowEventArgs args)
     {
         _requestViewer?.Close();
+        ((App)Application.Current).client.Dispose();
     }
 
     public void OpenRequestViewer(string idOfItem, string phpSessionId, string eventName, CookieContainer cookieContainer, HttpClientHandler handler, HttpClient client, string nameOfAcademy, string status, string username, string password)

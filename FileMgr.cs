@@ -9,7 +9,7 @@ namespace HourSync;
 
 public static class FileMgr
 {
-    private static readonly string appDataFolder = "eHours";
+    private static readonly string appDataFolder = "HourSync";
     public static string ReadFromFile(string filename)
     {
         try
@@ -51,7 +51,7 @@ public static class FileMgr
     }
     public static void Log(string toLog)
     {
-        string logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "eHours", "log.txt");
+        string logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HourSync", "log.txt");
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(logFilePath));
@@ -68,7 +68,7 @@ public static class FileMgr
         {
             var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 
-            var dataPath = Path.Combine(localAppDataPath, "eHours");
+            var dataPath = Path.Combine(localAppDataPath, "HourSync");
 
             var filePath = Path.Combine(dataPath, filename);
 

@@ -49,7 +49,7 @@ public partial class NavigationViewModel : INotifyPropertyChanged
             new(){ Content = "Login", Tag = "login", Icon = new SymbolIcon(Symbol.Contact) },
             new(){ Content = "Home", Tag = "home", Icon = new SymbolIcon(Symbol.Home) },
             new(){ Content = "Create Submission", Tag = "create", Icon = new SymbolIcon(Symbol.NewWindow) },
-            new(){ Content = "Settings", Tag="settings", Icon = new SymbolIcon(Symbol.Setting), IsEnabled=false }
+            new(){ Content = "Settings", Tag="settings", Icon = new SymbolIcon(Symbol.Setting)/*, IsEnabled=false*/ }
         ];
         RefreshMenuItems(isLoggedIn: false);
     }
@@ -69,6 +69,9 @@ public partial class NavigationViewModel : INotifyPropertyChanged
                     item.IsSelected = isLoggedIn;
                     break;
                 case "create":
+                    item.IsEnabled = isLoggedIn;
+                    break;
+                case "settings":
                     item.IsEnabled = isLoggedIn;
                     break;
             }

@@ -75,6 +75,8 @@ public sealed partial class Home : Page
             // Handle the case where parameters are not in the expected format
             throw new ArgumentException("Parameters passed to Home page are not in the expected format.");
         }
+
+        ((App)Application.Current).UpdatePresence("home", $"Signed in as {nameOfPerson}");
     }
 
 

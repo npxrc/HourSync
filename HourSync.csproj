@@ -18,6 +18,7 @@
     <!-- Uncomment the following line to build an unpackaged (self-contained) app -->
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PackageProjectUrl>https://hoursync.net</PackageProjectUrl>
   </PropertyGroup>
   <ItemGroup>
     <Content Remove="Assets\BadgeLogo.scale-100.png" />
@@ -74,11 +75,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="DiscordRPC.dll" />
     <None Remove="Home.xaml" />
     <None Remove="ImageViewer.xaml" />
     <None Remove="Login.xaml" />
     <None Remove="RequestMaker.xaml" />
     <None Remove="RequestViewer.xaml" />
+    <None Remove="Settings.xaml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -104,12 +107,30 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="DiscordRPC">
+      <HintPath>DiscordRPC.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="DiscordRPC.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Update="Assets\hoursync-light-login-banner.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Update="Assets\hoursync-dark-login-banner.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Settings.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
 
   <ItemGroup>

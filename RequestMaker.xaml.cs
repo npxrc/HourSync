@@ -10,15 +10,14 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Newtonsoft.Json;
-using Windows.Media.Protection.PlayReady;
 using Windows.Storage;
 using Windows.Storage.Pickers;
-using Windows.UI.WebUI;
 using WinRT.Interop;
 
 namespace HourSync;
@@ -33,6 +32,7 @@ public sealed partial class RequestMaker : Page
     private CookieContainer _cookieContainer;
     private HttpClientHandler _handler;
     private HttpClient _client;
+    private Timer timer;
 
     public RequestMaker()
     {
@@ -41,7 +41,33 @@ public sealed partial class RequestMaker : Page
         {
             await webView.EnsureCoreWebView2Async(null);
             webView.CoreWebView2.Navigate("https://www.chatgpt.com"); // Example webpage
+            ((App)Application.Current).UpdatePresence("create", "");
+            eventTitle.LostFocus += (sender, e) => { UpdatePresence(); };
+            NumericTextBox.LostFocus += (sender, e) => { UpdatePresence(); };
         };
+    }
+    private void UpdatePresence()
+    {
+        string anyHours = "to log";
+        try
+        {
+            if (NumericTextBox != null && NumericTextBox.Text.Length > 0)
+            {
+                anyHours = $"{NumericTextBox.Text} hours for";
+            }
+        }
+        catch (Exception)
+        {
+            System.Diagnostics.Trace.WriteLine("Error in UpdatePresence()");
+        }
+        if (eventTitle != null && eventTitle.Text.Length > 0)
+        {
+            ((App)Application.Current).UpdatePresence("create", $"Requesting {anyHours} \"{eventTitle.Text}\" ");
+        }
+        else
+        {
+            ((App)Application.Current).UpdatePresence("create", "");
+        }
     }
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
@@ -165,7 +191,7 @@ public sealed partial class RequestMaker : Page
             NumericTextBox.Text = "0";
             eventBody.Text = "";
             DraftDeletedSuccessfully.Visibility = Visibility.Visible;
-            DeleteFile("draft.json");
+            FileMgr.DeleteFile("draft.json");
             LoadDraft();
         }
     }
@@ -192,7 +218,7 @@ public sealed partial class RequestMaker : Page
                 XamlRoot = XamlRoot
             };
             await dialog.ShowAsync();
-            Log("An exception occurred at " + DateTime.Now + " when opening the draft. Exception: " + ex.Message);
+            FileMgr.Log("An exception occurred at " + DateTime.Now + " when opening the draft. Exception: " + ex.Message);
         }
     }
 
@@ -229,7 +255,7 @@ public sealed partial class RequestMaker : Page
                 UpdateUIAfterSubmission();
 
                 // Optional: Navigate after a short delay to ensure UI updates are visible
-                DeleteFile("draft.json");
+                FileMgr.DeleteFile("draft.json");
                 ((App)Application.Current).UpdateHomeContent(responseString);
                 Frame.Navigate(typeof(Home), new object[] { username, password, phpSessionId, nameOfPerson, nameOfAcademy, responseString, _cookieContainer, _handler, _client });
             }
@@ -256,7 +282,7 @@ public sealed partial class RequestMaker : Page
         }
         catch (Exception ex)
         {
-            LogError(ex.Message);
+            FileMgr.LogError(ex.Message);
             await new ContentDialog
             {
                 Title = "Error",
@@ -277,7 +303,7 @@ public sealed partial class RequestMaker : Page
         filesSelectedTextBlock.Text = "Selected Files:";
         selectedImages.Clear();
 
-        Log("done");
+        FileMgr.Log("done");
 
         // Save the empty draft
         SaveDraft();
@@ -389,7 +415,7 @@ public sealed partial class RequestMaker : Page
             };
 
             var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var dataPath = Path.Combine(localAppDataPath, "eHours");
+            var dataPath = Path.Combine(localAppDataPath, "HourSync");
             var draftFilePath = Path.Combine(dataPath, "draft.json");
 
             var json = JsonConvert.SerializeObject(draft, Newtonsoft.Json.Formatting.Indented);
@@ -401,8 +427,7 @@ public sealed partial class RequestMaker : Page
             {
                 Title = "Save Error",
                 Content = "An error occurred when saving your draft.\r\nIt may be a good idea to also save your request elsewhere.",
-                PrimaryButtonText = "Continue",
-                CloseButtonText = "Cancel",
+                PrimaryButtonText = "Okay",
                 XamlRoot = XamlRoot
             };
             await dialog.ShowAsync();
@@ -413,12 +438,12 @@ public sealed partial class RequestMaker : Page
         try
         {
             var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var dataPath = Path.Combine(localAppDataPath, "eHours");
+            var dataPath = Path.Combine(localAppDataPath, "HourSync");
             var draftFilePath = Path.Combine(dataPath, "draft.json");
 
             if (File.Exists(draftFilePath))
             {
-                if (ReadFromFile("draft.json").Length <= 92)
+                if (FileMgr.ReadFromFile("draft.json").Length <= 92)
                 {
                     DraftLoadedSuccessfully.Visibility = Visibility.Collapsed;
                     DraftIsCorruptStack.Visibility = Visibility.Visible;
@@ -444,6 +469,8 @@ public sealed partial class RequestMaker : Page
                 filesSelectedTextBlock.Text = stringOfFileNames;
 
                 DraftLoadedSuccessfully.Visibility = Visibility.Visible;
+
+                UpdatePresence();
             }
         }
         catch (Exception)
@@ -457,7 +484,7 @@ public sealed partial class RequestMaker : Page
                 XamlRoot = XamlRoot
             };
             await dialog.ShowAsync();
-            DeleteFile("draft.json");
+            FileMgr.DeleteFile("draft.json");
         }
     }
 
@@ -508,7 +535,7 @@ public sealed partial class RequestMaker : Page
         ContentDialogResult result = await dialog.ShowAsync();
         if (result == ContentDialogResult.Primary)
         {
-            DeleteFile("draft.json");
+            FileMgr.DeleteFile("draft.json");
             DraftIsCorruptStack.Visibility = Visibility.Collapsed;
             DraftDeletedSuccessfully.Visibility = Visibility.Visible;
             LoadDraft();
@@ -516,99 +543,6 @@ public sealed partial class RequestMaker : Page
         else if (result == ContentDialogResult.Secondary)
         {
             OpenDraft_Click(null, null);
-        }
-    }
-    private static readonly string appDataFolder = "eHours";
-    public static string ReadFromFile(string filename)
-    {
-        try
-        {
-            var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var dataPath = Path.Combine(localAppDataPath, appDataFolder);
-            var filePath = Path.Combine(dataPath, filename);
-
-            if (File.Exists(filePath))
-            {
-                return File.ReadAllText(filePath);
-            }
-            else
-            {
-                return null;
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.Message);
-            return null;
-        }
-    }
-    public static void WriteToFile(string filename, string content)
-    {
-        try
-        {
-            var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var dataPath = Path.Combine(localAppDataPath, appDataFolder);
-            var filePath = Path.Combine(dataPath, filename);
-
-            Directory.CreateDirectory(dataPath);
-            File.WriteAllText(filePath, content);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.Message);
-        }
-    }
-    public static void Log(string toLog)
-    {
-        string logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "eHours", "log.txt");
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(logFilePath));
-            File.AppendAllText(logFilePath, $"\r\n{toLog}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.Message);
-        }
-    }
-    public static bool DeleteFile(string filename)
-    {
-        try
-        {
-            var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-
-            var dataPath = Path.Combine(localAppDataPath, "eHours");
-
-            var filePath = Path.Combine(dataPath, filename);
-
-            if (File.Exists(filePath))
-            {
-                File.Delete(filePath);
-                return true;
-            }
-            else
-            {
-                Console.WriteLine($"File not found: {filePath}");
-                return false;
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error deleting file: {ex.Message}");
-            return false;
-        }
-    }
-    public static bool LogError(string message)
-    {
-        try
-        {
-            Log("An exception occurred at " + DateTime.Now + ". Exception: " + message);
-            return true;
-        }
-        catch (Exception)
-        {
-            ((App)App.Current).m_window.Close();
-            return false;
         }
     }
 }
