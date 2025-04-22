@@ -19,6 +19,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
+using Newtonsoft.Json.Linq;
 using Windows.Security.Credentials;
 using Windows.Storage;
 using Windows.System;
@@ -460,11 +461,14 @@ public sealed partial class Login : Page
 
     private async Task<bool> CheckForUpdate()
     {
-        var resp = await _client.GetAsync("https://my.microsoftpersonalcontent.com/personal/ce06ec4d533ccad4/_layouts/15/download.aspx?UniqueId=7f9de288-0f2a-48b9-91a2-a5045c7995fd&Translate=false&tempauth=v1e.eyJzaXRlaWQiOiI4Y2ZjNjRlNS02YWZiLTRhM2QtODAyMS04NTUzZTM0NDkwNmUiLCJhdWQiOiIwMDAwMDAwMy0wMDAwLTBmZjEtY2UwMC0wMDAwMDAwMDAwMDAvbXkubWljcm9zb2Z0cGVyc29uYWxjb250ZW50LmNvbUA5MTg4MDQwZC02YzY3LTRjNWItYjExMi0zNmEzMDRiNjZkYWQiLCJleHAiOiIxNzQxMjE1NTU1In0.Phpw1l2Fm-0fsrcLnohveuhWaI2NwhV3BI18K8vlBaz4ib_YTwulaX-3OCREB6ubEoqdsl-jNSL1FEGLYmgkxZsjjvTaRmt-hEBKV_wFgPlsU6IBQcBrdS4VrG075LicLwZ1NBOLQdJV-O9mDshik9ua1fPUJpegKQJe6spgus91FyzfGu4iu-iGNR-WwGjnf5yN3Db9Qn7rPFTejp7ZBlHVL1stXhgNIp9yopkmpru7c8FsopuZHUuMksNlKac7Xk65gJyCNcfM_Dk-wg1_Vs01alWGj8D7n89qNIPQOwYHgco_XEYnJmIBTjmZ1C4wYA_GAbQZ0-ZVbaIRoEvyTvrirdLO1r9fN5EJqxzb4sLxx68h8Cm1kUzYNA7S5qACf9a3p1cl8_7rsxhGn9gjRfQf1GhSvJ2IZ_4DWHv9uW-DJFHCjCaeWRUY_m5yS9QPtRGR1sVIbx0krckERpAcyiyXS2aqmUlLMyGEo--vLkdjtPYYuBoxbT7nAG54Ghwf4RZNyYyuK-2E3tLfQ-jWDw.Dwdgt7looJ4OmOL9gU6e2oTcM3CoRgyCo01ZJvImN94&ApiVersion=2.0");
-        string version = await resp.Content.ReadAsStringAsync();
+        var resp = await _client.GetAsync("https://firestore.googleapis.com/v1/projects/hoursync-storage/databases/(default)/documents/version/num");
+        string json = await resp.Content.ReadAsStringAsync();
+
+        var obj = JObject.Parse(json);
+        string latestVersion = (string)obj["fields"]?["version"]?["stringValue"];
 
         string currentVersion = "1.0.0";
-        string result = IsNewerVersion(version, currentVersion);
+        string result = IsNewerVersion(latestVersion, currentVersion);
 
         if (result == "true")
         {
@@ -487,7 +491,7 @@ public sealed partial class Login : Page
                 string parentDirectory = Directory.GetParent(appExeDirectory).FullName;
 
                 // Download the EXE file to the parent directory
-                var downloadUri = new Uri("https://my.microsoftpersonalcontent.com/personal/ce06ec4d533ccad4/_layouts/15/download.aspx?UniqueId=19a44723-ce66-4f9d-81b5-4f290e755a79&Translate=false&tempauth=v1e.eyJzaXRlaWQiOiI4Y2ZjNjRlNS02YWZiLTRhM2QtODAyMS04NTUzZTM0NDkwNmUiLCJhdWQiOiIwMDAwMDAwMy0wMDAwLTBmZjEtY2UwMC0wMDAwMDAwMDAwMDAvbXkubWljcm9zb2Z0cGVyc29uYWxjb250ZW50LmNvbUA5MTg4MDQwZC02YzY3LTRjNWItYjExMi0zNmEzMDRiNjZkYWQiLCJleHAiOiIxNzQxMjE3NjI3In0.wbfM7mTJ0wmQXJK2KPh5ITxF4U7AumFsxG5xuG7ElcyX_rHqp1i9cmNMrFeBPiQS3cBD2uYDnacfQkLFuVbqmVJR5I3y9r9KHLM8_WOZuYAfeKd6Z4GcxsF9dfwL8RH-nJ7vGW1IodwyWIcwV9qwVH9TZ8vIuocvMtz8uIgRfNYNAyvO63GVUhIixov8G8nPTuMzhKalcKpUfZT3KWqpVUw8ZNXGWI26m8yYMbDopUYlDrUU3f9GRuOQsoAbQWWeymIuMybWkn7PjVizhmqTnGlNsbgnVoDwGCO4OL-ozPeKieZUf0Ikav02XBoCtqAtqG7gg8fk0lTnQH17b1S39Rw0WaMgSYl5B3vVIoNDofugkoV-YVMnu91c9g8BjLqjTZnG-YACEg7zrt5ru93j2W-XhGTJH7kHZvAmpgkHEzQyz3FBOACriP_pvzaimph6zo8orpocCDEdMnU6PiL3Y6I3nmt1IGCM4yMGGURp668_SOb83nHJV2R31C_ztkAIn73024TledpmO28EkjPsFQ.0ZW25F4IPDBjKwu0WYgi9oGq2HfBX13Pi0hCn4FQQUI&ApiVersion=2.0");
+                var downloadUri = new Uri("https://hoursync.s3.us-east-2.amazonaws.com/HourSync.exe");
 
                 // Set the download file path to the parent directory
                 string downloadPath = Path.Combine(parentDirectory, "HourSync.exe");
