@@ -1,3 +1,6 @@
+# Summer Notice
+The academy endorsment portal is undergoing a redesign. HourSync WILL crash every time you open it since the eHours tab from the website returns a 500 error (because of the redesign). Wait for the next update to come out. 
+
 # HourSync
 ### A simple way to submit eHours
 HourSync is a modern app to replace the Olathe School District's [Academy Endorsement Portal](https://academyendorsement.olatheschools.com).
