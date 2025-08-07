@@ -2,6 +2,7 @@
 #pragma warning disable IDE0007 // Use implicit type
 #pragma warning disable IDE0044 // Add readonly modifier
 #pragma warning disable IDE0052 // Remove unread private members
+#pragma warning disable IDE0060 // Remove unused parameter
 #pragma warning disable CA1861 // Avoid constant arrays as arguments
 #pragma warning disable CsWinRT1029 // Class not trimming / AOT compatible
 using System;
@@ -11,7 +12,10 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -30,6 +34,7 @@ namespace HourSync;
 
 public sealed partial class Login : Page
 {
+    private readonly string APPVERSIONNUMBER = "1.1.0";
     private readonly string appDataFolder = "HourSync";
     private readonly string logFilePath;
     private string phpSessionId;
@@ -42,11 +47,17 @@ public sealed partial class Login : Page
     private static readonly HttpClientHandler _handler = new()
     {
         CookieContainer = _cookieContainer,
-        AllowAutoRedirect = true
+        AllowAutoRedirect = true,
     };
     private static readonly HttpClient _client = new(_handler)
     {
-        DefaultRequestHeaders = { { "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" } }
+        DefaultRequestHeaders =
+        {
+            {
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            },
+        },
     };
 
     private readonly DispatcherTimer _themeCheckTimer;
@@ -62,7 +73,7 @@ public sealed partial class Login : Page
         // Initialize the timer
         _themeCheckTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(250) // Check every 250 ms
+            Interval = TimeSpan.FromMilliseconds(250), // Check every 250 ms
         };
         _themeCheckTimer.Tick += (sender, e) => UpdateTheme();
         _themeCheckTimer.Start();
@@ -71,7 +82,11 @@ public sealed partial class Login : Page
         UpdateTheme();
         ApplyTheme(IsDarkTheme());
 
-        logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), appDataFolder, "log.txt");
+        logFilePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            appDataFolder,
+            "log.txt"
+        );
         FileMgr.Log("----------\r\nLogging started for session " + DateTime.Now);
 
         ((App)Application.Current).UpdatePresence("login", "");
@@ -95,28 +110,263 @@ public sealed partial class Login : Page
         if (UserNameFromVault == null || PassFromVault == null)
         {
             FileMgr.Log("No credentials found in vault.");
+            try
+            {
+                if (isFirstTime)
+                {
+                    Loaded += async (sender, e) =>
+                    {
+                        await Task.Delay(200);
+                        var autoLoginEnabled = await FileMgr.GetSettingValueAsync(
+                            "autologin.IsEnabled"
+                        );
+
+                        if (autoLoginEnabled.ToString() == "NOSETTINGSFILE")
+                        {
+                            FileMgr.Log("Welcome to HourSync! Downloading current settings.");
+                            ContentDialog welcomeDialog = new()
+                            {
+                                Title = "Welcome!",
+                                Content = "Welcome to HourSync! This app requires the internet to initialize for the first time (and also to even log in!), so if you haven't connected, please do so now, or exit the app and try again later.\n\nThis app is meant to provide a centralized and easy to use experience to manage your eHours. Experience a modern design, an accessible interface, draft saving, and completely optional AI features. Updates are sent through Google Firebase and Amazon Web Services, so please ensure those are unblocked (they should be on school laptops!).\n\nThe author of this app, Neil, wishes you enjoy this app and find it useful. Thanks!",
+                                XamlRoot = XamlRoot,
+                                PrimaryButtonText = "Download",
+                                CloseButtonText = "Cancel",
+                            };
+
+                            var result = await welcomeDialog.ShowAsync();
+                            if (result == ContentDialogResult.Primary)
+                            {
+                                FileMgr.Log("Downloading settings.json from Firestore.");
+                                await DownloadSettings();
+                            }
+                            else
+                            {
+                                FileMgr.Log("User canceled the download of settings.json.");
+                                FileMgr.Log("Exiting.");
+                                App.Current.Exit();
+                                return;
+                            }
+                        }
+
+                        if (autoLoginEnabled.ToString().ToLower() == "true")
+                        {
+                            FileMgr.Log("AutoLogin is enabled. Logging in automatically.");
+                            if (await CheckForUpdate())
+                            {
+                                return;
+                            }
+                            LoginButton_Click(null, null);
+                        }
+                        else
+                        {
+                            FileMgr.Log("AutoLogin is disabled.");
+                        }
+                    };
+                }
+            }
+            catch(Exception ex)
+            {
+                FileMgr.LogError(ex.Message);
+            }
             return;
         }
         if (PassFromVault.Length > 0)
         {
-            FileMgr.Log("Credentials successfully retrieved for user " + UserNameFromVault + ".\r\nLogging in for user.");
+            FileMgr.Log(
+                "Credentials successfully retrieved for user "
+                    + UserNameFromVault
+                    + ".\r\nLogging in for user."
+            );
             UsernameTextBox.Text = UserNameFromVault;
             PasswordBox.Password = PassFromVault;
+
+            FileMgr.Log(
+                $"It is {(isFirstTime ? "the first time" : "not the first time")} logging in."
+            );
+
             if (isFirstTime)
             {
                 Loaded += async (sender, e) =>
                 {
-                    if (await CheckForUpdate())
+                    await Task.Delay(200);
+                    var autoLoginEnabled = await FileMgr.GetSettingValueAsync(
+                        "autologin.IsEnabled"
+                    );
+
+                    if (autoLoginEnabled.ToString() == "NOSETTINGSFILE")
                     {
-                        return;
+                        FileMgr.Log("Welcome to HourSync! Downloading current settings.");
+                        ContentDialog welcomeDialog = new()
+                        {
+                            Title = "Welcome!",
+                            Content = "Welcome to HourSync! This app requires the internet to initialize for the first time (and also to even log in!), so if you haven't connected, please do so now, or exit the app and try again later.\n\nThis app is meant to provide a centralized and easy to use experience to manage your eHours. Experience a modern design, an accessible interface, draft saving, and completely optional AI features. Updates are sent through Google Firebase and Amazon Web Services, so please ensure those are unblocked (they should be on school laptops!).\n\nThe author of this app, Neil, wishes you enjoy this app and find it useful. Thanks!",
+                            XamlRoot = XamlRoot,
+                            PrimaryButtonText = "Download",
+                            CloseButtonText = "Cancel",
+                        };
+
+                        var result = await welcomeDialog.ShowAsync();
+                        if (result == ContentDialogResult.Primary)
+                        {
+                            FileMgr.Log("Downloading settings.json from Firestore.");
+                            await DownloadSettings();
+                        }
+                        else
+                        {
+                            FileMgr.Log("User canceled the download of settings.json.");
+                            FileMgr.Log("Exiting.");
+                            App.Current.Exit();
+                            return;
+                        }
                     }
-                    LoginButton_Click(null, null);
+
+                    if (autoLoginEnabled.ToString().ToLower() == "true")
+                    {
+                        FileMgr.Log("AutoLogin is enabled. Logging in automatically.");
+                        if (await CheckForUpdate())
+                        {
+                            return;
+                        }
+                        LoginButton_Click(null, null);
+                    }
+                    else
+                    {
+                        FileMgr.Log("AutoLogin is disabled.");
+                    }
                 };
             }
         }
     }
 
-    public (string userName, string password) GetCreds()
+    private static async Task<bool> IsInternetAvailableAsync()
+    {
+        try
+        {
+            using var ping = new System.Net.NetworkInformation.Ping();
+            var reply = await ping.SendPingAsync("8.8.8.8", 3000); // 3-second timeout
+            return reply.Status == System.Net.NetworkInformation.IPStatus.Success;
+        }
+        catch (Exception ex)
+        {
+            FileMgr.Log($"Ping failed: {ex.Message}");
+            return false;
+        }
+    }
+
+
+    private async Task DownloadSettings()
+    {
+        ShowLoginProgressBarAsync();
+        // Check internet connectivity by pinging Google's public DNS
+        if (await IsInternetAvailableAsync())
+        {
+            try
+            {
+                FileMgr.Log("Internet connection is available. Downloading settings.json from Firestore.");
+                var resp = await _client.GetAsync(
+                    "https://firestore.googleapis.com/v1/projects/hoursync-storage/databases/(default)/documents/settings/"
+                );
+                string json = await resp.Content.ReadAsStringAsync();
+                // Parse and write the settings JSON
+                ParseAndWriteSettingsJson(json);
+                waitForLoginProgressBar.IsIndeterminate = false;
+                waitForLoginProgressBar.Value = 100;
+                waitForLogin.Content = waitForLoginProgressBar;
+                waitForLogin.Title = "Download Complete";
+                waitForLogin.CloseButtonText = "OK";
+            } catch(Exception ex)
+            {
+                FileMgr.LogError("Error when downloading settings: "+ex.Message);
+            }
+        }
+        else
+        {
+            FileMgr.Log("Internet connection is not available. Cannot download settings.json.");
+            waitForLoginProgressBar.ShowError = true;
+            waitForLogin.Content = waitForLoginProgressBar;
+            waitForLogin.Title = "No Internet";
+            waitForLogin.CloseButtonText = "OK";
+        }
+    }
+
+    private static void ParseAndWriteSettingsJson(string rawJson)
+    {
+        using JsonDocument doc = JsonDocument.Parse(rawJson);
+        var selectSettings = new Dictionary<string, object>();
+        var otherSettings = new Dictionary<string, object>();
+
+        foreach (var docElement in doc.RootElement.GetProperty("documents").EnumerateArray())
+        {
+            var fields = docElement.GetProperty("fields");
+            var key = fields.GetProperty("key").GetProperty("stringValue").GetString();
+            var type = fields.GetProperty("type").GetProperty("stringValue").GetString();
+
+            var setting = new Dictionary<string, object>
+            {
+                ["Key"] = key,
+                ["Title"] = fields.GetProperty("title").GetProperty("stringValue").GetString(),
+                ["Description"] = fields.GetProperty("description").GetProperty("stringValue").GetString(),
+                ["Type"] = type,
+                ["IsEnabled"] = true,
+                ["DefaultValue"] = fields.TryGetProperty("defaultValue", out var defValProp) && defValProp.TryGetProperty("booleanValue", out var boolVal)
+                        ? boolVal.GetBoolean()
+                        : (object?)null,
+                ["Options"] = null,
+                ["SelectedValue"] = null,
+            };
+
+            if (fields.TryGetProperty("options", out var optionsProp) && optionsProp.ValueKind == JsonValueKind.Object)
+            {
+                if (optionsProp.TryGetProperty("arrayValue", out var arrayVal) && arrayVal.TryGetProperty("values", out var valuesArray))
+                {
+                    var opts = new List<Dictionary<string, string>>();
+                    foreach (var option in valuesArray.EnumerateArray())
+                    {
+                        var fieldsMap = option.GetProperty("mapValue").GetProperty("fields");
+
+                        var friendlyName = fieldsMap.GetProperty("FriendlyName").GetProperty("stringValue").GetString();
+                        var keyName = fieldsMap.TryGetProperty("Key", out var k)
+                                        ? k.GetProperty("stringValue").GetString()
+                                      : fieldsMap.TryGetProperty("key", out var k2)
+                                        ? k2.GetProperty("stringValue").GetString()
+                                      : null;
+
+                        opts.Add(new Dictionary<string, string>
+                        {
+                            ["FriendlyName"] = friendlyName,
+                            ["Key"] = keyName,
+                        });
+                    }
+
+                    setting["Options"] = opts;
+                    if (opts.Count > 0)
+                        setting["SelectedValue"] = opts[0];
+                }
+            }
+
+            if (type == "select")
+                selectSettings[key] = setting;
+            else
+                otherSettings[key] = setting;
+        }
+
+        var finalSettings = new Dictionary<string, object>();
+        foreach (var kvp in selectSettings)
+            finalSettings[kvp.Key] = kvp.Value;
+        foreach (var kvp in otherSettings)
+            finalSettings[kvp.Key] = kvp.Value;
+
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            TypeInfoResolver = new DefaultJsonTypeInfoResolver() // Enable reflection-based serialization
+        };
+
+        string finalJson = JsonSerializer.Serialize(finalSettings, options);
+        FileMgr.WriteToFile("settings.json", finalJson);
+    }
+
+    public static (string userName, string password) GetCreds()
     {
         PasswordCredential credential = null;
         var vault = new PasswordVault();
@@ -127,7 +377,7 @@ public sealed partial class Login : Page
             IReadOnlyList<PasswordCredential> allCredentials = vault.RetrieveAll();
 
             // Filter credentials for the resource "HourSync"
-            List<PasswordCredential> credentialList = new List<PasswordCredential>();
+            List<PasswordCredential> credentialList = [];
             foreach (var cred in allCredentials)
             {
                 if (cred.Resource == "HourSync")
@@ -207,11 +457,15 @@ public sealed partial class Login : Page
     {
         if (isDarkTheme)
         {
-            loginBanner.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri("ms-appx:///Assets/hoursync-dark-login-banner.png"));
+            loginBanner.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(
+                new Uri("ms-appx:///Assets/hoursync-dark-login-banner.png")
+            );
         }
         else
         {
-            loginBanner.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri("ms-appx:///Assets/hoursync-light-login-banner.png"));
+            loginBanner.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(
+                new Uri("ms-appx:///Assets/hoursync-light-login-banner.png")
+            );
         }
     }
 
@@ -228,7 +482,7 @@ public sealed partial class Login : Page
                 Title = "Error",
                 Content = "Please enter both username and password.",
                 CloseButtonText = "OK",
-                XamlRoot = XamlRoot
+                XamlRoot = XamlRoot,
             };
             await dialog.ShowAsync();
             return;
@@ -242,14 +496,16 @@ public sealed partial class Login : Page
         var dialog = new ContentDialog
         {
             Title = "Forgot Password",
-            Content = "Working on a school computer? Press CTRL + Alt + Delete and click \"Change a Password.\"\r\nOtherwise, go to \"https://accounts.microsoft.com\", enter your username, and click \"Forgot Password.\"",
+            Content =
+                "Working on a school computer? Press CTRL + Alt + Delete and click \"Change a Password.\"\r\nOtherwise, go to \"https://accounts.microsoft.com\", enter your username, and click \"Forgot Password.\"",
             PrimaryButtonText = "OK",
-            XamlRoot = XamlRoot
+            XamlRoot = XamlRoot,
         };
         await dialog.ShowAsync();
     }
 
     private bool isShiftPressedInUsernameBox = false;
+
     private async void UsernameTextBox_KeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key == VirtualKey.Enter)
@@ -267,16 +523,18 @@ public sealed partial class Login : Page
             await new ContentDialog()
             {
                 Title = "Use your username",
-                Content = "Use the same login you use for the regular eHours portal! You don't have to use your Gmail username; in fact it actually won't work if you do.",
+                Content =
+                    "Use the same login you use for the regular eHours portal! You don't have to use your Gmail username; in fact it actually won't work if you do.",
                 PrimaryButtonText = "OK",
-                XamlRoot = XamlRoot
+                XamlRoot = XamlRoot,
             }.ShowAsync();
 
-            UsernameTextBox.Text = UsernameTextBox.Text.Remove(UsernameTextBox.Text.Length - 1);
+            UsernameTextBox.Text = UsernameTextBox.Text[..^1];
             PasswordBox.Focus(FocusState.Keyboard);
             isShiftPressedInUsernameBox = false;
         }
     }
+
     private void UsernameTextBox_KeyUp(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key == VirtualKey.Shift)
@@ -323,14 +581,15 @@ public sealed partial class Login : Page
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
         Width = 200, // Set width as needed
-        Height = 20 // Set height as needed
+        Height = 20, // Set height as needed
     };
     private ContentDialog waitForLogin = new()
     {
         Title = "Loading",
         CloseButtonText = null,
-        PrimaryButtonText = null // Ensure there's no default button
+        PrimaryButtonText = null, // Ensure there's no default button
     };
+
     private async void ShowLoginProgressBarAsync()
     {
         // Initialize and configure the ContentDialog
@@ -340,7 +599,7 @@ public sealed partial class Login : Page
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             Width = 200, // Set width as needed
-            Height = 20 // Set height as needed
+            Height = 20, // Set height as needed
         };
 
         waitForLogin = new()
@@ -351,7 +610,7 @@ public sealed partial class Login : Page
             Content = waitForLoginProgressBar,
 
             // Ensure the ContentDialog is set to the correct XamlRoot
-            XamlRoot = XamlRoot
+            XamlRoot = XamlRoot,
         };
 
         // Show the ContentDialog asynchronously
@@ -370,11 +629,18 @@ public sealed partial class Login : Page
         if (resp.Contains("<h2>Welcome to your"))
         {
             FileMgr.Log("Successful login");
-            nameOfAcademy = resp.Split(new string[] { "<h2>Welcome to your " }, StringSplitOptions.None)[1].Split(new string[] { " Endorsement" }, StringSplitOptions.None)[0];
-            nameOfPerson = resp.Split(new string[] { "Tracking, " }, StringSplitOptions.None)[1].Split(new string[] { "</h2>" }, StringSplitOptions.None)[0];
+            nameOfAcademy = resp.Split(
+                    new string[] { "<h2>Welcome to your " },
+                    StringSplitOptions.None
+                )[1]
+                .Split(new string[] { " Endorsement" }, StringSplitOptions.None)[0];
+            nameOfPerson = resp.Split(new string[] { "Tracking, " }, StringSplitOptions.None)[1]
+                .Split(new string[] { "</h2>" }, StringSplitOptions.None)[0];
 
             FileMgr.Log("Getting home page");
-            var getresp = await Get("https://academyendorsement.olatheschools.com/Student/studentEHours.php");
+            var getresp = await Get(
+                "https://academyendorsement.olatheschools.com/Student/studentEHours.php"
+            );
             FileMgr.Log("Successfully got home");
 
             // Remove previous credentials and add new ones
@@ -401,11 +667,36 @@ public sealed partial class Login : Page
 
             FileMgr.Log("Navigating to Home");
             waitForLogin.Hide();
-            Frame.Navigate(typeof(Home), new object[] { username, password, phpSessionId, nameOfPerson, nameOfAcademy, getresp, _cookieContainer, _handler, _client }, new DrillInNavigationTransitionInfo());
+            Frame.Navigate(
+                typeof(Home),
+                new object[]
+                {
+                    username,
+                    password,
+                    phpSessionId,
+                    nameOfPerson,
+                    nameOfAcademy,
+                    getresp,
+                    _cookieContainer,
+                    _handler,
+                    _client,
+                },
+                new DrillInNavigationTransitionInfo()
+            );
 
             // Notify the App instance about successful login
             FileMgr.Log("Running App.LoggedIn");
-            ((App)Application.Current).LoggedIn(username, password, phpSessionId, nameOfPerson, nameOfAcademy, getresp, _cookieContainer, _handler, _client);
+            ((App)Application.Current).LoggedIn(
+                username,
+                password,
+                phpSessionId,
+                nameOfPerson,
+                nameOfAcademy,
+                getresp,
+                _cookieContainer,
+                _handler,
+                _client
+            );
         }
         else
         {
@@ -421,12 +712,15 @@ public sealed partial class Login : Page
         var values = new Dictionary<string, string>
         {
             { "uName", username },
-            { "uPass", password }
+            { "uPass", password },
         };
 
         var content = new FormUrlEncodedContent(values);
 
-        var response = await _client.PostAsync("https://academyendorsement.olatheschools.com/loginuserstudent.php", content);
+        var response = await _client.PostAsync(
+            "https://academyendorsement.olatheschools.com/loginuserstudent.php",
+            content
+        );
         var responseString = await response.Content.ReadAsStringAsync();
 
         Uri uri = new Uri("https://academyendorsement.olatheschools.com/");
@@ -444,7 +738,7 @@ public sealed partial class Login : Page
             {
                 Title = "Error",
                 Content = "PHPSESSID cookie is not set.",
-                CloseButtonText = "OK"
+                CloseButtonText = "OK",
             };
             await dialog.ShowAsync();
             return "$$FAIL$$";
@@ -461,14 +755,15 @@ public sealed partial class Login : Page
 
     private async Task<bool> CheckForUpdate()
     {
-        var resp = await _client.GetAsync("https://firestore.googleapis.com/v1/projects/hoursync-storage/databases/(default)/documents/version/num");
+        var resp = await _client.GetAsync(
+            "https://firestore.googleapis.com/v1/projects/hoursync-storage/databases/(default)/documents/version/num"
+        );
         string json = await resp.Content.ReadAsStringAsync();
 
         var obj = JObject.Parse(json);
         string latestVersion = (string)obj["fields"]?["version"]?["stringValue"];
 
-        string currentVersion = "1.0.0";
-        string result = IsNewerVersion(latestVersion, currentVersion);
+        string result = IsNewerVersion(latestVersion, APPVERSIONNUMBER);
 
         if (result == "true")
         {
@@ -479,7 +774,7 @@ public sealed partial class Login : Page
                 Content = "A newer version is available. Would you like to update?",
                 CloseButtonText = "Later",
                 PrimaryButtonText = "Update",
-                XamlRoot = XamlRoot
+                XamlRoot = XamlRoot,
             };
             var clicked = await contentDialog.ShowAsync();
             if (clicked == ContentDialogResult.Primary)
@@ -487,11 +782,15 @@ public sealed partial class Login : Page
                 ShowLoginProgressBarAsync();
 
                 // Get the directory where the app's executable is located
-                string appExeDirectory = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+                string appExeDirectory = Path.GetDirectoryName(
+                    Assembly.GetEntryAssembly().Location
+                );
                 string parentDirectory = Directory.GetParent(appExeDirectory).FullName;
 
                 // Download the EXE file to the parent directory
-                var downloadUri = new Uri("https://hoursync.s3.us-east-2.amazonaws.com/HourSync.exe");
+                var downloadUri = new Uri(
+                    "https://hoursync.s3.us-east-2.amazonaws.com/HourSync.exe"
+                );
 
                 // Set the download file path to the parent directory
                 string downloadPath = Path.Combine(parentDirectory, "HourSync.exe");
@@ -499,20 +798,25 @@ public sealed partial class Login : Page
                 try
                 {
                     // Download the executable file
+                    FileMgr.Log("Downloading.");
                     var fileBytes = await _client.GetByteArrayAsync(downloadUri);
                     await File.WriteAllBytesAsync(downloadPath, fileBytes);
 
                     // Specify the extraction path for the 7zip self-extractor
-                    string extractPath = appExeDirectory;
+                    string extractPath = parentDirectory;
 
                     // Run the 7zip self-extractor with the specified extraction path
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = downloadPath,
-                        Arguments = $"-o\"{extractPath}\"", // Specify extraction path
-                        UseShellExecute = true,
-                        CreateNoWindow = true
-                    });
+                    Process.Start(
+                        new ProcessStartInfo
+                        {
+                            FileName = downloadPath,
+                            Arguments = $"-o\"{extractPath}\" -y", // Specify extraction path
+                            UseShellExecute = true,
+                            CreateNoWindow = true,
+                        }
+                    );
+
+                    FileMgr.Log("Handing it off to 7zip.");
 
                     Application.Current.Exit();
                 }
@@ -534,7 +838,7 @@ public sealed partial class Login : Page
                 Title = "Update Check Error",
                 Content = "An error occurred while checking for updates.",
                 PrimaryButtonText = "Okay",
-                XamlRoot = XamlRoot
+                XamlRoot = XamlRoot,
             };
             await contentDialog.ShowAsync();
             return true;
@@ -543,7 +847,7 @@ public sealed partial class Login : Page
         return false;
     }
 
-    private string IsNewerVersion(string fetchedVersion, string currentVersion)
+    private static string IsNewerVersion(string fetchedVersion, string currentVersion)
     {
         // Handle empty or null version strings
         if (string.IsNullOrWhiteSpace(fetchedVersion) || fetchedVersion.Split('.').Length != 3)
@@ -585,5 +889,4 @@ public sealed partial class Login : Page
 
         return "false"; // Both versions are the same
     }
-
 }

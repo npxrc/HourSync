@@ -17,6 +17,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Media.Protection.PlayReady;
 
 namespace HourSync;
+
 public sealed partial class RequestViewer : Window
 {
     private string id;
@@ -33,12 +34,23 @@ public sealed partial class RequestViewer : Window
     private string username;
     private string password;
 
-    public RequestViewer(string idOfItem, string phpSessionId, string eventName, CookieContainer cookieContainer, HttpClientHandler handler, HttpClient client, string nameOfAcademy, string status, string username, string password)
+    public RequestViewer(
+        string idOfItem,
+        string phpSessionId,
+        string eventName,
+        CookieContainer cookieContainer,
+        HttpClientHandler handler,
+        HttpClient client,
+        string nameOfAcademy,
+        string status,
+        string username,
+        string password
+    )
     {
         InitializeComponent();
         Microsoft.UI.Xaml.Media.MicaBackdrop micaBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop
         {
-            Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.Base
+            Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt,
         };
         SystemBackdrop = micaBackdrop;
         ExtendsContentIntoTitleBar = true;
@@ -58,12 +70,10 @@ public sealed partial class RequestViewer : Window
         FileMgr.Log("Running PostAsync()");
         _ = PostAsync();
     }
+
     private async Task PostAsync()
     {
-        var values = new Dictionary<string, string>
-        {
-            { "ehours_request_descr", id }
-        };
+        var values = new Dictionary<string, string> { { "ehours_request_descr", id } };
 
         var content = new FormUrlEncodedContent(values);
 
@@ -72,10 +82,16 @@ public sealed partial class RequestViewer : Window
 
         if (!client.DefaultRequestHeaders.Contains("User-Agent"))
         {
-            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+            client.DefaultRequestHeaders.Add(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            );
         }
 
-        var response = await client.PostAsync("https://academyendorsement.olatheschools.com/Student/eHourDescription.php", content);
+        var response = await client.PostAsync(
+            "https://academyendorsement.olatheschools.com/Student/eHourDescription.php",
+            content
+        );
         var responseString = await response.Content.ReadAsStringAsync();
 
         //var responseString = ReadFromFile("eHourReq.html");
@@ -88,7 +104,9 @@ public sealed partial class RequestViewer : Window
             FileMgr.Log("Found the things");
             string reqdHrs = HttpUtility.HtmlDecode(whiteTextNodes[0].InnerText);
             string dateSubmitted = HttpUtility.HtmlDecode(whiteTextNodes[1].InnerText);
-            string desc = HttpUtility.HtmlDecode(doc.DocumentNode.SelectSingleNode("//textarea[@id='description']")?.InnerText);
+            string desc = HttpUtility.HtmlDecode(
+                doc.DocumentNode.SelectSingleNode("//textarea[@id='description']")?.InnerText
+            );
 
             eventTitle.Text = eventName.Split('\n')[0];
             reqdEHourCount.Text = reqdHrs.Split(':')[1].Split(' ')[1];
@@ -122,8 +140,13 @@ public sealed partial class RequestViewer : Window
 
             try
             {
-                // Parse the input string to a DateTime object
-                DateTime inputDateTime = DateTime.ParseExact(dateFinalText.TrimStart(), "yyyy-MM-dd HH:mm:ss", null);
+                // Try parsing with either "yyyy-MM-dd HH:mm:ss" or "yyyy-MM-dd HH:mm:ss.fff"
+                DateTime inputDateTime = DateTime.ParseExact(
+                    dateFinalText.TrimStart(),
+                    new string[] { "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm:ss.fff" },
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None
+                );
 
                 // Get the current time
                 DateTime currentDateTime = DateTime.Now;
@@ -172,6 +195,7 @@ public sealed partial class RequestViewer : Window
             catch (FormatException ex)
             {
                 Console.WriteLine($"Error parsing date: {ex.Message}");
+                FileMgr.LogError(ex.Message);
             }
 
             eventBody.Text = desc;
@@ -203,9 +227,10 @@ public sealed partial class RequestViewer : Window
                 await new ContentDialog()
                 {
                     Title = "Incorrect credentials",
-                    Content = $"Your credentials for the user {username} are incorrect. Please log in again.",
+                    Content =
+                        $"Your credentials for the user {username} are incorrect. Please log in again.",
                     PrimaryButtonText = "OK",
-                    XamlRoot = RootGrid.XamlRoot
+                    XamlRoot = RootGrid.XamlRoot,
                 }.ShowAsync();
             }
         }
@@ -221,11 +246,18 @@ public sealed partial class RequestViewer : Window
         if (resp.Contains("<h2>Welcome to your"))
         {
             FileMgr.Log("Successful login");
-            nameOfAcademy = resp.Split(new string[] { "<h2>Welcome to your " }, StringSplitOptions.None)[1].Split(new string[] { " Endorsement" }, StringSplitOptions.None)[0];
-            nameOfPerson = resp.Split(new string[] { "Tracking, " }, StringSplitOptions.None)[1].Split(new string[] { "</h2>" }, StringSplitOptions.None)[0];
+            nameOfAcademy = resp.Split(
+                    new string[] { "<h2>Welcome to your " },
+                    StringSplitOptions.None
+                )[1]
+                .Split(new string[] { " Endorsement" }, StringSplitOptions.None)[0];
+            nameOfPerson = resp.Split(new string[] { "Tracking, " }, StringSplitOptions.None)[1]
+                .Split(new string[] { "</h2>" }, StringSplitOptions.None)[0];
 
             FileMgr.Log("Getting home page");
-            var getresp = await Get("https://academyendorsement.olatheschools.com/Student/studentEHours.php");
+            var getresp = await Get(
+                "https://academyendorsement.olatheschools.com/Student/studentEHours.php"
+            );
             FileMgr.Log("Successfully got home");
             ((App)Application.Current).GetRespOnLogin = getresp;
             return true;
@@ -241,12 +273,15 @@ public sealed partial class RequestViewer : Window
         var values = new Dictionary<string, string>
         {
             { "uName", username },
-            { "uPass", password }
+            { "uPass", password },
         };
 
         var content = new FormUrlEncodedContent(values);
 
-        var response = await client.PostAsync("https://academyendorsement.olatheschools.com/loginuserstudent.php", content);
+        var response = await client.PostAsync(
+            "https://academyendorsement.olatheschools.com/loginuserstudent.php",
+            content
+        );
         var responseString = await response.Content.ReadAsStringAsync();
 
         Uri uri = new Uri("https://academyendorsement.olatheschools.com/");
@@ -255,7 +290,7 @@ public sealed partial class RequestViewer : Window
 
         return responseString;
     }
-    
+
     private async Task<string> Get(string url)
     {
         if (string.IsNullOrEmpty(phpSessionId))
@@ -264,7 +299,7 @@ public sealed partial class RequestViewer : Window
             {
                 Title = "Error",
                 Content = "PHPSESSID cookie is not set.",
-                CloseButtonText = "OK"
+                CloseButtonText = "OK",
             };
             await dialog.ShowAsync();
             return "$$FAIL$$";
@@ -309,7 +344,7 @@ public sealed partial class RequestViewer : Window
                     MaxWidth = 600,
                     MaxHeight = 450,
                     Source = bitmapImage,
-                    Margin = new Thickness(0, 0, 5, 0)
+                    Margin = new Thickness(0, 0, 5, 0),
                 };
 
                 // Attach click event handler
@@ -330,24 +365,26 @@ public sealed partial class RequestViewer : Window
     {
         ImageViewer imageViewer = new(imageUrl)
         {
-            Title = "Viewing Image - " + imageUrl.Split('/')[^1]
+            Title = "Viewing Image - " + imageUrl.Split('/')[^1],
         };
         imageViewer.Activate();
     }
+
     private ProgressBar waitForDeleteProgressBar = new()
     {
         IsIndeterminate = true,
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
         Width = 200, // Set width as needed
-        Height = 20 // Set height as needed
+        Height = 20, // Set height as needed
     };
     private ContentDialog waitForDelete = new()
     {
         Title = "Deleting",
         CloseButtonText = null,
-        PrimaryButtonText = null // Ensure there's no default button
+        PrimaryButtonText = null, // Ensure there's no default button
     };
+
     private async void ShowDeleteProgressBar()
     {
         // Initialize and configure the ContentDialog
@@ -357,7 +394,7 @@ public sealed partial class RequestViewer : Window
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             Width = 200, // Set width as needed
-            Height = 20 // Set height as needed
+            Height = 20, // Set height as needed
         };
 
         waitForDelete = new()
@@ -368,13 +405,15 @@ public sealed partial class RequestViewer : Window
             Content = waitForDeleteProgressBar,
 
             // Ensure the ContentDialog is set to the correct XamlRoot
-            XamlRoot = RootGrid.XamlRoot
+            XamlRoot = RootGrid.XamlRoot,
         };
 
         // Show the ContentDialog asynchronously
         await waitForDelete.ShowAsync();
     }
+
     private string afterDelReqResp = "";
+
     private async void DelReq(object sender, RoutedEventArgs e)
     {
         if (doc.DocumentNode.SelectSingleNode("//*[@id='Delete']").InnerHtml.Length > 1)
@@ -385,7 +424,7 @@ public sealed partial class RequestViewer : Window
                 Content = $"Are you sure you would like to delete {eventName.Split('\n')[0]}?",
                 PrimaryButtonText = "Yes",
                 CloseButtonText = "No",
-                XamlRoot = RootGrid.XamlRoot
+                XamlRoot = RootGrid.XamlRoot,
             };
             ContentDialogResult result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Primary)
@@ -393,10 +432,7 @@ public sealed partial class RequestViewer : Window
                 try
                 {
                     ShowDeleteProgressBar();
-                    var values = new Dictionary<string, string>
-                    {
-                        { "del", id }
-                    };
+                    var values = new Dictionary<string, string> { { "del", id } };
 
                     var content = new FormUrlEncodedContent(values);
 
@@ -405,10 +441,16 @@ public sealed partial class RequestViewer : Window
 
                     if (!client.DefaultRequestHeaders.Contains("User-Agent"))
                     {
-                        client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+                        client.DefaultRequestHeaders.Add(
+                            "User-Agent",
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                        );
                     }
 
-                    var response = await client.PostAsync("https://academyendorsement.olatheschools.com/deleteRequest.php", content);
+                    var response = await client.PostAsync(
+                        "https://academyendorsement.olatheschools.com/deleteRequest.php",
+                        content
+                    );
                     var responseString = await response.Content.ReadAsStringAsync();
 
                     FileMgr.WriteToFile("delreq.txt", responseString);
@@ -421,7 +463,14 @@ public sealed partial class RequestViewer : Window
                 }
                 catch (Exception ex)
                 {
-                    FileMgr.Log("An exception occurred at " + DateTime.Now + " when deleting request " + eventName + ". Exception: " + ex.Message);
+                    FileMgr.Log(
+                        "An exception occurred at "
+                            + DateTime.Now
+                            + " when deleting request "
+                            + eventName
+                            + ". Exception: "
+                            + ex.Message
+                    );
                     waitForDeleteProgressBar.ShowError = true;
                     waitForDelete.Title = "Error Deleting. Check the log for more info.";
                     waitForDelete.CloseButtonText = "Close";
@@ -435,9 +484,12 @@ public sealed partial class RequestViewer : Window
                 await new ContentDialog()
                 {
                     Title = "Cannot Delete",
-                    Content = "You cannot delete this request because it has already been accepted or denied by your academy instructor. Please contact the instructor of the " + nameOfAcademy + " for further instructions.",
+                    Content =
+                        "You cannot delete this request because it has already been accepted or denied by your academy instructor. Please contact the instructor of the "
+                        + nameOfAcademy
+                        + " for further instructions.",
                     PrimaryButtonText = "OK",
-                    XamlRoot = RootGrid.XamlRoot
+                    XamlRoot = RootGrid.XamlRoot,
                 }.ShowAsync();
             }
             catch (Exception ex)
@@ -446,9 +498,12 @@ public sealed partial class RequestViewer : Window
                 await new ContentDialog()
                 {
                     Title = "Cannot Delete",
-                    Content = "You cannot delete this request because it has already been accepted or denied by your academy instructor. Please contact the instructor of the " + nameOfAcademy + " for further instructions.",
+                    Content =
+                        "You cannot delete this request because it has already been accepted or denied by your academy instructor. Please contact the instructor of the "
+                        + nameOfAcademy
+                        + " for further instructions.",
                     PrimaryButtonText = "OK",
-                    XamlRoot = RootGrid.XamlRoot
+                    XamlRoot = RootGrid.XamlRoot,
                 }.ShowAsync();
             }
         }

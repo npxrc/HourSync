@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="HourSync.Settings"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -7,9 +6,68 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
+    <Page.Resources>
+        <!-- Define your converters here -->
+        <local:BoolVisibilityConverter x:Key="BoolVisibilityConverter"/>
+        <local:SelectVisibilityConverter x:Key="SelectVisibilityConverter"/>
+    </Page.Resources>
 
-    <Grid Margin="20">
-        <TextBlock Text="Settings" Style="{ThemeResource TitleTextBlockStyle}" Margin="0,0,0,10"/>
-        <TextBlock x:Name="helloworld"></TextBlock>
+    <Grid Margin="36, 40">
+        <StackPanel Orientation="Vertical">
+            <TextBlock Text="Settings"
+                       Style="{ThemeResource TitleTextBlockStyle}"
+                       Margin="0,0,0,10"/>
+
+            <ListView x:Name="SettingsPanel"
+                      ItemsSource="{x:Bind settings}">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="local:SettingDefinition">
+                        <StackPanel Orientation="Vertical"
+                                    Margin="0,10">
+                            <!-- TeachingTip -->
+                            <TeachingTip
+                                Title="{x:Bind Title}"
+                                Subtitle="{x:Bind Description}"
+                                IsLightDismissEnabled="True"
+                                x:Name="TeachingTip"/>
+
+                            <!-- Layout: Toggle or Dropdown -->
+                            <StackPanel Orientation="Horizontal"
+                                        VerticalAlignment="Center">
+                                <!-- Title -->
+                                <TextBlock
+                                    Text="{x:Bind Title}"
+                                    Padding="0 6 5 0"/>
+
+                                <!-- Help Button -->
+                                <HyperlinkButton
+                                    Content="?"
+                                    VerticalAlignment="Center"
+                                    Click="HelpButton_Click"/>
+                            </StackPanel>
+
+                            <!-- ToggleSwitch for bool -->
+                            <ToggleSwitch
+                                x:Name="ToggleSwitch"
+                                OnContent="On"
+                                OffContent="Off"
+                                IsOn="{x:Bind IsEnabled, Mode=TwoWay}"
+                                Visibility="{x:Bind Type, Converter={StaticResource BoolVisibilityConverter}}"
+                                Toggled="ToggleSwitch_Toggled"/>
+
+                            <!-- Dropdown for select -->
+                            <ComboBox ItemsSource="{Binding Options}"
+                                      DisplayMemberPath="FriendlyName"
+                                      SelectedItem="{Binding SelectedValue, Mode=TwoWay}"
+                                      Visibility="{x:Bind Type, Converter={StaticResource SelectVisibilityConverter}}"
+                                      SelectionChanged="DropdownItem_Click"
+                                      Loaded="ComboBox_Loaded">
+                            </ComboBox>
+
+                        </StackPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </StackPanel>
     </Grid>
 </Page>

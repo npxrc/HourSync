@@ -1,5 +1,7 @@
 # Summer Notice
-The academy endorsment portal is undergoing a redesign. HourSync WILL crash every time you open it since the eHours tab from the website returns a 500 error (because of the redesign). Wait for the next update to come out. 
+~~The academy endorsment portal is undergoing a redesign. HourSync WILL crash every time you open it since the eHours tab from the website returns a 500 error (because of the redesign). Wait for the next update to come out.~~
+
+Wow, that didn't last long.. I committed the README change on the 5th and now its back to normal. (Fixed as of the 6th)
 
 # HourSync
 ### A simple way to submit eHours
@@ -27,4 +29,4 @@ HourSync will save your progress as you go, so you can come back to it later.
 \*: ChatGPT sidebar coming in a future update (because the WebView element doesn't show for some reason)
 
 # Disclaimer
-I (Neil Patrao, npxrc, or any other aliases) am not responsible for any misuse of this application. Any misuse that could happen, such as spamming requests, is not a result of a fault with the app, rather a fault with the district's portal. If there are security vulnerabilites with the server, it is not my responsibility to fix. Always be responsible online.
+I (Neil Patrao, npxrc, or any other aliases) am not responsible for any misuse of this application. Any misuse that could happen, such as spamming requests, is not a result of a fault with the app, rather a fault with the district's portal. This app simply interfaces with If there are security vulnerabilites with the server, it is not my responsibility to fix. Always be responsible online.

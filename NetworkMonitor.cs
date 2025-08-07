@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.UI.Xaml.Controls;
 
 namespace HourSync;
+
 public class NetworkMonitor
 {
     private MainWindow _mainWindow;
@@ -63,9 +64,10 @@ public class NetworkMonitor
             _networkStatusDialog = new ContentDialog
             {
                 Title = "Network Disconnected",
-                Content = "Your internet connection has been lost. Please reconnect to use online features.",
+                Content =
+                    "Your internet connection has been lost. Please reconnect to use online features.",
                 PrimaryButtonText = "Ok",
-                XamlRoot = _mainWindow.Content.XamlRoot
+                XamlRoot = _mainWindow.Content.XamlRoot,
             };
             await _networkStatusDialog.ShowAsync();
         }

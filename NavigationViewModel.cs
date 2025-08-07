@@ -11,6 +11,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.UI.Xaml.Controls;
 
 namespace HourSync;
+
 public partial class NavigationViewModel : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler PropertyChanged;
@@ -46,10 +47,37 @@ public partial class NavigationViewModel : INotifyPropertyChanged
     {
         MenuItems =
         [
-            new(){ Content = "Login", Tag = "login", Icon = new SymbolIcon(Symbol.Contact) },
-            new(){ Content = "Home", Tag = "home", Icon = new SymbolIcon(Symbol.Home) },
-            new(){ Content = "Create Submission", Tag = "create", Icon = new SymbolIcon(Symbol.NewWindow) },
-            new(){ Content = "Settings", Tag="settings", Icon = new SymbolIcon(Symbol.Setting)/*, IsEnabled=false*/ }
+            new()
+            {
+                Content = "Login",
+                Tag = "login",
+                Icon = new SymbolIcon(Symbol.Contact),
+            },
+            new()
+            {
+                Content = "Home",
+                Tag = "home",
+                Icon = new SymbolIcon(Symbol.Home),
+            },
+            new()
+            {
+                Content = "Create Submission",
+                Tag = "create",
+                Icon = new SymbolIcon(Symbol.NewWindow),
+            },
+            new()
+            {
+                Content = "Settings",
+                Tag = "settings",
+                Icon = new SymbolIcon(Symbol.Setting), /*, IsEnabled=false*/
+            },
+            new()
+            {
+                Content = "Leaderboard",
+                Tag = "leaderboard",
+                Icon = new SymbolIcon(Symbol.OutlineStar),
+                IsEnabled = false
+            }
         ];
         RefreshMenuItems(isLoggedIn: false);
     }
@@ -73,6 +101,9 @@ public partial class NavigationViewModel : INotifyPropertyChanged
                     break;
                 case "settings":
                     item.IsEnabled = isLoggedIn;
+                    break;
+                case "leaderboard":
+                    item.IsEnabled = false;
                     break;
             }
         }

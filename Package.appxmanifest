@@ -9,14 +9,14 @@
 
   <Identity
     Name="664b5786-0507-477d-942e-ff232dafda21"
-    Publisher="CN=admin"
+    Publisher="CN=Neil Patrao"
     Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="664b5786-0507-477d-942e-ff232dafda21" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
     <DisplayName>HourSync</DisplayName>
-    <PublisherDisplayName>admin</PublisherDisplayName>
+    <PublisherDisplayName>Neil Patrao</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 

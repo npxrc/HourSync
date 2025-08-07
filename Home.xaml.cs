@@ -18,6 +18,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 
 namespace HourSync;
+
 public sealed partial class Home : Page
 {
     private string username;
@@ -59,7 +60,16 @@ public sealed partial class Home : Page
                 _handler = parameters[7] as HttpClientHandler;
                 _client = parameters[8] as HttpClient;
 
-                doc.LoadHtml(getresp);
+                if (getresp.Length < 1)
+                {
+                    FileMgr.LogError("An error occurred with loading the eHours response.");
+                }
+                else
+                {
+                    FileMgr.Log("Writing to getresp");
+                    FileMgr.WriteToFile("getresp.html", getresp);
+                    doc.LoadHtml(getresp);
+                }
 
                 StudentName.Text = nameOfPerson;
                 StudentAcademy.Text = nameOfAcademy;
@@ -67,70 +77,194 @@ public sealed partial class Home : Page
             else
             {
                 // Handle the case where parameters are missing or incorrect
-                throw new ArgumentException("Incorrect number of parameters passed to Home page. Parameters Length was " + parameters.Length);
+                throw new ArgumentException(
+                    "Incorrect number of parameters passed to Home page. Parameters Length was "
+                        + parameters.Length
+                );
             }
         }
         else
         {
             // Handle the case where parameters are not in the expected format
-            throw new ArgumentException("Parameters passed to Home page are not in the expected format.");
+            throw new ArgumentException(
+                "Parameters passed to Home page are not in the expected format."
+            );
         }
 
         ((App)Application.Current).UpdatePresence("home", $"Signed in as {nameOfPerson}");
     }
 
-
-    private void Home_Loaded(object sender, RoutedEventArgs e)
+    private async void Home_Loaded(object sender, RoutedEventArgs e)
     {
         ParseProgressTo200();
         ParseEHourRequests();
         CreateLayout();
+        try
+        {
+            var sortBy = await FileMgr.GetSettingValueAsync("sortBy.SelectedValue.Key");
+            if (sortBy != null && sortBy is string)
+            {
+                FileMgr.Log(sortBy.ToString());
+                int length = sortBy.ToString().Length;
+                //split sortBy by "-"
+
+                if (sortBy.ToString().Split('-')[0] == sortBy.ToString())
+                {
+                    FileMgr.LogError("Wrong length dumbass");
+                }
+                else
+                {
+                    var way = sortBy.ToString().Split('-')[0];
+                    var from = sortBy.ToString().Split('-')[1];
+
+                    if (way != "date" && way != "name" && way != "hours" && from != "old" && from != "new" && from != "a" && from != "z" && from != "low" && from != "high")
+                    {
+                        FileMgr.Log($"Invalid sortBy value: {way}, {from}");
+                        return;
+                    }
+                    else
+                    {
+                        FileMgr.Log($"Sorting by: {way}, {from}");
+                        // Call the Sort method with the parsed values
+                        Sort(way, from);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            FileMgr.Log($"Error retrieving sortBy setting: {ex.Message}");
+        }
     }
 
     private void ParseProgressTo200()
     {
-        StudentEHourProgress.Value = 0;
-        var barval = doc.DocumentNode.SelectSingleNode("//div[@class='bar2']").InnerText.Split('/')[0];
-        double.TryParse(barval, NumberStyles.Any, CultureInfo.InvariantCulture, out double percent);
-        var percentto300 = ((percent / 3) >= 100 ? 100 : percent / 3);
-        var percentto400 = ((percent / 4) >= 100 ? 100 : percent / 4);
-        percent = ((percent / 2) >= 100 ? 100 : percent / 2);
-        StudentEHourProgress.Value = percent;
-        ToolTipService.SetToolTip(StudentEHourProgress, $"You are {percent}% to endorsing, {percentto300}% to endorsing with Honours, and {percentto400}% to endorsing with High Honours.");
-        progressToEndorsementText.Text = $"{percent}%";
-        ToolTipService.SetToolTip(progressToEndorsementText, $"You are {percent}% to endorsing, {percentto300}% to endorsing with Honours, and {percentto400}% to endorsing with High Honours.");
+        try
+        {
+            StudentEHourProgress.Value = 0;
+            var barval = doc.DocumentNode.SelectSingleNode("//div[@class='bar2']").InnerText.Split('/')[
+                0
+            ];
+            double.TryParse(barval, NumberStyles.Any, CultureInfo.InvariantCulture, out double percent);
+            var percentto300 = ((percent / 3) >= 100 ? 100 : percent / 3);
+            var percentto400 = ((percent / 4) >= 100 ? 100 : percent / 4);
+            percent = ((percent / 2) >= 100 ? 100 : percent / 2);
+            StudentEHourProgress.Value = percent;
+            ToolTipService.SetToolTip(
+                StudentEHourProgress,
+                $"You are {percent}% to endorsing, {percentto300}% to endorsing with Honours, and {percentto400}% to endorsing with High Honours."
+            );
+            progressToEndorsementText.Text = $"{percent}%";
+            ToolTipService.SetToolTip(
+                progressToEndorsementText,
+                $"You are {percent}% to endorsing, {percentto300}% to endorsing with Honours, and {percentto400}% to endorsing with High Honours."
+            );
+        }
+        catch (Exception ex)
+        {
+            FileMgr.LogError("Unable to parse progress to 200: "+ex.Message);
+            StudentEHourProgress.Value = 0;
+            ToolTipService.SetToolTip(
+                StudentEHourProgress,
+                "An error occurred when processing your percent to Endorsement."
+            );
+            progressToEndorsementText.Text = $"0%";
+            ToolTipService.SetToolTip(
+                progressToEndorsementText,
+                "An error occurred when processing your percent to Endorsement."
+            );
+        }
     }
 
     private void ParseEHourRequests()
     {
-        StudentEHours.Text = CleanText(doc.DocumentNode.SelectSingleNode("//table[@id='HourCount']").InnerText);
+        // Make sure 'doc' and 'getresp' are correctly initialized before this function is called.
+        // doc.LoadHtml(getresp); is already at the beginning of the function
+        try
+        {
+            // Clear previous data
+            ReturnedRequests.Clear();
+            PendingRequests.Clear();
+            AcceptedRequests.Clear();
+            DeniedRequests.Clear();
 
-        var separators = doc.DocumentNode.SelectNodes("//table[@id='eHourRequests']//tr[not(@class)]");
-        if (separators != null && separators.Count >= 5)
+            // Select the table directly by its ID
+            var table = doc.DocumentNode.SelectSingleNode("//table[@id='eHourRequests']");
+            if (table == null)
+            {
+                FileMgr.LogError("Could not find eHourRequests table with the ID.");
+                return;
+            }
+
+            // Get the tbody from the table. If not found, look at the table itself for rows.
+            var tableBody = table.SelectSingleNode("tbody");
+            var containerNode = tableBody ?? table; // Use tbody if it exists, otherwise use the table node itself.
+
+            // Section markers
+            var sectionMap = new Dictionary<string, List<EHourRequest>>
         {
-            // Extract contents for each category
-            var contentMap = new Dictionary<string, string>
-        {
-            { "ReturnedRequests", GetContentBetween(separators[1], separators[2]) },
-            { "PendingRequests", GetContentBetween(separators[2], separators[3]) },
-            { "AcceptedRequests", GetContentBetween(separators[3], separators[4]) },
-            { "DeniedRequests", GetContentFrom(separators[4]) }
+            { "Returned_Hours", ReturnedRequests },
+            { "Pending_Hours", PendingRequests },
+            { "Accepted_Hours", AcceptedRequests },
+            { "Denied_Hours", DeniedRequests }
         };
 
-            // Process each category
-            foreach (var kvp in contentMap)
+            string currentSection = null;
+            var rows = containerNode.SelectNodes(".//tr");
+            if (rows == null)
             {
-                if (kvp.Value.Length >= 10)
+                FileMgr.LogError("No rows found in eHourRequests table.");
+                return;
+            }
+
+            // The first row is the header, which is already present
+            // in the `<tbody>` in the example HTML, so we don't need to skip it.
+            // We'll just loop through all rows and handle section headers as before.
+            foreach (var row in rows)
+            {
+                // Check if this row is a section header
+                var th = row.SelectSingleNode("./th[@id]");
+                if (th != null)
                 {
-                    ProcessRequests(kvp.Value, kvp.Key);
+                    var sectionId = th.GetAttributeValue("id", null);
+                    if (sectionMap.ContainsKey(sectionId))
+                    {
+                        currentSection = sectionId;
+                    }
+                    continue;
+                }
+
+                // Only process rows with <td> (request entries)
+                var tds = row.SelectNodes("./td");
+                if (tds != null && tds.Count >= 3 && currentSection != null)
+                {
+                    var buttonNode = tds[0].SelectSingleNode(".//button[@name='ehours_request_descr']");
+                    if (buttonNode == null)
+                        continue;
+
+                    var value = buttonNode.GetAttributeValue("value", string.Empty);
+                    var description = HttpUtility.HtmlDecode(buttonNode.InnerText.Trim());
+                    var hours = tds[1].InnerText.Trim();
+                    var date = tds[2].InnerText.Trim();
+
+                    var request = new EHourRequest
+                    {
+                        Value = value,
+                        Description = description,
+                        Hours = hours,
+                        Date = date,
+                    };
+
+                    sectionMap[currentSection].Add(request);
                 }
             }
         }
-        else
+        catch (Exception ex)
         {
-            FileMgr.Log("Insufficient separators found.");
+            FileMgr.LogError("Unable to parse eHour requests: " + ex.Message);
         }
     }
+
 
     // Helper methods
     private static string GetContentBetween(HtmlNode startNode, HtmlNode endNode)
@@ -185,7 +319,7 @@ public sealed partial class Home : Page
                         Value = value,
                         Description = description,
                         Hours = hours,
-                        Date = date
+                        Date = date,
                     };
 
                     // Add to the appropriate list
@@ -219,11 +353,24 @@ public sealed partial class Home : Page
 
     private void CreateLayout()
     {
-        foreach (var request in ReturnedRequests) { CreateButton(request, "returned"); }
-        foreach (var request in PendingRequests)  { CreateButton(request, "pending");  }
-        foreach (var request in AcceptedRequests) { CreateButton(request, "accepted"); }
-        foreach (var request in DeniedRequests)   { CreateButton(request, "denied");   }
+        foreach (var request in ReturnedRequests)
+        {
+            CreateButton(request, "returned");
+        }
+        foreach (var request in PendingRequests)
+        {
+            CreateButton(request, "pending");
+        }
+        foreach (var request in AcceptedRequests)
+        {
+            CreateButton(request, "accepted");
+        }
+        foreach (var request in DeniedRequests)
+        {
+            CreateButton(request, "denied");
+        }
     }
+
     private void CreateButton(EHourRequest request, string type)
     {
         Button requestButton = new Button
@@ -233,11 +380,12 @@ public sealed partial class Home : Page
             HorizontalContentAlignment = HorizontalAlignment.Left,
             Height = 80,
             Margin = new Thickness(0, 0, 0, 10),
-            Tag = request.Value
+            Tag = request.Value,
         };
         requestButton.Click += RequestButton_Click;
 
-        switch (type) {
+        switch (type)
+        {
             case "returned":
                 ReturnedReqsPanel.Children.Add(requestButton);
                 break;
@@ -251,10 +399,10 @@ public sealed partial class Home : Page
                 DeniedReqsPanel.Children.Add(requestButton);
                 break;
         }
-            
     }
 
     private MainWindow _mainWindow;
+
     private void RequestButton_Click(object sender, RoutedEventArgs e)
     {
         _mainWindow = (MainWindow)((App)Application.Current).m_window;
@@ -262,7 +410,18 @@ public sealed partial class Home : Page
         string value = (string)clickedButton.Tag;
         string evtName = (string)clickedButton.Content;
         string status = "";
-        _mainWindow.OpenRequestViewer(value, phpSessionId, evtName, _cookieContainer, _handler, _client, nameOfAcademy, status, username, password);
+        _mainWindow.OpenRequestViewer(
+            value,
+            phpSessionId,
+            evtName,
+            _cookieContainer,
+            _handler,
+            _client,
+            nameOfAcademy,
+            status,
+            username,
+            password
+        );
     }
 
     private async void Logout_Click(object sender, RoutedEventArgs e)
@@ -273,7 +432,7 @@ public sealed partial class Home : Page
             Content = "Are you sure you want to log out?",
             PrimaryButtonText = "Yes",
             SecondaryButtonText = "No",
-            XamlRoot = XamlRoot
+            XamlRoot = XamlRoot,
         };
 
         ContentDialogResult result = await dialog.ShowAsync();
@@ -288,84 +447,95 @@ public sealed partial class Home : Page
     {
         Sort("date", "old");
     }
+
     private void SortDateNtoO(object sender, RoutedEventArgs e)
     {
         Sort("date", "new");
     }
+
     private void SortNameAtoZ(object sender, RoutedEventArgs e)
     {
         Sort("name", "a");
     }
+
     private void SortNameZtoA(object sender, RoutedEventArgs e)
     {
         Sort("name", "z");
     }
+
     private void SortHoursLtoH(object sender, RoutedEventArgs e)
     {
         Sort("hours", "low");
     }
+
     private void SortHoursHtoL(object sender, RoutedEventArgs e)
     {
         Sort("hours", "high");
     }
 
-    private void Sort(string way, string from) // sorting will come soon i promise :D
+    private void Sort(string way, string from)
     {
-        switch (way)
+        // Define a comparison function based on the sorting criteria
+        Func<EHourRequest, object> keySelector = way switch
         {
-            case "date":
-                switch (from)
-                {
-                    case "old":
+            "date" => request => DateTime.Parse(request.Date), // Sort by date
+            "name" => request => request.Description,         // Sort by name
+            "hours" => request => decimal.Parse(request.Hours),   // Sort by hours
+            _ => request => request.Description              // Default to name
+        };
 
-                        break;
-                    case "new":
+        // Sort each list based on the criteria
+        if (from == "old" || from == "a" || from == "low")
+        {
+            ReturnedRequests = ReturnedRequests.OrderBy(keySelector).ToList();
+            PendingRequests = PendingRequests.OrderBy(keySelector).ToList();
+            AcceptedRequests = AcceptedRequests.OrderBy(keySelector).ToList();
+            DeniedRequests = DeniedRequests.OrderBy(keySelector).ToList();
+        }
+        else if (from == "new" || from == "z" || from == "high")
+        {
+            ReturnedRequests = ReturnedRequests.OrderByDescending(keySelector).ToList();
+            PendingRequests = PendingRequests.OrderByDescending(keySelector).ToList();
+            AcceptedRequests = AcceptedRequests.OrderByDescending(keySelector).ToList();
+            DeniedRequests = DeniedRequests.OrderByDescending(keySelector).ToList();
+        }
 
-                        break;
-                }
-                break;
-            case "name":
-                switch (from)
-                {
-                    case "a":
+        // Recreate the layout with the sorted lists
+        RecreateLayout();
+    }
+    private void RecreateLayout()
+    {
+        // Clear all panels
+        ReturnedReqsPanel.Children.Clear();
+        PendingReqsPanel.Children.Clear();
+        AcceptedReqsPanel.Children.Clear();
+        DeniedReqsPanel.Children.Clear();
 
-                        break;
-                    case "z":
-
-                        break;
-                }
-                break;
-            case "hours":
-                switch (from)
-                {
-                    case "low":
-
-                        break;
-                    case "high":
-
-                        break;
-                }
-                break;
+        // Recreate buttons for each list
+        foreach (var request in ReturnedRequests)
+        {
+            CreateButton(request, "returned");
+        }
+        foreach (var request in PendingRequests)
+        {
+            CreateButton(request, "pending");
+        }
+        foreach (var request in AcceptedRequests)
+        {
+            CreateButton(request, "accepted");
+        }
+        foreach (var request in DeniedRequests)
+        {
+            CreateButton(request, "denied");
         }
     }
+
 }
 
 public class EHourRequest
 {
-    public string Value
-    {
-        get; set;
-    }
-    public string Description
-    {
-        get; set;
-    }
-    public string Hours
-    {
-        get; set;
-    }
-    public string Date
-    {
-        get; set;
-    }
+    public string Value { get; set; }
+    public string Description { get; set; }
+    public string Hours { get; set; }
+    public string Date { get; set; }
 }

@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace HourSync;
+
 public sealed partial class ImageViewer : Window
 {
     public ImageViewer(string imageUrl)
@@ -23,7 +24,7 @@ public sealed partial class ImageViewer : Window
 
         Microsoft.UI.Xaml.Media.MicaBackdrop micaBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop
         {
-            Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.Base
+            Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.Base,
         };
         SystemBackdrop = micaBackdrop;
         ExtendsContentIntoTitleBar = true;

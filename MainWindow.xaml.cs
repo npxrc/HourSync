@@ -12,16 +12,18 @@ using Windows.Foundation;
 using Windows.UI.ViewManagement;
 
 namespace HourSync;
+
 public sealed partial class MainWindow : Window
 {
     private RequestViewer _requestViewer;
     public NetworkMonitor _networkMonitor;
+
     public MainWindow()
     {
         InitializeComponent();
         Microsoft.UI.Xaml.Media.MicaBackdrop micaBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop
         {
-            Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt
+            Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt,
         };
         SystemBackdrop = micaBackdrop;
         ExtendsContentIntoTitleBar = true;
@@ -42,9 +44,31 @@ public sealed partial class MainWindow : Window
         ((App)Application.Current).client.Dispose();
     }
 
-    public void OpenRequestViewer(string idOfItem, string phpSessionId, string eventName, CookieContainer cookieContainer, HttpClientHandler handler, HttpClient client, string nameOfAcademy, string status, string username, string password)
+    public void OpenRequestViewer(
+        string idOfItem,
+        string phpSessionId,
+        string eventName,
+        CookieContainer cookieContainer,
+        HttpClientHandler handler,
+        HttpClient client,
+        string nameOfAcademy,
+        string status,
+        string username,
+        string password
+    )
     {
-        _requestViewer = new RequestViewer(idOfItem, phpSessionId, eventName, cookieContainer, handler, client, nameOfAcademy, status, username, password);
+        _requestViewer = new RequestViewer(
+            idOfItem,
+            phpSessionId,
+            eventName,
+            cookieContainer,
+            handler,
+            client,
+            nameOfAcademy,
+            status,
+            username,
+            password
+        );
         _requestViewer.Activate();
     }
 }

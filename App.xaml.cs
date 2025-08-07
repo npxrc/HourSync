@@ -3,7 +3,7 @@
 #pragma warning disable IDE0044 // Add readonly modifier
 #pragma warning disable IDE0051 // Remove unused private members
 #pragma warning disable IDE0052 // Remove unread private members
-#pragma warning disable IDE1006 // this aint a fucking english class i'm not capitalising shit
+#pragma warning disable IDE1006 // this aint an english class i'm not capitalising anything
 #pragma warning disable 0649 // it is actually assigned to!
 #pragma warning disable 0169 // it is actually assigned to!
 using System;
@@ -16,6 +16,7 @@ using Microsoft.UI.Xaml.Navigation;
 using DiscordRPC;
 using Windows.Graphics.Display;
 using System.Runtime.CompilerServices;
+using System.Drawing;
 
 namespace HourSync;
 public partial class App : Application
@@ -71,7 +72,7 @@ public partial class App : Application
     {
         get; set;
     }
-    private string currentPage = "login";
+    private string currentPage = "home";
     private string previousPage = "null";
     
     public DiscordRpcClient client = new("1342974846090481766");
@@ -145,7 +146,7 @@ public partial class App : Application
                     {
                         effect = new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight };
                     }
-                    else if (previousPage == "settings")
+                    else if (previousPage == "settings" || previousPage == "leaderboard") // pages to the right
                     {
                         effect = new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromLeft };
                     }
@@ -159,9 +160,27 @@ public partial class App : Application
                     break;
                 case "settings":
                     previousPage = currentPage;
+                    if (previousPage == "create" || previousPage == "home") // pages to the left
+                    {
+                        effect = new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight };
+                    }
+                    else if (previousPage == "leaderboard")
+                    {
+                        effect = new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromLeft };
+                    }
+                    else
+                    {
+                        effect = new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromBottom };
+                    }
                     if (currentPage == "settings") break;
                     currentPage = "settings";
-                    rootFrame.Navigate(typeof(Settings), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight });
+                    rootFrame.Navigate(typeof(Settings), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, effect);
+                    break;
+                case "leaderboard":
+                    previousPage = currentPage;
+                    if (currentPage == "leaderboard") break;
+                    currentPage = "leaderboard";
+                    rootFrame.Navigate(typeof(Leaderboard), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight });
                     break;
             }
         }
@@ -248,6 +267,7 @@ public partial class App : Application
         }
         if (details.Length > 0)
         {
+            FileMgr.Log($"setting presence");
             client.SetPresence(new RichPresence()
             {
                 Details = details,
@@ -260,6 +280,7 @@ public partial class App : Application
                 Buttons = buttons,
                 Type = ActivityType.Playing
             });
+            System.Diagnostics.Trace.WriteLine($"Set presence to {state} with details \"{details}\"");
         }
         else
         {
@@ -274,6 +295,7 @@ public partial class App : Application
                 Buttons = buttons,
                 Type = ActivityType.Playing
             });
+            System.Diagnostics.Trace.WriteLine($"Set presence to default");
         }
     }
 }

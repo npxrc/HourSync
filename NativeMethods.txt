@@ -1,0 +1,4 @@
+﻿SetWindowSubclass
+DefSubclassProc
+GetDpiForWindow
+MINMAXINFO
