@@ -17,19 +17,16 @@
 
 		<!-- Uncomment the following line to build an unpackaged (self-contained) app -->
 		<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+		<PublishSingleFile>false</PublishSingleFile>
+		<IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+		
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<PackageProjectUrl>https://hoursync.net</PackageProjectUrl>
 		<PlatformTarget>AnyCPU</PlatformTarget>
 		
 		<SatelliteResourceLanguages>en-us</SatelliteResourceLanguages>
 	</PropertyGroup>
-	<Target Name="RemoveUnusedSatelliteAssemblies" AfterTargets="Publish">
-		<ItemGroup>
-			<SatelliteAssembliesToRemove Include="$(PublishDir)\**\*.resources.dll" Exclude="$(PublishDir)\en-US\**\*.resources.dll" />
-			<SatelliteAssembliesToRemove Include="$(PublishDir)\**\*.mui" Exclude="$(PublishDir)\en-US\**\*.mui" />
-		</ItemGroup>
-		<Delete Files="@(SatelliteAssembliesToRemove)" />
-	</Target>
 	<ItemGroup>
 		<Content Remove="Assets\BadgeLogo.scale-100.png" />
 		<Content Remove="Assets\BadgeLogo.scale-125.png" />

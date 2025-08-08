@@ -32,7 +32,6 @@ public class FileMgr
     {
         try
         {
-            // Get the path to the settings.json file
             string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             string settingsFilePath = Path.Combine(appDataPath, "HourSync", "settings.json");
 
@@ -42,7 +41,6 @@ public class FileMgr
                 return "NOSETTINGSFILE";
             }
 
-            // Read and parse the JSON file
             string jsonContent = await File.ReadAllTextAsync(settingsFilePath);
             if (jsonContent.Length < 5)
             {
@@ -50,7 +48,6 @@ public class FileMgr
             }
             var settings = JObject.Parse(jsonContent);
 
-            // Traverse the JSON object using the key path
             var tokens = keyPath.Split('.');
             JToken currentToken = settings;
             foreach (var token in tokens)
@@ -72,23 +69,24 @@ public class FileMgr
         }
     }
 
-    public static Dictionary<string, object> LoadSettings()
+    // Existing LoadSettings now returns Dictionary<string, SettingDefinition>
+    public static Dictionary<string, SettingDefinition> LoadSettings()
     {
         try
         {
             var json = ReadFromFile(settingsFileName);
             if (string.IsNullOrEmpty(json))
             {
-                return [];
+                return new Dictionary<string, SettingDefinition>();
             }
 
-            return JsonConvert.DeserializeObject<Dictionary<string, object>>(json)
-                ?? [];
+            return JsonConvert.DeserializeObject<Dictionary<string, SettingDefinition>>(json)
+                ?? new Dictionary<string, SettingDefinition>();
         }
         catch (Exception ex)
         {
             Log($"Error loading settings: {ex.Message}");
-            return [];
+            return new Dictionary<string, SettingDefinition>();
         }
     }
 
@@ -199,5 +197,98 @@ public class FileMgr
             ((App)App.Current).m_window.Close();
             return false;
         }
+    }
+
+    // New method for merging downloaded settings with on-device settings
+    public static void MergeSettings(Dictionary<string, SettingDefinition> downloadedSettings)
+    {
+        // Load on-device settings
+        var localSettings = LoadSettings();
+        // Build new merged dictionary
+        var merged = new Dictionary<string, SettingDefinition>();
+
+        // For each downloaded setting...
+        foreach (var kvp in downloadedSettings)
+        {
+            string key = kvp.Key;
+            var downloadedSetting = kvp.Value;
+
+            if (localSettings.TryGetValue(key, out var localSetting))
+            {
+                // If the setting type is "select", compare options.
+                if (downloadedSetting.Type == "select")
+                {
+                    if (!AreOptionsEqual(downloadedSetting.Options, localSetting.Options))
+                    {
+                        // Update options from downloaded
+                        localSetting.Options = downloadedSetting.Options;
+                        // Ensure selected value is valid
+                        if (localSetting.SelectedValue == null ||
+                            !OptionExists(localSetting.SelectedValue, downloadedSetting.Options))
+                        {
+                            // Set to downloaded default (first option) if available.
+                            localSetting.SelectedValue = downloadedSetting.Options != null &&
+                                                         downloadedSetting.Options.Count > 0
+                                ? downloadedSetting.Options[0]
+                                : null;
+                        }
+                    }
+                    // If options are the same (ignoring SelectedValue), no further changes.
+                }
+                // For non-select types, leave the on-device value intact.
+                merged[key] = localSetting;
+            }
+            else
+            {
+                // Key missing locally: add downloaded setting.
+                merged[key] = downloadedSetting;
+            }
+        }
+
+        // Remove keys that are present on-device but not in downloaded settings
+        // (i.e. only keys in merged are written)
+        SaveSettings(ConvertForSaving(merged));
+    }
+
+    // Helper to compare options list (order and key/friendly name)
+    private static bool AreOptionsEqual(List<Option> a, List<Option> b)
+    {
+        if (a == null && b == null)
+            return true;
+        if (a == null || b == null)
+            return false;
+        if (a.Count != b.Count)
+            return false;
+        for (int i = 0; i < a.Count; i++)
+        {
+            if (a[i].Key != b[i].Key || a[i].FriendlyName != b[i].FriendlyName)
+                return false;
+        }
+        return true;
+    }
+
+    // Helper to verify if an option exists by key.
+    private static bool OptionExists(Option option, List<Option> options)
+    {
+        if (option == null || options == null)
+            return false;
+        foreach (var opt in options)
+        {
+            if (opt.Key == option.Key)
+                return true;
+        }
+        return false;
+    }
+
+    // Helper method: convert Dictionary<string, SettingDefinition> into Dictionary<string, object>
+    // for saving.
+    private static Dictionary<string, object> ConvertForSaving(Dictionary<string, SettingDefinition> dict)
+    {
+        var result = new Dictionary<string, object>();
+        foreach (var kvp in dict)
+        {
+            result[kvp.Key] = kvp.Value;
+        }
+        return result;
     }
 }

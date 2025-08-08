@@ -16,7 +16,6 @@ namespace HourSync;
 public sealed partial class MainWindow : Window
 {
     private RequestViewer _requestViewer;
-    public NetworkMonitor _networkMonitor;
 
     public MainWindow()
     {
@@ -30,12 +29,6 @@ public sealed partial class MainWindow : Window
         Title = "HourSync";
 
         Closed += Closing;
-        Activated += WindowActivated;
-    }
-
-    private void WindowActivated(object sender, WindowActivatedEventArgs args)
-    {
-        _networkMonitor = new NetworkMonitor(this);
     }
 
     private void Closing(object sender, WindowEventArgs args)

@@ -17,6 +17,7 @@ using DiscordRPC;
 using Windows.Graphics.Display;
 using System.Runtime.CompilerServices;
 using System.Drawing;
+using WinRT.HourSyncVtableClasses;
 
 namespace HourSync;
 public partial class App : Application
@@ -91,6 +92,12 @@ public partial class App : Application
 
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
+        bool isVM = VmChecker.IsVirtualMachine();
+        if (isVM)
+        {
+            FileMgr.Log("----------\r\nVirtual machine detected. Please use legitimate hardware.");
+        }
+        
         m_window = new MainWindow();
 
         rootFrame = new Frame();

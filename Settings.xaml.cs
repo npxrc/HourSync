@@ -18,7 +18,7 @@ using Newtonsoft.Json;
 namespace HourSync;
 public sealed partial class Settings : Page
 {
-    private Dictionary<string, object> settingsCache = FileMgr.LoadSettings();
+    private Dictionary<string, SettingDefinition> settingsCache = FileMgr.LoadSettings();
 
     public Settings()
     {
@@ -203,14 +203,32 @@ public sealed partial class Settings : Page
 
 public class SettingDefinition
 {
-    public string Key { get; set; }
-    public string Title { get; set; }
-    public string Description { get; set; }
-    public string Type { get; set; } // "bool" or "select"
+    public string Key
+    {
+        get; set;
+    }
+    public string Title
+    {
+        get; set;
+    }
+    public string Description
+    {
+        get; set;
+    }
+    public string Type
+    {
+        get; set;
+    } // "bool" or "select"
     public bool IsEnabled { get; set; } = true;
     public bool DefaultValue { get; set; } = true;
-    public List<Option> Options { get; set; } // For dropdown menus
-    public Option SelectedValue { get; set; } // Changed from string to Option
+    public List<Option> Options
+    {
+        get; set;
+    } // For dropdown menus
+    public Option SelectedValue
+    {
+        get; set;
+    }
 }
 
 public class Option

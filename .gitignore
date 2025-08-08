@@ -365,3 +365,5 @@ FodyWeavers.xsd
 # Custom
 logo.psd
 bin/
+VMDetector.cs
+Private.cs

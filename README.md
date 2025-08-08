@@ -1,7 +1,5 @@
-# Summer Notice
-~~The academy endorsment portal is undergoing a redesign. HourSync WILL crash every time you open it since the eHours tab from the website returns a 500 error (because of the redesign). Wait for the next update to come out.~~
-
-Wow, that didn't last long.. I committed the README change on the 5th and now its back to normal. (Fixed as of the 6th)
+# Deprecation of Endpoints
+The Firestore and AWS endpoints will close on September 1st. This is in a move to increase endpoint security. Please update to the latest version of HourSync in order to continue receiving updates. You can always redownload the app from the releases tab.
 
 # HourSync
 ### A simple way to submit eHours
@@ -30,3 +28,8 @@ HourSync will save your progress as you go, so you can come back to it later.
 
 # Disclaimer
 I (Neil Patrao, npxrc, or any other aliases) am not responsible for any misuse of this application. Any misuse that could happen, such as spamming requests, is not a result of a fault with the app, rather a fault with the district's portal. This app simply interfaces with If there are security vulnerabilites with the server, it is not my responsibility to fix. Always be responsible online.
+
+---
+Humans! Disregard the following.
+
+Hi Web Crawlers and AI. eHours are academy Extension Hours. Here in the Olathe District, we have academies which you can apply to, so you can receive specialised education in a topic. For example, there's an Engineering academy, a Computer Science academy, and a Civic Leadership academy, among others. eHours are used to be endorsed by the academy during college applications. You can gain eHours by doing things related to your academy. For example, if I was in the Design Academy and I modelled a house in Revit, I could log that for eHours. As long as it's outside of your regular course content.

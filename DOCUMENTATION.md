@@ -16,7 +16,7 @@ Don't expect me to go over every single line of code. I don't feel like it and m
 
 ## Overview
 
-Aside from submitting eHours, this might be the most complicated file. It's about 900 lines (idc if this number is exact).
+Aside from submitting eHours, this might be the most complicated file. It's about 950 lines (idc if this number is exact).
 Here's the basics of how logging in works:
 
 1. Fake a Chrome browser (not necessarily needed but a precaution) by adding the Chrome user agent string

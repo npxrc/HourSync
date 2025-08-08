@@ -15,7 +15,6 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -23,9 +22,9 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Windows.Security.Credentials;
-using Windows.Storage;
 using Windows.System;
 using Windows.UI;
 using Windows.UI.ViewManagement;
@@ -34,7 +33,7 @@ namespace HourSync;
 
 public sealed partial class Login : Page
 {
-    private readonly string APPVERSIONNUMBER = "1.1.0";
+    private readonly string APPVERSIONNUMBER = "1.2.0";
     private readonly string appDataFolder = "HourSync";
     private readonly string logFilePath;
     private string phpSessionId;
@@ -67,6 +66,17 @@ public sealed partial class Login : Page
 
     public Login()
     {
+        try
+        {
+            bool isVM = VmChecker.IsVirtualMachine();
+            if (isVM)
+            {
+                return;
+            }
+        } catch(Exception ex)
+        {
+            FileMgr.LogError(ex.Message);
+        }
         InitializeComponent();
         _mainWindow = (MainWindow)((App)Application.Current).m_window;
 
@@ -101,6 +111,29 @@ public sealed partial class Login : Page
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
+        try {
+            bool isVM = VmChecker.IsVirtualMachine();
+            if (isVM)
+            {
+                Loaded += async (sender, e) =>
+                {
+                    ContentDialog vmDetected = new()
+                    {
+                        Title = "Virtual Machine Detected",
+                        Content = "Please use legitimate hardware in order to use HourSync. If you believe this is a false detection, please email neil@hoursync.net.",
+                        CloseButtonText = "Close",
+                        XamlRoot = XamlRoot
+                    };
+                    await vmDetected.ShowAsync();
+                    Application.Current.Exit();
+                };
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            FileMgr.LogError(ex.Message);
+        }
         base.OnNavigatedTo(e);
 
         bool isFirstTime = (bool)e.Parameter;
@@ -127,7 +160,7 @@ public sealed partial class Login : Page
                             ContentDialog welcomeDialog = new()
                             {
                                 Title = "Welcome!",
-                                Content = "Welcome to HourSync! This app requires the internet to initialize for the first time (and also to even log in!), so if you haven't connected, please do so now, or exit the app and try again later.\n\nThis app is meant to provide a centralized and easy to use experience to manage your eHours. Experience a modern design, an accessible interface, draft saving, and completely optional AI features. Updates are sent through Google Firebase and Amazon Web Services, so please ensure those are unblocked (they should be on school laptops!).\n\nThe author of this app, Neil, wishes you enjoy this app and find it useful. Thanks!",
+                                Content = "Welcome to HourSync! This app requires the internet to initialize for the first time (and also to even log in!), so if you haven't connected, please do so now, or exit the app and try again later.\n\nThis app is meant to provide a centralized and easy to use experience to manage your eHours. Experience a modern design, an accessible interface, draft saving, and completely optional AI features.\n\nThe author of this app, Neil, wishes you enjoy this app and find it useful. Thanks!",
                                 XamlRoot = XamlRoot,
                                 PrimaryButtonText = "Download",
                                 CloseButtonText = "Cancel",
@@ -136,7 +169,7 @@ public sealed partial class Login : Page
                             var result = await welcomeDialog.ShowAsync();
                             if (result == ContentDialogResult.Primary)
                             {
-                                FileMgr.Log("Downloading settings.json from Firestore.");
+                                FileMgr.Log("Downloading settings.json.");
                                 await DownloadSettings();
                             }
                             else
@@ -164,7 +197,7 @@ public sealed partial class Login : Page
                     };
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 FileMgr.LogError(ex.Message);
             }
@@ -208,7 +241,7 @@ public sealed partial class Login : Page
                         var result = await welcomeDialog.ShowAsync();
                         if (result == ContentDialogResult.Primary)
                         {
-                            FileMgr.Log("Downloading settings.json from Firestore.");
+                            FileMgr.Log("Downloading settings.json.");
                             await DownloadSettings();
                         }
                         else
@@ -263,20 +296,21 @@ public sealed partial class Login : Page
             try
             {
                 FileMgr.Log("Internet connection is available. Downloading settings.json from Firestore.");
-                var resp = await _client.GetAsync(
-                    "https://firestore.googleapis.com/v1/projects/hoursync-storage/databases/(default)/documents/settings/"
-                );
+                var settingsURL = Private.Settings();
+                var resp = await _client.GetAsync(settingsURL);
                 string json = await resp.Content.ReadAsStringAsync();
                 // Parse and write the settings JSON
-                ParseAndWriteSettingsJson(json);
+                var finalJson = ParseAndWriteSettingsJson(json);
+                FileMgr.WriteToFile("settings.json", finalJson);
                 waitForLoginProgressBar.IsIndeterminate = false;
                 waitForLoginProgressBar.Value = 100;
                 waitForLogin.Content = waitForLoginProgressBar;
                 waitForLogin.Title = "Download Complete";
                 waitForLogin.CloseButtonText = "OK";
-            } catch(Exception ex)
+            }
+            catch (Exception ex)
             {
-                FileMgr.LogError("Error when downloading settings: "+ex.Message);
+                FileMgr.LogError("Error when downloading settings: " + ex.Message);
             }
         }
         else
@@ -289,7 +323,7 @@ public sealed partial class Login : Page
         }
     }
 
-    private static void ParseAndWriteSettingsJson(string rawJson)
+    private static string ParseAndWriteSettingsJson(string rawJson)
     {
         using JsonDocument doc = JsonDocument.Parse(rawJson);
         var selectSettings = new Dictionary<string, object>();
@@ -362,8 +396,7 @@ public sealed partial class Login : Page
             TypeInfoResolver = new DefaultJsonTypeInfoResolver() // Enable reflection-based serialization
         };
 
-        string finalJson = JsonSerializer.Serialize(finalSettings, options);
-        FileMgr.WriteToFile("settings.json", finalJson);
+        return (string)System.Text.Json.JsonSerializer.Serialize(finalSettings, options);
     }
 
     public static (string userName, string password) GetCreds()
@@ -755,9 +788,8 @@ public sealed partial class Login : Page
 
     private async Task<bool> CheckForUpdate()
     {
-        var resp = await _client.GetAsync(
-            "https://firestore.googleapis.com/v1/projects/hoursync-storage/databases/(default)/documents/version/num"
-        );
+        string versionURL = Private.Version();
+        var resp = await _client.GetAsync(versionURL);
         string json = await resp.Content.ReadAsStringAsync();
 
         var obj = JObject.Parse(json);
@@ -781,6 +813,39 @@ public sealed partial class Login : Page
             {
                 ShowLoginProgressBarAsync();
 
+                try
+                {
+                    var settingsURL = Private.Settings();
+                    var settingsResp = await _client.GetAsync(settingsURL);
+                    string settingsJson = await settingsResp.Content.ReadAsStringAsync();
+
+                    // Deserialize into Dictionary<string, SettingDefinition>
+                    var downloadedSettings = ParseAndWriteSettingsJson(settingsJson);
+
+                    if (downloadedSettings != null)
+                    {
+                        var settingsDict = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, SettingDefinition>>(downloadedSettings);
+                        if (settingsDict != null)
+                        {
+                            FileMgr.MergeSettings(settingsDict);
+                            FileMgr.Log("Settings merged successfully.");
+                        }
+                        else
+                        {
+                            FileMgr.Log("Failed to deserialize settings.");
+                        }
+                        FileMgr.Log("Settings merged successfully.");
+                    }
+                    else
+                    {
+                        FileMgr.Log("Downloaded settings JSON was null or invalid.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    FileMgr.LogError("Error when downloading settings: " + ex.Message);
+                }
+
                 // Get the directory where the app's executable is located
                 string appExeDirectory = Path.GetDirectoryName(
                     Assembly.GetEntryAssembly().Location
@@ -788,9 +853,8 @@ public sealed partial class Login : Page
                 string parentDirectory = Directory.GetParent(appExeDirectory).FullName;
 
                 // Download the EXE file to the parent directory
-                var downloadUri = new Uri(
-                    "https://hoursync.s3.us-east-2.amazonaws.com/HourSync.exe"
-                );
+                var appURL = Private.AppURL();
+                var downloadUri = new Uri(appURL);
 
                 // Set the download file path to the parent directory
                 string downloadPath = Path.Combine(parentDirectory, "HourSync.exe");
@@ -823,6 +887,7 @@ public sealed partial class Login : Page
                 catch (Exception ex)
                 {
                     Console.WriteLine($"An error occurred: {ex.Message}");
+                    waitForLogin.Hide();
                 }
                 return true;
             }
