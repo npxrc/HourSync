@@ -21,10 +21,6 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <StackPanel Grid.Row="0"
                         Orientation="Vertical">
@@ -55,14 +51,22 @@
                                 Width="500"
                                 HorizontalAlignment="Left"
                                 Margin="0, 10, 0, 5"/>
-                        <Button Content="Delete Request"
-                                Margin="0, 5, 0, 10"
-                                Click="DelReq"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,10">
+                            <Button Content="Delete Request"
+                                    x:Name="delReqButton"
+                                    IsEnabled="False"
+                                    Click="DelReq"/>
+                            <Button Content="Edit Request"
+                                    Margin="5,0,0,0"
+                                    x:Name="editReqButton"
+                                    IsEnabled="False"
+                                    Click="EditReq"/>
+                        </StackPanel>
                     </StackPanel>
                     <StackPanel Orientation="Vertical">
                         <StackPanel Orientation="Horizontal"
                                 Margin="36, 0, 0, 0">
-                            <TextBlock Text="Date Submitted: "/>
+                            <TextBlock Text="Date Submitted: " Margin="0,0,5,0"/>
                             <TextBlock x:Name="dateSubtd"
                                     Text="---"
                                     Style="{StaticResource BodyStrongTextBlockStyle}"/>
@@ -74,7 +78,10 @@
                 </StackPanel>
                 <StackPanel Grid.Row="1"
                         Orientation="Vertical"
-                        Margin="36, 10">
+                        Margin="36, 0">
+                    <StackPanel x:Name="EditEnabled" Grid.Row="0" Visibility="Collapsed">
+                        <InfoBar x:Name="EditEnabledBar" IsOpen="True" Severity="Success" Title="Editing has been enabled" Message="Make any changes you need and click 'Update' when you're done." Margin="0, 10, 0, 5" IsClosable="False"/>
+                    </StackPanel>
                     <TextBlock Grid.Row="1"
                             Text="Event Description:"/>
                     <TextBox Grid.Row="1"
@@ -87,6 +94,10 @@
                             ScrollViewer.VerticalScrollBarVisibility="Visible"
                             ScrollViewer.IsScrollInertiaEnabled="True"
                             Margin="0, 10"/>
+                    <StackPanel x:Name="editingControls" Visibility="Collapsed" Orientation="Horizontal" Margin="0,10">
+                        <Button Click="EditReq">Update</Button>
+                        <Button Click="Button_Click">Cancel</Button>
+                    </StackPanel>
                 </StackPanel>
                 <StackPanel x:Name="ImageMainContainer"
                         Grid.Row="2"

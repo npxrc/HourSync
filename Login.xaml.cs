@@ -12,19 +12,17 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
-using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using HourSyncCoreLib;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Windows.Security.Credentials;
 using Windows.System;
 using Windows.UI;
 using Windows.UI.ViewManagement;
@@ -33,7 +31,7 @@ namespace HourSync;
 
 public sealed partial class Login : Page
 {
-    private readonly string APPVERSIONNUMBER = "1.2.0";
+    private readonly string APPVERSIONNUMBER = "1.3.0";
     private readonly string appDataFolder = "HourSync";
     private readonly string logFilePath;
     private string phpSessionId;
@@ -48,6 +46,10 @@ public sealed partial class Login : Page
         CookieContainer = _cookieContainer,
         AllowAutoRedirect = true,
     };
+    private async Task<ContentDialogResult> ShowDialog(string title, string content, string closeButtonText = "", string primaryButtonText = "", string secondaryButtonText = "")
+    {
+        return await new ContentDialog { Title = title, Content = content, CloseButtonText = closeButtonText.Length > 0 ? closeButtonText : null, PrimaryButtonText = primaryButtonText.Length > 0 ? primaryButtonText : null, SecondaryButtonText = secondaryButtonText.Length > 0 ? secondaryButtonText : null, XamlRoot = XamlRoot }.ShowAsync();
+    }
     private static readonly HttpClient _client = new(_handler)
     {
         DefaultRequestHeaders =
@@ -62,8 +64,6 @@ public sealed partial class Login : Page
     private readonly DispatcherTimer _themeCheckTimer;
     private bool _currentThemeIsDark = false;
 
-    private MainWindow _mainWindow;
-
     public Login()
     {
         try
@@ -73,12 +73,12 @@ public sealed partial class Login : Page
             {
                 return;
             }
-        } catch(Exception ex)
+        }
+        catch (Exception ex)
         {
             FileMgr.LogError(ex.Message);
         }
         InitializeComponent();
-        _mainWindow = (MainWindow)((App)Application.Current).m_window;
 
         // Initialize the timer
         _themeCheckTimer = new DispatcherTimer
@@ -97,7 +97,6 @@ public sealed partial class Login : Page
             appDataFolder,
             "log.txt"
         );
-        FileMgr.Log("----------\r\nLogging started for session " + DateTime.Now);
 
         ((App)Application.Current).UpdatePresence("login", "");
 
@@ -111,20 +110,13 @@ public sealed partial class Login : Page
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
-        try {
-            bool isVM = VmChecker.IsVirtualMachine();
-            if (isVM)
+        try
+        {
+            if (VmChecker.IsVirtualMachine())
             {
-                Loaded += async (sender, e) =>
+                Loaded += async (sender, args) =>
                 {
-                    ContentDialog vmDetected = new()
-                    {
-                        Title = "Virtual Machine Detected",
-                        Content = "Please use legitimate hardware in order to use HourSync. If you believe this is a false detection, please email neil@hoursync.net.",
-                        CloseButtonText = "Close",
-                        XamlRoot = XamlRoot
-                    };
-                    await vmDetected.ShowAsync();
+                    await ShowDialog("Virtual Machine Detected", "Please use legitimate hardware in order to use HourSync. If you believe this is a false detection, please email neil@hoursync.net.");
                     Application.Current.Exit();
                 };
                 return;
@@ -134,12 +126,21 @@ public sealed partial class Login : Page
         {
             FileMgr.LogError(ex.Message);
         }
+
         base.OnNavigatedTo(e);
 
-        bool isFirstTime = (bool)e.Parameter;
+        bool isFirstTime = false;
+        if (e.Parameter.GetType() == typeof(bool))
+        {
+            isFirstTime = (bool)e.Parameter;
+            if (isFirstTime)
+            {
+                FileMgr.StartLogSession();
+            }
+        }
 
-        // Check if the credential thing works or not
-        (string UserNameFromVault, string PassFromVault) = GetCreds();
+        (string UserNameFromVault, string PassFromVault) = CredMgr.GetCreds();
+
         if (UserNameFromVault == null || PassFromVault == null)
         {
             FileMgr.Log("No credentials found in vault.");
@@ -147,54 +148,8 @@ public sealed partial class Login : Page
             {
                 if (isFirstTime)
                 {
-                    Loaded += async (sender, e) =>
-                    {
-                        await Task.Delay(200);
-                        var autoLoginEnabled = await FileMgr.GetSettingValueAsync(
-                            "autologin.IsEnabled"
-                        );
-
-                        if (autoLoginEnabled.ToString() == "NOSETTINGSFILE")
-                        {
-                            FileMgr.Log("Welcome to HourSync! Downloading current settings.");
-                            ContentDialog welcomeDialog = new()
-                            {
-                                Title = "Welcome!",
-                                Content = "Welcome to HourSync! This app requires the internet to initialize for the first time (and also to even log in!), so if you haven't connected, please do so now, or exit the app and try again later.\n\nThis app is meant to provide a centralized and easy to use experience to manage your eHours. Experience a modern design, an accessible interface, draft saving, and completely optional AI features.\n\nThe author of this app, Neil, wishes you enjoy this app and find it useful. Thanks!",
-                                XamlRoot = XamlRoot,
-                                PrimaryButtonText = "Download",
-                                CloseButtonText = "Cancel",
-                            };
-
-                            var result = await welcomeDialog.ShowAsync();
-                            if (result == ContentDialogResult.Primary)
-                            {
-                                FileMgr.Log("Downloading settings.json.");
-                                await DownloadSettings();
-                            }
-                            else
-                            {
-                                FileMgr.Log("User canceled the download of settings.json.");
-                                FileMgr.Log("Exiting.");
-                                App.Current.Exit();
-                                return;
-                            }
-                        }
-
-                        if (autoLoginEnabled.ToString().ToLower() == "true")
-                        {
-                            FileMgr.Log("AutoLogin is enabled. Logging in automatically.");
-                            if (await CheckForUpdate())
-                            {
-                                return;
-                            }
-                            LoginButton_Click(null, null);
-                        }
-                        else
-                        {
-                            FileMgr.Log("AutoLogin is disabled.");
-                        }
-                    };
+                    Loaded += async (sender, args) =>
+                        await HandleFirstTimeSetupAsync();
                 }
             }
             catch (Exception ex)
@@ -205,69 +160,54 @@ public sealed partial class Login : Page
         }
         if (PassFromVault.Length > 0)
         {
-            FileMgr.Log(
-                "Credentials successfully retrieved for user "
-                    + UserNameFromVault
-                    + ".\r\nLogging in for user."
-            );
+
+            FileMgr.Log($"Credentials successfully retrieved for user {UserNameFromVault}.");
             UsernameTextBox.Text = UserNameFromVault;
             PasswordBox.Password = PassFromVault;
-
-            FileMgr.Log(
-                $"It is {(isFirstTime ? "the first time" : "not the first time")} logging in."
-            );
-
             if (isFirstTime)
             {
-                Loaded += async (sender, e) =>
-                {
-                    await Task.Delay(200);
-                    var autoLoginEnabled = await FileMgr.GetSettingValueAsync(
-                        "autologin.IsEnabled"
-                    );
-
-                    if (autoLoginEnabled.ToString() == "NOSETTINGSFILE")
-                    {
-                        FileMgr.Log("Welcome to HourSync! Downloading current settings.");
-                        ContentDialog welcomeDialog = new()
-                        {
-                            Title = "Welcome!",
-                            Content = "Welcome to HourSync! This app requires the internet to initialize for the first time (and also to even log in!), so if you haven't connected, please do so now, or exit the app and try again later.\n\nThis app is meant to provide a centralized and easy to use experience to manage your eHours. Experience a modern design, an accessible interface, draft saving, and completely optional AI features. Updates are sent through Google Firebase and Amazon Web Services, so please ensure those are unblocked (they should be on school laptops!).\n\nThe author of this app, Neil, wishes you enjoy this app and find it useful. Thanks!",
-                            XamlRoot = XamlRoot,
-                            PrimaryButtonText = "Download",
-                            CloseButtonText = "Cancel",
-                        };
-
-                        var result = await welcomeDialog.ShowAsync();
-                        if (result == ContentDialogResult.Primary)
-                        {
-                            FileMgr.Log("Downloading settings.json.");
-                            await DownloadSettings();
-                        }
-                        else
-                        {
-                            FileMgr.Log("User canceled the download of settings.json.");
-                            FileMgr.Log("Exiting.");
-                            App.Current.Exit();
-                            return;
-                        }
-                    }
-
-                    if (autoLoginEnabled.ToString().ToLower() == "true")
-                    {
-                        FileMgr.Log("AutoLogin is enabled. Logging in automatically.");
-                        if (await CheckForUpdate())
-                        {
-                            return;
-                        }
-                        LoginButton_Click(null, null);
-                    }
-                    else
-                    {
-                        FileMgr.Log("AutoLogin is disabled.");
-                    }
-                };
+                Loaded += async (sender, args) =>
+                    await HandleFirstTimeSetupAsync();
             }
+        }
+    }
+
+    private async Task HandleFirstTimeSetupAsync()
+    {
+        await Task.Delay(200);
+        var autoLoginEnabled = await FileMgr.GetSettingValueAsync("autologin.IsEnabled");
+
+        if (autoLoginEnabled.ToString() == "NOSETTINGSFILE")
+        {
+            FileMgr.Log("Welcome to HourSync! Downloading current settings.");
+
+            var result = await ShowDialog("Welcome!", "Welcome to HourSync! This app requires the internet to initialize for the first time (and also to even log in!), so if you haven't connected, please do so now, or exit the app and try again later.\n\nThis app is meant to provide a centralized and easy to use experience to manage your eHours. Experience a modern design, an accessible interface, draft saving, and completely optional AI features.\n\nThe author of this app, Neil, wishes you enjoy this app and find it useful. Thanks!", "Cancel", "Download");
+            if (result == ContentDialogResult.Primary)
+            {
+                FileMgr.Log("Downloading settings.json.");
+                await DownloadSettings();
+            }
+            else
+            {
+                FileMgr.Log("User canceled the download of settings.json.");
+                FileMgr.Log("Exiting.");
+                App.Current.Exit();
+                return;
+            }
+        }
+
+        if (autoLoginEnabled.ToString().ToLower() == "true")
+        {
+            FileMgr.Log("AutoLogin is enabled. Logging in automatically.");
+            if (await CheckForUpdate())
+            {
+                return;
+            }
+            LoginButton_Click(null, null);
+        }
+        else
+        {
+            FileMgr.Log("AutoLogin is disabled.");
         }
     }
 
@@ -300,7 +240,7 @@ public sealed partial class Login : Page
                 var resp = await _client.GetAsync(settingsURL);
                 string json = await resp.Content.ReadAsStringAsync();
                 // Parse and write the settings JSON
-                var finalJson = ParseAndWriteSettingsJson(json);
+                var finalJson = FileMgr.ParseAndWriteSettingsJson(json);
                 FileMgr.WriteToFile("settings.json", finalJson);
                 waitForLoginProgressBar.IsIndeterminate = false;
                 waitForLoginProgressBar.Value = 100;
@@ -323,127 +263,7 @@ public sealed partial class Login : Page
         }
     }
 
-    private static string ParseAndWriteSettingsJson(string rawJson)
-    {
-        using JsonDocument doc = JsonDocument.Parse(rawJson);
-        var selectSettings = new Dictionary<string, object>();
-        var otherSettings = new Dictionary<string, object>();
 
-        foreach (var docElement in doc.RootElement.GetProperty("documents").EnumerateArray())
-        {
-            var fields = docElement.GetProperty("fields");
-            var key = fields.GetProperty("key").GetProperty("stringValue").GetString();
-            var type = fields.GetProperty("type").GetProperty("stringValue").GetString();
-
-            var setting = new Dictionary<string, object>
-            {
-                ["Key"] = key,
-                ["Title"] = fields.GetProperty("title").GetProperty("stringValue").GetString(),
-                ["Description"] = fields.GetProperty("description").GetProperty("stringValue").GetString(),
-                ["Type"] = type,
-                ["IsEnabled"] = true,
-                ["DefaultValue"] = fields.TryGetProperty("defaultValue", out var defValProp) && defValProp.TryGetProperty("booleanValue", out var boolVal)
-                        ? boolVal.GetBoolean()
-                        : (object?)null,
-                ["Options"] = null,
-                ["SelectedValue"] = null,
-            };
-
-            if (fields.TryGetProperty("options", out var optionsProp) && optionsProp.ValueKind == JsonValueKind.Object)
-            {
-                if (optionsProp.TryGetProperty("arrayValue", out var arrayVal) && arrayVal.TryGetProperty("values", out var valuesArray))
-                {
-                    var opts = new List<Dictionary<string, string>>();
-                    foreach (var option in valuesArray.EnumerateArray())
-                    {
-                        var fieldsMap = option.GetProperty("mapValue").GetProperty("fields");
-
-                        var friendlyName = fieldsMap.GetProperty("FriendlyName").GetProperty("stringValue").GetString();
-                        var keyName = fieldsMap.TryGetProperty("Key", out var k)
-                                        ? k.GetProperty("stringValue").GetString()
-                                      : fieldsMap.TryGetProperty("key", out var k2)
-                                        ? k2.GetProperty("stringValue").GetString()
-                                      : null;
-
-                        opts.Add(new Dictionary<string, string>
-                        {
-                            ["FriendlyName"] = friendlyName,
-                            ["Key"] = keyName,
-                        });
-                    }
-
-                    setting["Options"] = opts;
-                    if (opts.Count > 0)
-                        setting["SelectedValue"] = opts[0];
-                }
-            }
-
-            if (type == "select")
-                selectSettings[key] = setting;
-            else
-                otherSettings[key] = setting;
-        }
-
-        var finalSettings = new Dictionary<string, object>();
-        foreach (var kvp in selectSettings)
-            finalSettings[kvp.Key] = kvp.Value;
-        foreach (var kvp in otherSettings)
-            finalSettings[kvp.Key] = kvp.Value;
-
-        var options = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            TypeInfoResolver = new DefaultJsonTypeInfoResolver() // Enable reflection-based serialization
-        };
-
-        return (string)System.Text.Json.JsonSerializer.Serialize(finalSettings, options);
-    }
-
-    public static (string userName, string password) GetCreds()
-    {
-        PasswordCredential credential = null;
-        var vault = new PasswordVault();
-
-        try
-        {
-            // Retrieve all credentials from the vault
-            IReadOnlyList<PasswordCredential> allCredentials = vault.RetrieveAll();
-
-            // Filter credentials for the resource "HourSync"
-            List<PasswordCredential> credentialList = [];
-            foreach (var cred in allCredentials)
-            {
-                if (cred.Resource == "HourSync")
-                {
-                    credentialList.Add(cred);
-                }
-            }
-
-            if (credentialList.Count > 0)
-            {
-                // Use the first available credential
-                credential = credentialList[0];
-            }
-        }
-        catch (Exception ex)
-        {
-            // Log any exceptions
-            FileMgr.Log("Exception occurred: " + ex.Message);
-            return (null, null);
-        }
-
-        if (credential != null)
-        {
-            credential.RetrievePassword();
-            return (credential.UserName, credential.Password);
-        }
-        else
-        {
-            // Handle the case when no credentials are available
-            FileMgr.Log("Null.");
-            return (null, null);
-        }
-    }
 
     private void UpdateTheme()
     {
@@ -526,14 +346,46 @@ public sealed partial class Login : Page
 
     private async void ForgotPassword_Click(object sender, RoutedEventArgs e)
     {
+
+        TextBlock textBlock = new()
+        {
+            TextWrapping = TextWrapping.Wrap
+        };
+
+        textBlock.Inlines.Add(new Run
+        {
+            Text = "Working on a school computer? Press CTRL + Alt + Delete and click \"Change a Password.\" "
+        });
+        textBlock.Inlines.Add(new LineBreak());
+
+        textBlock.Inlines.Add(new Run { Text = "Otherwise, " });
+
+        Hyperlink hyperlink = new Hyperlink();
+        hyperlink.Inlines.Add(new Run { Text = "enter your username in the Microsoft signin screen" });
+
+        string pattern = @"^\d{3}[a-zA-Z]{3}(0[1-9]|[12][0-9]|3[01])$";
+        string loginHint = "";
+        if (Regex.IsMatch(UsernameTextBox.Text, pattern))
+        {
+            loginHint = $"&login_hint={UsernameTextBox.Text}@stu.olatheschools.org";
+        }
+        hyperlink.Click += async (s, e) =>
+        {
+            await Launcher.LaunchUriAsync(new Uri("https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=4765445b-32c6-49b0-83e6-1d93765276ca&redirect_uri=https%3A%2F%2Fwww.office.com%2Flandingv2&response_type=code%20id_token&scope=openid%20profile%20https%3A%2F%2Fwww.office.com%2Fv2%2FOfficeHome.All&response_mode=form_post&nonce=638905623156382711.NWVmYjg2YmMtODYwNy00MjUzLTk3Y2EtZGM5NWJkNDRjN2EzNWY0MGU2ODctMjg5OS00YjdhLTk1NDctOWIxNzcxYjFiNWEz&ui_locales=en-US&mkt=en-US&client-request-id=d6b60022-0d04-4323-bffa-978dc5b47402&state=_VvDr_oNwSPwxhWhEE2kkuQ8dZYOw3sIZ0DfFzDlZV0ff2PZIdKFh1ijP73ymrNqfm4mpC08XAD2WaU54Eu36GPzVxLQ5eeFFX3aU16ZBs2Kylcuzq8cB09raAiJ1wjRteyQevEpQ9TYy8gvcQsdDyVuA9S6lC8waZ0Q53KQtFZzh5s5l-3Hn1G9xX2PQzGevuc7pcAxfAodoFYXE_0EQNuXn6YGPdbwbOKZV1M6nzfTp6euVJj1145OBFUEob8HTj_YsPcUX0igOv08DutyAC3_XosmUGv6mRqAChU4lzI&x-client-SKU=ID_NET8_0&x-client-ver=8.5.0.0" + loginHint));
+        };
+
+        textBlock.Inlines.Add(hyperlink);
+
+        textBlock.Inlines.Add(new Run { Text = " and click \"Forgot Password\"." });
+
         var dialog = new ContentDialog
         {
             Title = "Forgot Password",
-            Content =
-                "Working on a school computer? Press CTRL + Alt + Delete and click \"Change a Password.\"\r\nOtherwise, go to \"https://accounts.microsoft.com\", enter your username, and click \"Forgot Password.\"",
+            Content = textBlock,
             PrimaryButtonText = "OK",
-            XamlRoot = XamlRoot,
+            XamlRoot = XamlRoot
         };
+
         await dialog.ShowAsync();
     }
 
@@ -654,49 +506,30 @@ public sealed partial class Login : Page
     {
         ShowLoginProgressBarAsync();
 
-        FileMgr.Log("Running await Post()");
-        var resp = await Post();
-        FileMgr.Log("POSTed");
-
-        resp = resp.Replace("\n", "");
-        if (resp.Contains("<h2>Welcome to your"))
+        try
         {
-            FileMgr.Log("Successful login");
-            nameOfAcademy = resp.Split(
-                    new string[] { "<h2>Welcome to your " },
-                    StringSplitOptions.None
-                )[1]
-                .Split(new string[] { " Endorsement" }, StringSplitOptions.None)[0];
-            nameOfPerson = resp.Split(new string[] { "Tracking, " }, StringSplitOptions.None)[1]
-                .Split(new string[] { "</h2>" }, StringSplitOptions.None)[0];
+            FileMgr.Log("Attempting login via HourSyncCore");
+            var loginResult = await HourSyncCore.Login(username, password);
 
-            FileMgr.Log("Getting home page");
-            var getresp = await Get(
-                "https://academyendorsement.olatheschools.com/Student/studentEHours.php"
-            );
-            FileMgr.Log("Successfully got home");
-
-            // Remove previous credentials and add new ones
-            var vault = new PasswordVault();
-            try
+            if (!string.IsNullOrEmpty(loginResult.Error) || string.IsNullOrEmpty(loginResult.PhpSessionId))
             {
-                // Retrieve all credentials from the vault
-                IReadOnlyList<PasswordCredential> allCredentials = vault.RetrieveAll();
+                FileMgr.Log($"Login failed: {loginResult.Error}");
+                ShowLoginError(loginResult.Error ?? "Login failed.");
+                return;
+            }
 
-                foreach (var cred in allCredentials)
-                {
-                    if (cred.Resource == "HourSync")
-                    {
-                        vault.Remove(cred);
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                // Handle exception appropriately
-            }
-            vault.Add(new PasswordCredential("HourSync", username, password));
-            FileMgr.Log("Updated credentials in vault");
+            phpSessionId = loginResult.PhpSessionId;
+            nameOfPerson = loginResult.StudentName ?? "";
+            nameOfAcademy = loginResult.StudentAcademy ?? "";
+
+            FileMgr.Log($"Login successful. Student: {nameOfPerson}, Academy: {nameOfAcademy}");
+
+            FileMgr.Log("Getting home page via HourSyncCore");
+            var getresp = await HourSyncCore.GetRequestsPage(phpSessionId);
+
+            FileMgr.Log("Successfully got home page");
+
+            CredMgr.SaveCreds(username, password);
 
             FileMgr.Log("Navigating to Home");
             waitForLogin.Hide();
@@ -704,86 +537,32 @@ public sealed partial class Login : Page
                 typeof(Home),
                 new object[]
                 {
+                    loginResult,
                     username,
                     password,
-                    phpSessionId,
-                    nameOfPerson,
-                    nameOfAcademy,
-                    getresp,
-                    _cookieContainer,
-                    _handler,
-                    _client,
+                    getresp
                 },
                 new DrillInNavigationTransitionInfo()
             );
 
-            // Notify the App instance about successful login
             FileMgr.Log("Running App.LoggedIn");
             ((App)Application.Current).LoggedIn(
-                username,
-                password,
-                phpSessionId,
-                nameOfPerson,
-                nameOfAcademy,
-                getresp,
-                _cookieContainer,
-                _handler,
-                _client
+                loginResult, username, password, getresp, true
             );
         }
-        else
+        catch (Exception ex)
         {
-            waitForLoginProgressBar.ShowError = true;
-            waitForLogin.Content = waitForLoginProgressBar;
-            waitForLogin.Title = "Incorrect username or password.";
-            waitForLogin.CloseButtonText = "OK";
+            FileMgr.Log($"Error during PerformLogin: {ex}");
+            ShowLoginError("An unexpected error occurred while logging in.");
         }
     }
 
-    private async Task<string> Post()
+    private void ShowLoginError(string message)
     {
-        var values = new Dictionary<string, string>
-        {
-            { "uName", username },
-            { "uPass", password },
-        };
-
-        var content = new FormUrlEncodedContent(values);
-
-        var response = await _client.PostAsync(
-            "https://academyendorsement.olatheschools.com/loginuserstudent.php",
-            content
-        );
-        var responseString = await response.Content.ReadAsStringAsync();
-
-        Uri uri = new Uri("https://academyendorsement.olatheschools.com/");
-        var cookies = _cookieContainer.GetCookies(uri);
-        phpSessionId = cookies["PHPSESSID"]?.Value;
-
-        return responseString;
-    }
-
-    private async Task<string> Get(string url)
-    {
-        if (string.IsNullOrEmpty(phpSessionId))
-        {
-            var dialog = new ContentDialog()
-            {
-                Title = "Error",
-                Content = "PHPSESSID cookie is not set.",
-                CloseButtonText = "OK",
-            };
-            await dialog.ShowAsync();
-            return "$$FAIL$$";
-        }
-
-        Uri uri = new Uri(url);
-        _cookieContainer.Add(uri, new Cookie("PHPSESSID", phpSessionId));
-
-        var response = await _client.GetAsync(url);
-        var responseString = await response.Content.ReadAsStringAsync();
-
-        return responseString;
+        waitForLoginProgressBar.ShowError = true;
+        waitForLogin.Content = waitForLoginProgressBar;
+        waitForLogin.Title = message;
+        waitForLogin.CloseButtonText = "OK";
     }
 
     private async Task<bool> CheckForUpdate()
@@ -795,20 +574,11 @@ public sealed partial class Login : Page
         var obj = JObject.Parse(json);
         string latestVersion = (string)obj["fields"]?["version"]?["stringValue"];
 
-        string result = IsNewerVersion(latestVersion, APPVERSIONNUMBER);
+        string result = Utils.IsNewerVersion(latestVersion, APPVERSIONNUMBER);
 
         if (result == "true")
         {
-            // Display the content dialog if version is greater than currentVersion
-            var contentDialog = new ContentDialog
-            {
-                Title = "New Update Available",
-                Content = "A newer version is available. Would you like to update?",
-                CloseButtonText = "Later",
-                PrimaryButtonText = "Update",
-                XamlRoot = XamlRoot,
-            };
-            var clicked = await contentDialog.ShowAsync();
+            var clicked = await ShowDialog("New Update Available", "A newer version is available. Would you like to update?", "Later", "Update");
             if (clicked == ContentDialogResult.Primary)
             {
                 ShowLoginProgressBarAsync();
@@ -820,7 +590,7 @@ public sealed partial class Login : Page
                     string settingsJson = await settingsResp.Content.ReadAsStringAsync();
 
                     // Deserialize into Dictionary<string, SettingDefinition>
-                    var downloadedSettings = ParseAndWriteSettingsJson(settingsJson);
+                    var downloadedSettings = FileMgr.ParseAndWriteSettingsJson(settingsJson);
 
                     if (downloadedSettings != null)
                     {
@@ -898,60 +668,10 @@ public sealed partial class Login : Page
         }
         else if (result == "error")
         {
-            var contentDialog = new ContentDialog
-            {
-                Title = "Update Check Error",
-                Content = "An error occurred while checking for updates.",
-                PrimaryButtonText = "Okay",
-                XamlRoot = XamlRoot,
-            };
-            await contentDialog.ShowAsync();
+            await ShowDialog("Update Check Error", "An error occurred while checking for updates.", "", "Okay");
             return true;
         }
 
         return false;
-    }
-
-    private static string IsNewerVersion(string fetchedVersion, string currentVersion)
-    {
-        // Handle empty or null version strings
-        if (string.IsNullOrWhiteSpace(fetchedVersion) || fetchedVersion.Split('.').Length != 3)
-        {
-            return "error";
-        }
-
-        var fetchedVersionParts = fetchedVersion.Split('.');
-        var currentVersionParts = currentVersion.Split('.');
-
-        // Check if both version parts have exactly 3 elements (major, minor, patch)
-        if (fetchedVersionParts.Length != 3 || currentVersionParts.Length != 3)
-        {
-            return "error";
-        }
-
-        // Loop through each version part
-        for (int i = 0; i < 3; i++)
-        {
-            try
-            {
-                int fetchedPart = int.Parse(fetchedVersionParts[i]);
-                int currentPart = int.Parse(currentVersionParts[i]);
-
-                if (fetchedPart > currentPart)
-                {
-                    return "true"; // Newer version
-                }
-                else if (fetchedPart < currentPart)
-                {
-                    return "false"; // Current version is newer or equal
-                }
-            }
-            catch (FormatException)
-            {
-                return "error"; // Return error if there is a format issue in version parsing
-            }
-        }
-
-        return "false"; // Both versions are the same
     }
 }

@@ -1,10 +1,4 @@
-﻿#pragma warning disable IDE0079 // Remove unnecessary suppression
-#pragma warning disable IDE0007 // Use implicit type
-#pragma warning disable IDE0044 // Add readonly modifier
-#pragma warning disable IDE0052 // Remove unread private members
-#pragma warning disable CA1861 // Avoid constant arrays as arguments
-#pragma warning disable CsWinRT1029 // Class not trimming / AOT compatible
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -28,6 +22,17 @@ public partial class NavigationViewModel : INotifyPropertyChanged
         set
         {
             _menuItems = value;
+            OnPropertyChanged();
+        }
+    }
+
+    private ObservableCollection<NavigationViewItem> _footerItems;
+    public ObservableCollection<NavigationViewItem> FooterItems
+    {
+        get => _footerItems;
+        set
+        {
+            _footerItems = value;
             OnPropertyChanged();
         }
     }
@@ -57,7 +62,7 @@ public partial class NavigationViewModel : INotifyPropertyChanged
             {
                 Content = "Home",
                 Tag = "home",
-                Icon = new SymbolIcon(Symbol.Home),
+                Icon = new SymbolIcon(Symbol.Home)
             },
             new()
             {
@@ -67,24 +72,29 @@ public partial class NavigationViewModel : INotifyPropertyChanged
             },
             new()
             {
-                Content = "Settings",
-                Tag = "settings",
-                Icon = new SymbolIcon(Symbol.Setting), /*, IsEnabled=false*/
-            },
-            new()
-            {
                 Content = "Leaderboard",
                 Tag = "leaderboard",
                 Icon = new SymbolIcon(Symbol.OutlineStar),
                 IsEnabled = false
             }
         ];
+
+        FooterItems =
+        [
+            new()
+            {
+                Content = "Settings",
+                Tag = "settings",
+                Icon = new SymbolIcon(Symbol.Setting)
+            }
+        ];
+
         RefreshMenuItems(isLoggedIn: false);
     }
 
     public void RefreshMenuItems(bool isLoggedIn)
     {
-        foreach (var item in MenuItems)
+        foreach (var item in MenuItems.Concat(FooterItems))
         {
             switch (item.Tag.ToString())
             {
@@ -99,11 +109,11 @@ public partial class NavigationViewModel : INotifyPropertyChanged
                 case "create":
                     item.IsEnabled = isLoggedIn;
                     break;
-                case "settings":
-                    item.IsEnabled = isLoggedIn;
-                    break;
                 case "leaderboard":
                     item.IsEnabled = false;
+                    break;
+                case "settings":
+                    item.IsEnabled = true;
                     break;
             }
         }
@@ -117,7 +127,7 @@ public partial class NavigationViewModel : INotifyPropertyChanged
             SelectedItem = MenuItems.FirstOrDefault(item => item.Tag.ToString() == "login");
         }
 
-        // Force a refresh of the MenuItems collection
         OnPropertyChanged(nameof(MenuItems));
+        OnPropertyChanged(nameof(FooterItems));
     }
 }

@@ -9,7 +9,7 @@
 
     <Grid>
         <ScrollViewer x:Name="ScrollViewer">
-            <Image x:Name="DisplayedImage"
+            <Image Margin="0,35,0,0" x:Name="DisplayedImage"
                    Stretch="Uniform"/>
         </ScrollViewer>
         <TextBlock x:Name="ImgTitle"

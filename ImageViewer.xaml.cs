@@ -27,6 +27,12 @@ public sealed partial class ImageViewer : Window
             Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.Base,
         };
         SystemBackdrop = micaBackdrop;
-        ExtendsContentIntoTitleBar = true;
+
+        DisplayedImage.ImageOpened += (s, e) =>
+        {
+            var bmp = (BitmapImage)DisplayedImage.Source;
+            AppWindow.Resize(new Windows.Graphics.SizeInt32(bmp.PixelWidth, bmp.PixelHeight + 30));
+            FileMgr.Log($"Width: {bmp.PixelWidth}, Height: {bmp.PixelHeight}");
+        };
     }
 }

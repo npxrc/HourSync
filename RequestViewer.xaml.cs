@@ -1,4 +1,4 @@
-#pragma warning disable IDE0079 // Remove unnecessary suppression
+﻿#pragma warning disable IDE0079 // Remove unnecessary suppression
 #pragma warning disable IDE0007 // Use implicit type
 #pragma warning disable IDE0044 // Add readonly modifier
 #pragma warning disable IDE0052 // Remove unread private members
@@ -6,43 +6,53 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
-using System.Reflection.Metadata;
 using System.Threading.Tasks;
-using System.Web;
+using HourSyncCoreLib;
 using HtmlAgilityPack;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
-using Windows.Media.Protection.PlayReady;
 
 namespace HourSync;
 
 public sealed partial class RequestViewer : Window
 {
+    private bool isEditing = false;
+
     private string id;
     private string phpSessionId;
     private string eventName;
-    private CookieContainer cookieContainer;
-    private HttpClientHandler handler;
-    private HttpClient client;
+    private static readonly CookieContainer cookieContainer = new();
+    private static readonly HttpClientHandler handler = new()
+    {
+        CookieContainer = cookieContainer,
+        AllowAutoRedirect = true,
+    };
+    private static readonly HttpClient client = new(handler)
+    {
+        DefaultRequestHeaders =
+        {
+            {
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            },
+        },
+    };
     private string nameOfAcademy;
-    private string nameOfPerson;
-    private string status;
+    private HourSyncCore.Status status;
     private HtmlDocument doc = new();
 
     private string username;
     private string password;
 
+    private int logInAgainAttempts = 0;
+
     public RequestViewer(
-        string idOfItem,
+        string id,
         string phpSessionId,
-        string eventName,
-        CookieContainer cookieContainer,
-        HttpClientHandler handler,
-        HttpClient client,
         string nameOfAcademy,
-        string status,
+        string eventName,
+        HourSyncCore.Status status,
         string username,
         string password
     )
@@ -56,168 +66,93 @@ public sealed partial class RequestViewer : Window
         ExtendsContentIntoTitleBar = true;
         Title = "Request Viewer";
 
-        id = idOfItem;
+        this.id = id;
         this.phpSessionId = phpSessionId;
-        this.eventName = eventName;
-        this.cookieContainer = cookieContainer;
-        this.handler = handler;
-        this.client = client;
         this.nameOfAcademy = nameOfAcademy;
+        this.eventName = eventName.Split('\n')[0];
         this.status = status;
         this.username = username;
         this.password = password;
 
         FileMgr.Log("Running PostAsync()");
         _ = PostAsync();
+
+        Closed += async (s, e) =>
+        {
+            if (isEditing)
+            {
+                MainWindow _mainWindow = (MainWindow)((App)Application.Current).m_window;
+                _mainWindow.ClosedEditor(id, this);
+            }
+        };
+    }
+
+    private async Task<ContentDialogResult> ShowDialog(string title, string content, string closeButtonText = "", string primaryButtonText = "", string secondaryButtonText = "")
+    {
+        return await new ContentDialog { Title = title, Content = content, CloseButtonText = closeButtonText.Length > 0 ? closeButtonText : null, PrimaryButtonText = primaryButtonText.Length > 0 ? primaryButtonText : null, SecondaryButtonText = secondaryButtonText.Length > 0 ? secondaryButtonText : null, XamlRoot = RootGrid.XamlRoot }.ShowAsync();
     }
 
     private async Task PostAsync()
     {
-        var values = new Dictionary<string, string> { { "ehours_request_descr", id } };
+        FileMgr.Log("Getting request via HourSyncCore");
+        HourSyncCore.FetchedEHourRequest response = await HourSyncCore.GetRequest(phpSessionId, id, true);
 
-        var content = new FormUrlEncodedContent(values);
-
-        Uri uri = new Uri("https://academyendorsement.olatheschools.com/");
-        cookieContainer.Add(uri, new Cookie("PHPSESSID", phpSessionId));
-
-        if (!client.DefaultRequestHeaders.Contains("User-Agent"))
+        if (response.Success && response.LoggedIn)
         {
-            client.DefaultRequestHeaders.Add(
-                "User-Agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-            );
-        }
+            FileMgr.Log("Success and logged in");
 
-        var response = await client.PostAsync(
-            "https://academyendorsement.olatheschools.com/Student/eHourDescription.php",
-            content
-        );
-        var responseString = await response.Content.ReadAsStringAsync();
+            eventTitle.Text = eventName;
+            reqdEHourCount.Text = response.RequestedHours;
 
-        //var responseString = ReadFromFile("eHourReq.html");
+            progressBar.IsIndeterminate = false;
 
-        doc.LoadHtml(responseString);
-
-        var whiteTextNodes = doc.DocumentNode.SelectNodes("//*[@class='whitetext']");
-        if (whiteTextNodes != null && whiteTextNodes.Count >= 2)
-        {
-            FileMgr.Log("Found the things");
-            string reqdHrs = HttpUtility.HtmlDecode(whiteTextNodes[0].InnerText);
-            string dateSubmitted = HttpUtility.HtmlDecode(whiteTextNodes[1].InnerText);
-            string desc = HttpUtility.HtmlDecode(
-                doc.DocumentNode.SelectSingleNode("//textarea[@id='description']")?.InnerText
-            );
-
-            eventTitle.Text = eventName.Split('\n')[0];
-            reqdEHourCount.Text = reqdHrs.Split(':')[1].Split(' ')[1];
-            if (doc.DocumentNode.SelectSingleNode("//*[@id='Delete']").InnerHtml.Length > 1)
-            {
-                pendingStatus.Text = "Pending";
-                progressBar.ShowPaused = true;
-            }
-            else
+            if (status == HourSyncCore.Status.Accepted)
             {
                 pendingStatus.Text = "Accepted";
-                progressBar.IsIndeterminate = false;
                 progressBar.Value = 100;
             }
-            var dateArray = dateSubmitted.Split(':');
-            string dateFinalText = "";
-            for (int i = 1; i < dateArray.Length; i++)
+            else if (status == HourSyncCore.Status.Denied)
             {
-                if (i == 1)
-                {
-                    dateFinalText += dateArray[i];
-                }
-                else
-                {
-                    dateFinalText += (":" + dateArray[i]);
-                }
+                pendingStatus.Text = "Denied";
+                progressBar.Value = 100;
+                progressBar.ShowError = true;
             }
-            dateSubtd.Text = dateFinalText;
-
-            FileMgr.Log(dateFinalText.TrimStart());
-
-            try
+            else if (status == HourSyncCore.Status.Pending)
             {
-                // Try parsing with either "yyyy-MM-dd HH:mm:ss" or "yyyy-MM-dd HH:mm:ss.fff"
-                DateTime inputDateTime = DateTime.ParseExact(
-                    dateFinalText.TrimStart(),
-                    new string[] { "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm:ss.fff" },
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    System.Globalization.DateTimeStyles.None
-                );
+                pendingStatus.Text = "Pending";
+                progressBar.Value = 100;
+                progressBar.ShowPaused = true;
 
-                // Get the current time
-                DateTime currentDateTime = DateTime.Now;
-
-                // Calculate the time difference
-                TimeSpan timeDifference = currentDateTime - inputDateTime;
-
-                // Determine if we need to round the minutes
-                int roundedMinutes;
-                if (timeDifference.Seconds >= 30)
-                {
-                    roundedMinutes = (int)Math.Round(timeDifference.TotalMinutes);
-                }
-                else
-                {
-                    roundedMinutes = (int)Math.Floor(timeDifference.TotalMinutes);
-                }
-
-                // Calculate the components of the time difference
-                int days = (int)timeDifference.TotalDays;
-                int hours = (int)timeDifference.TotalHours % 24;
-                int minutes = roundedMinutes % 60;
-
-                // Format the output based on the components
-                string result = "Submitted ";
-                if (days > 0)
-                {
-                    result += $"{days} day{(days > 1 ? "s" : "")}, ";
-                }
-                if (hours > 0 || days > 0)
-                {
-                    result += $"{hours} hour{(hours > 1 ? "s" : "")}, ";
-                }
-                if (minutes > 0 || hours > 0 || days > 0)
-                {
-                    result += $"{minutes} minute{(minutes > 1 ? "s" : "")} ago.";
-                }
-                else
-                {
-                    result = "Submitted just now.";
-                }
-
-                // Output the result
-                submittedTimeAgoText.Text = result;
+                editReqButton.IsEnabled = true;
+                delReqButton.IsEnabled = true;
             }
-            catch (FormatException ex)
+            else if (status == HourSyncCore.Status.Returned)
             {
-                Console.WriteLine($"Error parsing date: {ex.Message}");
-                FileMgr.LogError(ex.Message);
+                pendingStatus.Text = "Returned";
+                progressBar.IsIndeterminate = true; // should already be
             }
 
-            eventBody.Text = desc;
+            eventBody.Text = response.Body;
+            foreach (string ImagePath in response.Images)
+            {
+                LoadImage(ImagePath);
+            }
 
-            FileMgr.Log("Adding images to carousel from HTML");
-            try
-            {
-                AddImagesToCarouselFromDoc();
-            }
-            catch (Exception ex)
-            {
-                FileMgr.Log($"Exception in AddImagesToCarouselFromDoc: {ex.Message}");
-            }
+            dateSubtd.Text = response.Date.ToString();
+            submittedTimeAgoText.Text = Utils.FormatTimeAgo(response.Date);
         }
-        else if (whiteTextNodes != null)
-        {
-            FileMgr.Log("Not null");
-        }
-        else // you've been logged out
+        else if (!response.LoggedIn)
         {
             FileMgr.Log("Null, logging in again.");
+            if (logInAgainAttempts >= 2)
+            {
+                FileMgr.LogError("Too many log in attempts reached, check the code.");
+                throw new Exception("Too many log in attempts reached, check the code.");
+                ((App)Application.Current).Exit();
+                Close();
+            }
             bool isLoggedInAgain = await LogInAgain();
+            logInAgainAttempts++;
             if (isLoggedInAgain)
             {
                 await PostAsync();
@@ -227,39 +162,30 @@ public sealed partial class RequestViewer : Window
                 await new ContentDialog()
                 {
                     Title = "Incorrect credentials",
-                    Content =
-                        $"Your credentials for the user {username} are incorrect. Please log in again.",
+                    Content = $"Your credentials for the user {username} are incorrect. Please log in again.",
                     PrimaryButtonText = "OK",
                     XamlRoot = RootGrid.XamlRoot,
                 }.ShowAsync();
             }
         }
+        else
+        {
+            FileMgr.LogError($"Success: {response.Success}, Logged In: {response.LoggedIn}");
+            FileMgr.LogError($"{response.Error}");
+
+            await ShowDialog("Error", "An error occurred. Please check the log for more information", "Okay");
+            Close();
+        }
     }
 
     private async Task<bool> LogInAgain()
     {
-        FileMgr.Log("Running await Post()");
-        var resp = await Post();
-        FileMgr.Log("POSTed");
-
-        resp = resp.Replace("\n", "");
-        if (resp.Contains("<h2>Welcome to your"))
+        FileMgr.Log("Attempting login via HourSyncCore");
+        var loginResult = await HourSyncCore.Login(username, password);
+        if (string.IsNullOrEmpty(loginResult.Error) || !string.IsNullOrEmpty(phpSessionId))
         {
-            FileMgr.Log("Successful login");
-            nameOfAcademy = resp.Split(
-                    new string[] { "<h2>Welcome to your " },
-                    StringSplitOptions.None
-                )[1]
-                .Split(new string[] { " Endorsement" }, StringSplitOptions.None)[0];
-            nameOfPerson = resp.Split(new string[] { "Tracking, " }, StringSplitOptions.None)[1]
-                .Split(new string[] { "</h2>" }, StringSplitOptions.None)[0];
-
-            FileMgr.Log("Getting home page");
-            var getresp = await Get(
-                "https://academyendorsement.olatheschools.com/Student/studentEHours.php"
-            );
-            FileMgr.Log("Successfully got home");
-            ((App)Application.Current).GetRespOnLogin = getresp;
+            var homeResult = await HourSyncCore.GetRequestsPage(loginResult.PhpSessionId);
+            ((App)Application.Current).LoggedIn(loginResult, username, password, homeResult, false);
             return true;
         }
         else
@@ -268,97 +194,36 @@ public sealed partial class RequestViewer : Window
         }
     }
 
-    private async Task<string> Post()
+    private void LoadImage(string ImagePath)
     {
-        var values = new Dictionary<string, string>
-        {
-            { "uName", username },
-            { "uPass", password },
-        };
-
-        var content = new FormUrlEncodedContent(values);
-
-        var response = await client.PostAsync(
-            "https://academyendorsement.olatheschools.com/loginuserstudent.php",
-            content
-        );
-        var responseString = await response.Content.ReadAsStringAsync();
-
-        Uri uri = new Uri("https://academyendorsement.olatheschools.com/");
-        var cookies = cookieContainer.GetCookies(uri);
-        phpSessionId = cookies["PHPSESSID"]?.Value;
-
-        return responseString;
-    }
-
-    private async Task<string> Get(string url)
-    {
-        if (string.IsNullOrEmpty(phpSessionId))
-        {
-            var dialog = new ContentDialog()
-            {
-                Title = "Error",
-                Content = "PHPSESSID cookie is not set.",
-                CloseButtonText = "OK",
-            };
-            await dialog.ShowAsync();
-            return "$$FAIL$$";
-        }
-
-        Uri uri = new Uri(url);
-        cookieContainer.Add(uri, new Cookie("PHPSESSID", phpSessionId));
-
-        var response = await client.GetAsync(url);
-        var responseString = await response.Content.ReadAsStringAsync();
-
-        return responseString;
-    }
-
-    private void AddImagesToCarouselFromDoc()
-    {
-        FileMgr.Log("Loading images from HTML");
-
         // Create a base URL for relative paths
         string baseUrl = "https://academyendorsement.olatheschools.com/";
 
-        // Select all image nodes
-        var imgNodes = doc.DocumentNode.SelectNodes("//img");
-        if (imgNodes != null)
+        // If src contains "../", it needs to be fixed
+        if (ImagePath.StartsWith("../"))
         {
-            foreach (var imgNode in imgNodes)
-            {
-                var src = imgNode.GetAttributeValue("src", string.Empty);
-
-                // If src contains "../", it needs to be fixed
-                if (src.StartsWith("../"))
-                {
-                    src = string.Concat(baseUrl, src.AsSpan(3));
-                }
-
-                // Create a BitmapImage
-                var bitmapImage = new BitmapImage(new Uri(src));
-
-                // Create an Image control
-                var img = new Image
-                {
-                    MaxWidth = 600,
-                    MaxHeight = 450,
-                    Source = bitmapImage,
-                    Margin = new Thickness(0, 0, 5, 0),
-                };
-
-                // Attach click event handler
-                img.Tapped += (sender, e) => OnImageTapped(src);
-
-                // Add to ImagePanel
-                ImagePanel.Children.Add(img);
-            }
-            ImageMainContainer.Visibility = Visibility.Visible;
+            ImagePath = string.Concat(baseUrl, ImagePath.AsSpan(3));
         }
-        else
+
+        // Create a BitmapImage
+        var bitmapImage = new BitmapImage(new Uri(ImagePath));
+
+        // Create an Image control
+        var img = new Image
         {
-            FileMgr.Log("No images found on the page.");
-        }
+            MaxWidth = 600,
+            MaxHeight = 450,
+            Source = bitmapImage,
+            Margin = new Thickness(0, 0, 5, 0),
+        };
+
+        // Attach click event handler
+        img.Tapped += (_, __) => OnImageTapped(ImagePath);
+
+        ImageMainContainer.Visibility = Visibility.Visible;
+        // Add to ImagePanel
+        ImagePanel.Children.Add(img);
+
     }
 
     private static void OnImageTapped(string imageUrl)
@@ -481,30 +346,16 @@ public sealed partial class RequestViewer : Window
         {
             try
             {
-                await new ContentDialog()
-                {
-                    Title = "Cannot Delete",
-                    Content =
-                        "You cannot delete this request because it has already been accepted or denied by your academy instructor. Please contact the instructor of the "
+                _ = ShowDialog("Cannot Delete", "You cannot delete this request because it has already been accepted or denied by your academy instructor. Please contact the instructor of the "
                         + nameOfAcademy
-                        + " for further instructions.",
-                    PrimaryButtonText = "OK",
-                    XamlRoot = RootGrid.XamlRoot,
-                }.ShowAsync();
+                        + " for further instructions.", "OK");
             }
             catch (Exception ex)
             {
                 FileMgr.Log(ex.Message);
-                await new ContentDialog()
-                {
-                    Title = "Cannot Delete",
-                    Content =
-                        "You cannot delete this request because it has already been accepted or denied by your academy instructor. Please contact the instructor of the "
+                _ = ShowDialog("Cannot Delete", "You cannot delete this request because it has already been accepted or denied by your academy instructor. Please contact the instructor of the "
                         + nameOfAcademy
-                        + " for further instructions.",
-                    PrimaryButtonText = "OK",
-                    XamlRoot = RootGrid.XamlRoot,
-                }.ShowAsync();
+                        + " for further instructions.", "OK");
             }
         }
     }
@@ -513,5 +364,31 @@ public sealed partial class RequestViewer : Window
     {
         ((App)App.Current).GoToHomeAfterDel(afterDelReqResp);
         Close();
+    }
+
+    private async void EditReq(object sender, RoutedEventArgs e)
+    {
+        MainWindow _mainWindow = (MainWindow)((App)Application.Current).m_window;
+        bool res = _mainWindow.NowEditingViewer(id, this);
+        if (res)
+        {
+            isEditing = true;
+            EditEnabled.Visibility = Visibility.Visible;
+            eventBody.IsReadOnly = false;
+            eventBody.Focus(FocusState.Keyboard);
+        }
+        else
+        {
+            var contentRes = await ShowDialog("Max Editors Reached", "This request is already open in another editor. Please close that editor or continue working there.", "Close", "Go to Existing Editor");
+            if (contentRes == ContentDialogResult.Primary)
+            {
+                _mainWindow.FocusEditor(id);
+            }
+        }
+    }
+
+    private void Button_Click(object sender, RoutedEventArgs e)
+    {
+
     }
 }

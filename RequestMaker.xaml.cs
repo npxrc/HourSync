@@ -7,12 +7,14 @@
 #pragma warning disable CsWinRT1029 // Class not trimming / AOT compatible
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Threading;
 using System.Threading.Tasks;
+using HourSyncCoreLib;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -20,31 +22,47 @@ using Newtonsoft.Json;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
+using Core = HourSyncCoreLib.HourSyncCore;
 
 namespace HourSync;
 
 public sealed partial class RequestMaker : Page
 {
     private List<string> selectedImages = [];
+    private Core.LoginResult loginResult;
     private string username;
     private string password;
-    private string phpSessionId;
-    private string nameOfPerson;
-    private string nameOfAcademy;
-    private CookieContainer _cookieContainer;
-    private HttpClientHandler _handler;
-    private HttpClient _client;
+    private static readonly CookieContainer _cookieContainer = new();
+    private static readonly HttpClientHandler _handler = new()
+    {
+        CookieContainer = _cookieContainer,
+        AllowAutoRedirect = true,
+    };
+    private static readonly HttpClient _client = new(_handler)
+    {
+        DefaultRequestHeaders =
+        {
+            {
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            },
+        },
+    };
+
+    private int logInAgainAttempts = 0;
+
+    public ObservableCollection<ImageDisplayItem> ImageDisplayItems { get; } = new();
 
     public RequestMaker()
     {
         InitializeComponent();
         Loaded += loaded;
 
-        eventTitle.KeyUp += (sender, e) =>
+        eventTitle.LostFocus += (sender, e) =>
         {
             UpdatePresence();
         };
-        NumericTextBox.KeyUp += (sender, e) =>
+        NumericTextBox.LostFocus += (sender, e) =>
         {
             UpdatePresence();
         };
@@ -52,8 +70,70 @@ public sealed partial class RequestMaker : Page
 
     private async void loaded(object sender, RoutedEventArgs e)
     {
-        await webView.EnsureCoreWebView2Async(null);
-        webView.CoreWebView2.Navigate("https://www.chatgpt.com"); // Example webpage
+        // Disable dev tools and context menu
+        webView.CoreWebView2Initialized += (s, e) =>
+        {
+            // Turn off dev tools
+            webView.CoreWebView2.Settings.AreDevToolsEnabled = false;
+
+            // Turn off built-in context menus
+            webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+        };
+
+        // Ensure CoreWebView2 is created
+        await webView.EnsureCoreWebView2Async();
+
+
+        // Load all settings
+        var settings = FileMgr.LoadSettings();
+
+        if (settings.TryGetValue("aiEnabled", out var aiEnabledSetting))
+        {
+            if (!aiEnabledSetting.IsEnabled)
+            {
+                webView.Visibility = Visibility.Collapsed;
+                webView.Close();
+                return;
+            }
+        }
+
+        // Try to get the aiCompanion setting
+        if (settings.TryGetValue("aiCompanion", out var aiCompanionSetting))
+        {
+            // Get the SelectedValue (Option object)
+            Option selectedValue = aiCompanionSetting.SelectedValue;
+
+            if (selectedValue != null)
+            {
+                FileMgr.Log($"aiCompanion SelectedValue: {selectedValue.Key} ({selectedValue.FriendlyName})");
+
+                // Define valid keys and corresponding URLs
+                var aiUrls = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { "chatgpt", "https://chatgpt.com" },
+                    { "gemini", "https://gemini.google.com" },
+                    { "claude", "https://claude.ai" },
+                    { "deepseek", "https://chat.deepseek.com" },
+                    { "copilot", "https://copilot.microsoft.com" },
+                    { "duck", "https://duck.ai" },
+                    { "perplexity", "https://www.perplexity.ai" },
+                    { "grok", "https://grok.com" }
+                };
+
+                if (aiUrls.TryGetValue(selectedValue.Key, out var url))
+                {
+                    webView.Source = new Uri(url);
+                    FileMgr.Log($"Navigating webView to {url}");
+                }
+                else
+                {
+                    // Unknown key — let you handle it
+                    FileMgr.Log($"Unrecognized AI companion key: {selectedValue.Key}");
+                    // Handle unrecognized key here
+
+                }
+            }
+        }
     }
 
     private void UpdatePresence()
@@ -69,7 +149,7 @@ public sealed partial class RequestMaker : Page
 
             if (eventTitle != null && eventTitle.Text.Length > 0)
             {
-                FileMgr.Log("Setting presence to `"+ $"Requesting {anyHours} \"{eventTitle.Text}\" `");
+                FileMgr.Log("Setting presence to `" + $"Requesting {anyHours} \"{eventTitle.Text}\" `");
                 ((App)Application.Current).UpdatePresence(
                     "create",
                     $"Requesting {anyHours} \"{eventTitle.Text}\" "
@@ -84,7 +164,7 @@ public sealed partial class RequestMaker : Page
         catch (Exception)
         {
             System.Diagnostics.Trace.WriteLine("Error in UpdatePresence()");
-        }   
+        }
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -93,16 +173,11 @@ public sealed partial class RequestMaker : Page
         if (e.Parameter is object[] parameters)
         {
             // Check the number of parameters
-            if (parameters.Length >= 9)
+            if (parameters.Length >= 4)
             {
-                username = parameters[0] as string;
-                password = parameters[1] as string;
-                phpSessionId = parameters[2] as string;
-                nameOfPerson = parameters[3] as string;
-                nameOfAcademy = parameters[4] as string;
-                _cookieContainer = parameters[6] as CookieContainer;
-                _handler = parameters[7] as HttpClientHandler;
-                _client = parameters[8] as HttpClient;
+                loginResult = (Core.LoginResult)parameters[0];
+                username = parameters[1] as string;
+                password = parameters[2] as string;
             }
             else
             {
@@ -130,7 +205,7 @@ public sealed partial class RequestMaker : Page
     {
         Loaded -= OnPageLoaded;
         bool res = await LoadDraft();
-        if (res == true)
+        if (res)
         {
             SaveDraft();
         }
@@ -164,15 +239,53 @@ public sealed partial class RequestMaker : Page
 
         if (files.Count > 0)
         {
-            // Do something with the files
-            var stringOfFileNames = "Selected Files:";
             foreach (StorageFile file in files)
             {
-                // Handle each file
-                stringOfFileNames += (", " + file.Name);
                 selectedImages.Add(file.Path);
+
+                // Add to display collection
+                var displayItem = new ImageDisplayItem
+                {
+                    ImagePath = file.Path,
+                    FileName = file.Name
+                };
+                ImageDisplayItems.Add(displayItem);
             }
+
+            UpdateImageUI();
+            SaveDraft(); // Save draft when images are added
+        }
+    }
+    private void RemoveImage_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is string imagePath)
+        {
+            // Remove from selectedImages list
+            selectedImages.Remove(imagePath);
+
+            // Remove from display collection
+            var itemToRemove = ImageDisplayItems.FirstOrDefault(item => item.ImagePath == imagePath);
+            if (itemToRemove != null)
+            {
+                ImageDisplayItems.Remove(itemToRemove);
+            }
+
+            UpdateImageUI();
+            SaveDraft(); // Save draft when images are removed
+        }
+    }
+    private void UpdateImageUI()
+    {
+        if (selectedImages.Count > 0)
+        {
+            var stringOfFileNames = $"Selected Files: {string.Join(", ", selectedImages.Select(Path.GetFileName))}";
             filesSelectedTextBlock.Text = stringOfFileNames;
+            ImagePreviewSection.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            filesSelectedTextBlock.Text = "No files selected.";
+            ImagePreviewSection.Visibility = Visibility.Collapsed;
         }
     }
 
@@ -198,6 +311,19 @@ public sealed partial class RequestMaker : Page
                 NumericTextBox.Text,
                 eventBody.Text
             );
+
+            // Get the raw event title text
+            string rawText = eventTitle.Text;
+
+            // Define a list of invalid characters for file names
+            char[] invalidChars = Path.GetInvalidFileNameChars();
+
+            // Remove invalid characters from the event title
+            string cleanedText = new string(rawText
+                .Where(c => !invalidChars.Contains(c))  // Remove invalid characters
+                .ToArray());
+
+            SaveDraft("drafts/" + cleanedText);
 
             eventTitle.Text = "";
             eventDate.SelectedDate = null;
@@ -226,6 +352,12 @@ public sealed partial class RequestMaker : Page
             NumericTextBox.Text = "0";
             eventBody.Text = "";
             DraftDeletedSuccessfully.Visibility = Visibility.Visible;
+
+            // Clear images
+            selectedImages.Clear();
+            ImageDisplayItems.Clear();
+            UpdateImageUI();
+
             FileMgr.DeleteFile("draft.json");
             LoadDraft();
         }
@@ -271,7 +403,9 @@ public sealed partial class RequestMaker : Page
             var content = CreateMultipartFormDataContent(title, formattedDate, hours, desc);
 
             Uri uri = new("https://academyendorsement.olatheschools.com/");
-            _cookieContainer.Add(uri, new Cookie("PHPSESSID", phpSessionId));
+            _cookieContainer.Add(uri, new Cookie("PHPSESSID", loginResult.PhpSessionId));
+
+            FileMgr.Log(loginResult.PhpSessionId);
 
             if (!_client.DefaultRequestHeaders.Contains("User-Agent"))
             {
@@ -307,22 +441,24 @@ public sealed partial class RequestMaker : Page
                     typeof(Home),
                     new object[]
                     {
+                        loginResult,
                         username,
                         password,
-                        phpSessionId,
-                        nameOfPerson,
-                        nameOfAcademy,
-                        responseString,
-                        _cookieContainer,
-                        _handler,
-                        _client,
+                        responseString
                     }
                 );
             }
             else
             {
                 FileMgr.Log("Null, logging in again.");
+                if (logInAgainAttempts >= 3)
+                {
+                    FileMgr.LogError("Too many log in attempts reached, check the code.");
+                    throw new Exception("Too many log in attempts reached, check the code.");
+                    ((App)Application.Current).Exit();
+                }
                 bool isLoggedInAgain = await LogInAgain();
+                logInAgainAttempts++;
                 if (isLoggedInAgain)
                 {
                     await PostRequestAsync(title, date, hours, desc);
@@ -360,8 +496,11 @@ public sealed partial class RequestMaker : Page
         eventDate.SelectedDate = null;
         NumericTextBox.Text = "0";
         eventBody.Text = "";
-        filesSelectedTextBlock.Text = "Selected Files:";
+
+        // Clear images
         selectedImages.Clear();
+        ImageDisplayItems.Clear();
+        UpdateImageUI();
 
         FileMgr.Log("done");
 
@@ -402,28 +541,12 @@ public sealed partial class RequestMaker : Page
     //Log in again
     private async Task<bool> LogInAgain()
     {
-        FileMgr.Log("Running await Post()");
-        var resp = await Post();
-        FileMgr.Log("POSTed");
-
-        resp = resp.Replace("\n", "");
-        if (resp.Contains("<h2>Welcome to your"))
+        FileMgr.Log("Attempting login via HourSyncCore");
+        loginResult = await HourSyncCore.Login(username, password);
+        if (string.IsNullOrEmpty(loginResult.Error) || !string.IsNullOrEmpty(loginResult.PhpSessionId))
         {
-            FileMgr.Log("Successful login");
-            nameOfAcademy = resp.Split(
-                    ["<h2>Welcome to your "],
-                    StringSplitOptions.None
-                )[1]
-                .Split([" Endorsement"], StringSplitOptions.None)[0];
-            nameOfPerson = resp.Split(["Tracking, "], StringSplitOptions.None)[1]
-                .Split(["</h2>"], StringSplitOptions.None)[0];
-
-            FileMgr.Log("Getting home page");
-            var getresp = await Get(
-                "https://academyendorsement.olatheschools.com/Student/studentEHours.php"
-            );
-            FileMgr.Log("Successfully got home");
-            ((App)Application.Current).GetRespOnLogin = getresp;
+            var homeResult = await HourSyncCore.GetRequestsPage(loginResult.PhpSessionId);
+            ((App)Application.Current).LoggedIn(loginResult, username, password, homeResult, false);
             return true;
         }
         else
@@ -432,54 +555,8 @@ public sealed partial class RequestMaker : Page
         }
     }
 
-    private async Task<string> Post()
-    {
-        var values = new Dictionary<string, string>
-        {
-            { "uName", username },
-            { "uPass", password },
-        };
-
-        var content = new FormUrlEncodedContent(values);
-
-        var response = await _client.PostAsync(
-            "https://academyendorsement.olatheschools.com/loginuserstudent.php",
-            content
-        );
-        var responseString = await response.Content.ReadAsStringAsync();
-
-        Uri uri = new Uri("https://academyendorsement.olatheschools.com/");
-        var cookies = _cookieContainer.GetCookies(uri);
-        phpSessionId = cookies["PHPSESSID"]?.Value;
-
-        return responseString;
-    }
-
-    private async Task<string> Get(string url)
-    {
-        if (string.IsNullOrEmpty(phpSessionId))
-        {
-            var dialog = new ContentDialog()
-            {
-                Title = "Error",
-                Content = "PHPSESSID cookie is not set.",
-                CloseButtonText = "OK",
-            };
-            await dialog.ShowAsync();
-            return "$$FAIL$$";
-        }
-
-        Uri uri = new Uri(url);
-        _cookieContainer.Add(uri, new Cookie("PHPSESSID", phpSessionId));
-
-        var response = await _client.GetAsync(url);
-        var responseString = await response.Content.ReadAsStringAsync();
-
-        return responseString;
-    }
-
     //Drafts
-    private async void SaveDraft()
+    private async void SaveDraft(string filename = "draft")
     {
         try
         {
@@ -496,7 +573,9 @@ public sealed partial class RequestMaker : Page
                 Environment.SpecialFolder.LocalApplicationData
             );
             var dataPath = Path.Combine(localAppDataPath, "HourSync");
-            var draftFilePath = Path.Combine(dataPath, "draft.json");
+            Directory.CreateDirectory(Path.Combine(dataPath, "drafts"));
+            string fileNameCleaned = filename.Replace(".json", "");
+            var draftFilePath = Path.Combine(dataPath, $"{fileNameCleaned}.json");
 
             var json = JsonConvert.SerializeObject(draft, Newtonsoft.Json.Formatting.Indented);
             File.WriteAllText(draftFilePath, json);
@@ -543,17 +622,20 @@ public sealed partial class RequestMaker : Page
                 eventBody.Text = draft.Description;
                 selectedImages = [.. draft.ImagePaths];
 
-                // Update image labels
-                var stringOfFileNames = "Selected Files:";
+                // Update display collection
+                ImageDisplayItems.Clear();
                 foreach (var imagePath in selectedImages)
                 {
-                    // Handle each file
-                    stringOfFileNames += (", " + imagePath);
+                    var displayItem = new ImageDisplayItem
+                    {
+                        ImagePath = imagePath,
+                        FileName = Path.GetFileName(imagePath)
+                    };
+                    ImageDisplayItems.Add(displayItem);
                 }
-                filesSelectedTextBlock.Text = stringOfFileNames;
 
+                UpdateImageUI();
                 DraftLoadedSuccessfully.Visibility = Visibility.Visible;
-
                 UpdatePresence();
                 return true;
             }
@@ -628,7 +710,7 @@ public sealed partial class RequestMaker : Page
             FileMgr.DeleteFile("draft.json");
             DraftIsCorruptStack.Visibility = Visibility.Collapsed;
             DraftDeletedSuccessfully.Visibility = Visibility.Visible;
-            LoadDraft();
+            _ = LoadDraft();
         }
         else if (result == ContentDialogResult.Secondary)
         {
@@ -637,11 +719,44 @@ public sealed partial class RequestMaker : Page
     }
 }
 
+public class ImageDisplayItem
+{
+    public string ImagePath
+    {
+        get; set;
+    }
+    public string FileName
+    {
+        get; set;
+    }
+}
+
+// Keep your existing classes
 public class Draft
 {
-    public string Title { get; set; }
-    public DateTimeOffset? Date { get; set; }
-    public string Hours { get; set; }
-    public string Description { get; set; }
+    public string Title
+    {
+        get; set;
+    }
+    public DateTimeOffset? Date
+    {
+        get; set;
+    }
+    public string Hours
+    {
+        get; set;
+    }
+    public string Description
+    {
+        get; set;
+    }
     public List<string> ImagePaths { get; set; } = [];
+}
+
+public class ImageDef
+{
+    public string Location
+    {
+        get; init;
+    }
 }

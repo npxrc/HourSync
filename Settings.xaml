@@ -18,12 +18,17 @@
                        Style="{ThemeResource TitleTextBlockStyle}"
                        Margin="0,0,0,10"/>
 
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <Button Content="Clear Log" Click="ClearLog"/>
+                <Button Content="See Machine Info" Margin="10,0,0,0" Click="GetMachineType"/>
+                <Button Content="About HourSync" Margin="10,0,0,0" Click="AboutHourSync"/>
+            </StackPanel>
             <ListView x:Name="SettingsPanel"
                       ItemsSource="{x:Bind settings}">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="local:SettingDefinition">
                         <StackPanel Orientation="Vertical"
-                                    Margin="0,10">
+                                    Margin="0,5">
                             <!-- TeachingTip -->
                             <TeachingTip
                                 Title="{x:Bind Title}"

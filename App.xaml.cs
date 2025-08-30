@@ -7,17 +7,15 @@
 #pragma warning disable 0649 // it is actually assigned to!
 #pragma warning disable 0169 // it is actually assigned to!
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using DiscordRPC;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
-using DiscordRPC;
-using Windows.Graphics.Display;
-using System.Runtime.CompilerServices;
-using System.Drawing;
-using WinRT.HourSyncVtableClasses;
+using Core = HourSyncCoreLib.HourSyncCore;
 
 namespace HourSync;
 public partial class App : Application
@@ -37,6 +35,10 @@ public partial class App : Application
     public Window m_window;
 
     // Properties to hold parameters
+    public Core.LoginResult LoginResult
+    {
+        get; set;
+    }
     public string Username
     {
         get; set;
@@ -57,7 +59,7 @@ public partial class App : Application
     {
         get; set;
     }
-    public string GetRespOnLogin
+    public string HomeResult
     {
         get; set;
     }
@@ -75,7 +77,7 @@ public partial class App : Application
     }
     private string currentPage = "home";
     private string previousPage = "null";
-    
+
     public DiscordRpcClient client = new("1342974846090481766");
     private DiscordRPC.Button[] buttons = new[]{
         new DiscordRPC.Button()
@@ -97,7 +99,7 @@ public partial class App : Application
         {
             FileMgr.Log("----------\r\nVirtual machine detected. Please use legitimate hardware.");
         }
-        
+
         m_window = new MainWindow();
 
         rootFrame = new Frame();
@@ -108,10 +110,12 @@ public partial class App : Application
         NavigationView = new NavigationView
         {
             MenuItemsSource = NavigationViewModel.MenuItems,
+            FooterMenuItemsSource = NavigationViewModel.FooterItems,
             SelectedItem = NavigationViewModel.SelectedItem,
-            IsSettingsVisible = false,
+            IsSettingsVisible = false, // we’re handling Settings ourselves
             Content = rootFrame
         };
+
 
         NavigationView.ItemInvoked += NavigationView_ItemInvoked;
 
@@ -139,74 +143,86 @@ public partial class App : Application
         if (args.InvokedItemContainer is NavigationViewItem item)
         {
             SlideNavigationTransitionInfo effect;
-            switch (item.Tag.ToString())
+            previousPage = currentPage;
+            if (previousPage == item.Tag.ToString()) return;
+
+            string targetPage = item.Tag.ToString();
+
+            // simple page order: left-to-right layout
+            var pageOrder = new List<string> { "home", "create", "leaderboard" };
+
+            if (targetPage == "settings")
             {
-                case "home":
-                    previousPage = currentPage;
-                    if (currentPage == "home") break;
-                    currentPage = "home";
-                    rootFrame.Navigate(typeof(Home), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromLeft});
-                    break;
-                case "create":
-                    previousPage = currentPage;
-                    if (previousPage == "home")
+                // settings always slides vertically
+                if (previousPage == "settings") return;
+                effect = new SlideNavigationTransitionInfo()
+                {
+                    Effect = SlideNavigationTransitionEffect.FromBottom
+                };
+            }
+            else
+            {
+                // both target and previous are in the linear strip
+                int prevIndex = pageOrder.IndexOf(previousPage);
+                int newIndex = pageOrder.IndexOf(targetPage);
+
+                if (prevIndex < newIndex)
+                {
+                    // going right
+                    effect = new SlideNavigationTransitionInfo()
                     {
-                        effect = new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight };
-                    }
-                    else if (previousPage == "settings" || previousPage == "leaderboard") // pages to the right
+                        Effect = SlideNavigationTransitionEffect.FromRight
+                    };
+                }
+                else
+                {
+                    // going left
+                    effect = new SlideNavigationTransitionInfo()
                     {
-                        effect = new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromLeft };
-                    }
-                    else
-                    {
-                        effect = new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromBottom };
-                    }
-                    if (currentPage == "create") break;
-                    currentPage = "create";
-                    rootFrame.Navigate(typeof(RequestMaker), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, effect);
-                    break;
-                case "settings":
-                    previousPage = currentPage;
-                    if (previousPage == "create" || previousPage == "home") // pages to the left
-                    {
-                        effect = new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight };
-                    }
-                    else if (previousPage == "leaderboard")
-                    {
-                        effect = new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromLeft };
-                    }
-                    else
-                    {
-                        effect = new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromBottom };
-                    }
-                    if (currentPage == "settings") break;
-                    currentPage = "settings";
-                    rootFrame.Navigate(typeof(Settings), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, effect);
-                    break;
-                case "leaderboard":
-                    previousPage = currentPage;
-                    if (currentPage == "leaderboard") break;
-                    currentPage = "leaderboard";
-                    rootFrame.Navigate(typeof(Leaderboard), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight });
-                    break;
+                        Effect = SlideNavigationTransitionEffect.FromLeft
+                    };
+                }
+            }
+
+            currentPage = targetPage;
+
+            // navigate to correct page type
+            Type targetType = targetPage switch
+            {
+                "login" => typeof(Login),
+                "home" => typeof(Home),
+                "create" => typeof(RequestMaker),
+                "leaderboard" => typeof(Leaderboard),
+                "settings" => typeof(Settings),
+                _ => null
+            };
+
+            if (targetType != null)
+            {
+                rootFrame.Navigate(
+                    targetType,
+                    new object[] { LoginResult, Username, Password, HomeResult },
+                    effect
+                );
             }
         }
     }
 
-    public void LoggedIn(string username, string password, string phpSessionId, string nameOfPerson, string nameOfAcademy, string getresp, CookieContainer cookieContainer, HttpClientHandler handler, HttpClient client)
+    public void LoggedIn(Core.LoginResult loginResult, string username, string password, string getresp, bool navigate = true)
     {
+        LoginResult = loginResult;
         Username = username;
         Password = password;
-        PhpSessionId = phpSessionId;
-        NameOfPerson = nameOfPerson;
-        NameOfAcademy = nameOfAcademy;
-        GetRespOnLogin = getresp;
-        CookieContainer = cookieContainer;
-        Handler = handler;
-        Client = client;
+        PhpSessionId = loginResult.PhpSessionId;
+        NameOfPerson = loginResult.StudentName;
+        NameOfAcademy = loginResult.StudentAcademy;
+        HomeResult = getresp;
 
-        NavigationViewModel.RefreshMenuItems(isLoggedIn: true);
-        rootFrame.Navigate(typeof(Home), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, GetRespOnLogin, CookieContainer, Handler, Client }, new DrillInNavigationTransitionInfo());
+        if (navigate)
+        {
+            NavigationViewModel.RefreshMenuItems(isLoggedIn: true);
+            rootFrame.Navigate(typeof(Home), new object[] { loginResult, username, password, getresp }, new DrillInNavigationTransitionInfo());
+        }
     }
 
     public void LoggedOut()
@@ -218,13 +234,14 @@ public partial class App : Application
         PhpSessionId = null;
         NameOfPerson = null;
         NameOfAcademy = null;
-        GetRespOnLogin = null;
+        HomeResult = null;
         CookieContainer = null;
         Handler = null;
         Client = null;
 
         NavigationViewModel.RefreshMenuItems(isLoggedIn: false);
         rootFrame.Navigate(typeof(Login), false);
+        currentPage = "login";
     }
 
     public void BackClicked()
@@ -244,13 +261,13 @@ public partial class App : Application
 
     public void GoToHomeAfterDel(string getresp)
     {
-        GetRespOnLogin = getresp;
-        rootFrame.Navigate(typeof(Home), new object[] { Username, Password, PhpSessionId, NameOfPerson, NameOfAcademy, getresp, CookieContainer, Handler, Client }, new DrillInNavigationTransitionInfo());
+        HomeResult = getresp;
+        rootFrame.Navigate(typeof(Home), new object[] { LoginResult, Username, Password, getresp }, new DrillInNavigationTransitionInfo());
     }
 
     public void UpdateHomeContent(string getresp)
     {
-        GetRespOnLogin = getresp;
+        HomeResult = getresp;
     }
 
     public void UpdatePresence(string page, string details)

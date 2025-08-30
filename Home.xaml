@@ -11,9 +11,9 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-        
+
         <!-- Content for the top row -->
-        <StackPanel Grid.Row="0" Margin="0 0 0 5">
+        <StackPanel Grid.Row="0" Orientation="Vertical">
             <TextBlock x:Name="StudentName" Style="{ThemeResource TitleTextBlockStyle}"/>
             <TextBlock x:Name="StudentAcademy" Style="{ThemeResource SubtitleTextBlockStyle}"/>
             <TextBlock x:Name="StudentEHours" Style="{ThemeResource BodyTextBlockStyle}"/>
@@ -24,7 +24,8 @@
             <ProgressBar x:Name="StudentEHourProgress" Margin="0,10" Width="500px" HorizontalAlignment="Left" ToolTipService.ToolTip="Your progress towards 200 eHours"/>
             <StackPanel Orientation="Horizontal">
                 <Button Content="Logout" Click="Logout_Click" Margin="0, 0, 10, 0"/>
-                <DropDownButton x:Name="SortDropDown" Content="Sort by" ToolTipService.ToolTip="Sort" AutomationProperties.Name="Sort">
+
+                <DropDownButton x:Name="SortDropDown" Content="Sort by" ToolTipService.ToolTip="Sort" AutomationProperties.Name="Sort" Margin="0,0,10,0">
                     <DropDownButton.Flyout>
                         <MenuFlyout Placement="Bottom">
                             <MenuFlyoutItem Text="Date (Old to New)" Click="SortDateOtoN"/>
@@ -37,6 +38,13 @@
                     </DropDownButton.Flyout>
                 </DropDownButton>
             </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                <TextBox x:Name="SearchBox" 
+                     Width="300"
+                     PlaceholderText="Search requests..."
+                         TextChanged="Search"/>
+            </StackPanel>
         </StackPanel>
 
         <!-- Main content grid in the second row -->
@@ -45,10 +53,12 @@
                 <ColumnDefinition Width="2*"/>
                 <ColumnDefinition Width="1*"/>
             </Grid.ColumnDefinitions>
+
             <!-- ScrollViewer in the first column -->
             <ScrollViewer Grid.Column="0" VerticalScrollMode="Auto" VerticalScrollBarVisibility="Auto">
                 <Grid>
                     <StackPanel x:Name="RequestsPanel" Margin="0 10">
+
                         <TextBlock Text="Pending Requests:"/>
                         <StackPanel x:Name="PendingReqsPanel" Margin="0 10 0 10"/>
                         <TextBlock Text="Accepted Requests:"/>
@@ -60,6 +70,7 @@
                     </StackPanel>
                 </Grid>
             </ScrollViewer>
+
             <!-- Frame in the second column -->
             <Frame Grid.Column="1" x:Name="ContentFrame"/>
         </Grid>

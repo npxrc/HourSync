@@ -5,11 +5,10 @@
 #pragma warning disable CA1861 // Avoid constant arrays as arguments
 #pragma warning disable CsWinRT1029 // Class not trimming / AOT compatible
 // MainWindow.xaml.cs
-using System.Net;
-using System.Net.Http;
+using System;
+using System.Collections.Generic;
+using HourSyncCoreLib;
 using Microsoft.UI.Xaml;
-using Windows.Foundation;
-using Windows.UI.ViewManagement;
 
 namespace HourSync;
 
@@ -38,30 +37,68 @@ public sealed partial class MainWindow : Window
     }
 
     public void OpenRequestViewer(
-        string idOfItem,
+        string id,
         string phpSessionId,
-        string eventName,
-        CookieContainer cookieContainer,
-        HttpClientHandler handler,
-        HttpClient client,
         string nameOfAcademy,
-        string status,
+        string eventName,
+        HourSyncCore.Status status,
         string username,
         string password
     )
     {
         _requestViewer = new RequestViewer(
-            idOfItem,
+            id,
             phpSessionId,
-            eventName,
-            cookieContainer,
-            handler,
-            client,
             nameOfAcademy,
+            eventName,
             status,
             username,
             password
         );
         _requestViewer.Activate();
+    }
+
+    // One dictionary is enough.
+    private Dictionary<string, RequestViewer> openedEditors = [];
+
+    public bool NowEditingViewer(string id, RequestViewer viewer)
+    {
+        // If already editing this ID, don’t allow a second editor.
+        if (openedEditors.TryGetValue(id, out var value))
+        {
+            return value == viewer;
+        }
+
+        // Otherwise, register it.
+        openedEditors[id] = viewer;
+        return true;
+    }
+    public void ClosedEditor(string id, RequestViewer viewer)
+    {
+        FileMgr.Log("Closing window " + id);
+        if (openedEditors.TryGetValue(id, out var existingViewer))
+        {
+            // Only remove if the instance matches what we expect
+            if (existingViewer == viewer)
+            {
+                openedEditors.Remove(id);
+            }
+        }
+    }
+
+    public void FocusEditor(string id)
+    {
+        try
+        {
+            if (openedEditors.TryGetValue(id, out RequestViewer viewer))
+            {
+                viewer.AppWindow.Show(false);
+                viewer.Activate();
+            }
+        }
+        catch (Exception)
+        {
+            FileMgr.LogError("Window does not exist");
+        }
     }
 }

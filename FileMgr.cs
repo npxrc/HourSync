@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -155,6 +157,17 @@ public class FileMgr
         }
     }
 
+    public static void StartLogSession()
+    {
+        string? logExists = ReadFromFile("log.txt");
+        if (logExists != null)
+        {
+            Log("----------\r\nLogging started for session " + DateTime.Now);
+            return;
+        }
+        Log("                             HourSync Log\r\nThese logs help for diagnostic purposes and can be deleted at any time.\r\n       Be sure to also check Windows Event Viewer (eventvwr.msc)");
+    }
+
     public static bool DeleteFile(string filename)
     {
         try
@@ -290,5 +303,81 @@ public class FileMgr
             result[kvp.Key] = kvp.Value;
         }
         return result;
+    }
+
+    public static string ParseAndWriteSettingsJson(string rawJson)
+    {
+        using JsonDocument doc = JsonDocument.Parse(rawJson);
+        var selectSettings = new Dictionary<string, object>();
+        var otherSettings = new Dictionary<string, object>();
+
+        foreach (var docElement in doc.RootElement.GetProperty("documents").EnumerateArray())
+        {
+            var fields = docElement.GetProperty("fields");
+            var key = fields.GetProperty("key").GetProperty("stringValue").GetString();
+            var type = fields.GetProperty("type").GetProperty("stringValue").GetString();
+
+            var setting = new Dictionary<string, object>
+            {
+                ["Key"] = key,
+                ["Title"] = fields.GetProperty("title").GetProperty("stringValue").GetString(),
+                ["Description"] = fields.GetProperty("description").GetProperty("stringValue").GetString(),
+                ["Type"] = type,
+                ["IsEnabled"] = true,
+                ["DefaultValue"] = fields.TryGetProperty("defaultValue", out var defValProp) && defValProp.TryGetProperty("booleanValue", out var boolVal)
+                        ? boolVal.GetBoolean()
+                        : (object?)null,
+                ["Options"] = null,
+                ["SelectedValue"] = null,
+            };
+
+            if (fields.TryGetProperty("options", out var optionsProp) && optionsProp.ValueKind == JsonValueKind.Object)
+            {
+                if (optionsProp.TryGetProperty("arrayValue", out var arrayVal) && arrayVal.TryGetProperty("values", out var valuesArray))
+                {
+                    var opts = new List<Dictionary<string, string>>();
+                    foreach (var option in valuesArray.EnumerateArray())
+                    {
+                        var fieldsMap = option.GetProperty("mapValue").GetProperty("fields");
+
+                        var friendlyName = fieldsMap.GetProperty("FriendlyName").GetProperty("stringValue").GetString();
+                        var keyName = fieldsMap.TryGetProperty("Key", out var k)
+                                        ? k.GetProperty("stringValue").GetString()
+                                      : fieldsMap.TryGetProperty("key", out var k2)
+                                        ? k2.GetProperty("stringValue").GetString()
+                                      : null;
+
+                        opts.Add(new Dictionary<string, string>
+                        {
+                            ["FriendlyName"] = friendlyName,
+                            ["Key"] = keyName,
+                        });
+                    }
+
+                    setting["Options"] = opts;
+                    if (opts.Count > 0)
+                        setting["SelectedValue"] = opts[0];
+                }
+            }
+
+            if (type == "select")
+                selectSettings[key] = setting;
+            else
+                otherSettings[key] = setting;
+        }
+
+        var finalSettings = new Dictionary<string, object>();
+        foreach (var kvp in selectSettings)
+            finalSettings[kvp.Key] = kvp.Value;
+        foreach (var kvp in otherSettings)
+            finalSettings[kvp.Key] = kvp.Value;
+
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            TypeInfoResolver = new DefaultJsonTypeInfoResolver() // Enable reflection-based serialization
+        };
+
+        return (string)System.Text.Json.JsonSerializer.Serialize(finalSettings, options);
     }
 }
