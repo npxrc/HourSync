@@ -363,7 +363,10 @@ MigrationBackup/
 FodyWeavers.xsd
 
 # Custom
+TemplateEngineHost\
 logo.psd
 bin/
 VMDetector.cs
 Private.cs
+/dll-save
+/Installers/1.2
