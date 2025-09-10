@@ -10,13 +10,15 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
-using Newtonsoft.Json;
 using Windows.ApplicationModel;
+using Windows.UI.Text;
 
 namespace HourSync;
 public sealed partial class Settings : Page
@@ -29,7 +31,7 @@ public sealed partial class Settings : Page
         InitializeSettings();
     }
 
-    private List<SettingDefinition> settings = new();
+    private List<SettingDefinition> settings = [];
 
     private void InitializeSettings()
     {
@@ -42,15 +44,15 @@ public sealed partial class Settings : Page
             if (File.Exists(settingsPath))
             {
                 var json = File.ReadAllText(settingsPath);
-                var settingsDictionary = JsonConvert.DeserializeObject<Dictionary<string, SettingDefinition>>(json);
-                settings = settingsDictionary.Values.ToList();
+                // Use the generated type info
+                var settingsDictionary = JsonSerializer.Deserialize(json, SettingsJsonContext.Default.DictionaryStringSettingDefinition);
+                settings = [.. settingsDictionary.Values];
             }
             else
             {
-                settings = new List<SettingDefinition>();
+                settings = [];
             }
 
-            // Bind the settings list to the ListView
             SettingsPanel.ItemsSource = settings;
         }
         catch (Exception ex)
@@ -59,8 +61,44 @@ public sealed partial class Settings : Page
         }
     }
 
+    // Also update your SaveSetting method
+    private void SaveSetting(string key, object value)
+    {
+        try
+        {
+            // Find the setting in the list and update its value
+            var setting = settings.Find(s => s.Key == key);
+            if (setting != null)
+            {
+                if (value is bool boolValue)
+                {
+                    setting.IsEnabled = boolValue;
+                }
+                else if (value is Option selectedOption)
+                {
+                    setting.SelectedValue = selectedOption;
+                }
 
-    private void HelpButton_Click(object sender, RoutedEventArgs e)
+                // Update the settingsCache to reflect the new structure
+                settingsCache[key] = setting;
+
+                // Serialize using source generation
+                var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                var dataPath = Path.Combine(localAppDataPath, "HourSync");
+                var settingsPath = Path.Combine(dataPath, "settings.json");
+
+                var json = JsonSerializer.Serialize(settingsCache, SettingsJsonContext.Default.DictionaryStringSettingDefinition);
+                File.WriteAllText(settingsPath, json);
+            }
+        }
+        catch (Exception ex)
+        {
+            FileMgr.LogError($"Error saving setting: {ex.Message}");
+        }
+    }
+
+
+    private void HelpButton_Click(object sender, RoutedEventArgs __)
     {
         try
         {
@@ -78,7 +116,7 @@ public sealed partial class Settings : Page
         }
     }
 
-    private void ToggleSwitch_Toggled(object sender, RoutedEventArgs e)
+    private void ToggleSwitch_Toggled(object sender, RoutedEventArgs __)
     {
         try
         {
@@ -94,43 +132,7 @@ public sealed partial class Settings : Page
     }
 
 
-    private void SaveSetting(string key, object value)
-    {
-        try
-        {
-            // Find the setting in the list and update its value
-            var setting = settings.Find(s => s.Key == key);
-            if (setting != null)
-            {
-                if (value is bool boolValue)
-                {
-                    setting.IsEnabled = boolValue;
-                }
-                else if (value is Option selectedOption)
-                {
-                    setting.SelectedValue = selectedOption; // Save the entire Option object
-                }
-
-                // Update the settingsCache to reflect the new structure
-                settingsCache[key] = setting;
-
-                // Serialize the updated settingsCache back to the JSON file
-                var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                var dataPath = Path.Combine(localAppDataPath, "HourSync");
-                var settingsPath = Path.Combine(dataPath, "settings.json");
-
-                var json = JsonConvert.SerializeObject(settingsCache, Formatting.Indented);
-                File.WriteAllText(settingsPath, json);
-            }
-        }
-        catch (Exception ex)
-        {
-            FileMgr.LogError($"Error saving setting: {ex.Message}");
-        }
-    }
-
-
-    private void DropdownItem_Click(object sender, RoutedEventArgs e)
+    private void DropdownItem_Click(object sender, RoutedEventArgs __)
     {
         try
         {
@@ -153,32 +155,15 @@ public sealed partial class Settings : Page
         }
     }
 
-
-    private bool? RetrieveSetting(string key)
-    {
-        try
-        {
-            FileMgr.Log($"Retrieving {key} from settings.json");
-            if (settingsCache.TryGetValue(key, out var value) && value is SettingDefinition setting)
-            {
-                FileMgr.Log($"Retrieved {key}.enabled from settings.json: {setting.IsEnabled}");
-                return setting.IsEnabled;
-            }
-            FileMgr.Log($"Retrieved {key} from settings.json: nothing was found");
-            return null;
-        }
-        catch (Exception ex)
-        {
-            FileMgr.LogError($"Error retrieving setting: {ex.Message}");
-            return null;
-        }
-    }
-
-    private async void ComboBox_Loaded(object sender, RoutedEventArgs e)
+    private async void ComboBox_Loaded(object sender, RoutedEventArgs __)
     {
         if (sender is ComboBox comboBox && comboBox.DataContext is SettingDefinition setting)
         {
-            if (setting.Type == "bool" || setting.Options == null) return;
+            if (setting.Type == "bool" || setting.Options == null)
+            {
+                return;
+            }
+
             await Task.Delay(100); // Replaced Thread.Sleep with Task.Delay to fix CS4008  
             // Set the selected item in the ComboBox
             var selectedOption = setting.Options.FirstOrDefault(o => o.Key == setting.SelectedValue.Key);
@@ -189,12 +174,12 @@ public sealed partial class Settings : Page
             }
             else
             {
-                FileMgr.Log($"A selected option was not found in a list.");
+                FileMgr.Log("A selected option was not found in a list.");
             }
         }
     }
 
-    private async void ClearLog(object sender, object e)
+    private async void ClearLog(object _, object __)
     {
         var confirm = new ContentDialog
         {
@@ -219,7 +204,9 @@ public sealed partial class Settings : Page
 
         var closeButtonStyle = new Style(typeof(Button));
         if (baseButtonStyle != null)
+        {
             closeButtonStyle.BasedOn = baseButtonStyle;
+        }
 
         closeButtonStyle.Setters.Add(new Setter(Button.BackgroundProperty, accentBrush));
 
@@ -270,120 +257,132 @@ public sealed partial class Settings : Page
         }
     }
 
-    private void GetMachineType(object sender, RoutedEventArgs e)
+    private ProgressBar waitProgressBar = new()
     {
-        _ = new ContentDialog()
-        {
-            Title = "Device Information",
-            Content = VmChecker.GetMachineType().Trim(),
-            XamlRoot = XamlRoot,
-            CloseButtonText = "OK"
-        }.ShowAsync();
-    }
+        IsIndeterminate = true,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center,
+        Width = 200, // Set width as needed
+        Height = 20, // Set height as needed
+    };
+    private ContentDialog waitForInfo = new()
+    {
+        Title = "Loading",
+        CloseButtonText = null,
+        PrimaryButtonText = null, // Ensure there's no default button
+    };
 
-    private void AboutHourSync(object sender, RoutedEventArgs e)
+    bool isLoadingBarOpen = false;
+    private async void ShowLoadingProgressBarAsync()
     {
-        _ = new ContentDialog()
+        // Initialize and configure the ContentDialog
+        waitProgressBar = new()
         {
-            Title = "About HourSync - " + Package.Current.Id.Version,
-            Content = ""
+            IsIndeterminate = true,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Width = 200, // Set width as needed
+            Height = 20, // Set height as needed
         };
-    }
-}
 
-public class SettingDefinition
-{
-    // Explicit default constructor so Json.NET never complains
-    public SettingDefinition()
-    {
-        Key = string.Empty;
-        Title = string.Empty;
-        Description = string.Empty;
-        Type = string.Empty;
-        Options = new List<Option>();
-        SelectedValue = null;
-        IsEnabled = true;
-        DefaultValue = true;
-    }
+        waitForInfo = new()
+        {
+            Title = "Loading",
+            PrimaryButtonText = null,
+            CloseButtonText = "Cancel",
+            Content = waitProgressBar,
 
-    [JsonConstructor]
-    public SettingDefinition(
-        string Key,
-        string Title,
-        string Description,
-        string Type,
-        bool IsEnabled,
-        bool DefaultValue,
-        List<Option> Options,
-        Option SelectedValue)
-    {
-        this.Key = Key ?? string.Empty;
-        this.Title = Title ?? string.Empty;
-        this.Description = Description ?? string.Empty;
-        this.Type = Type ?? string.Empty;
-        this.IsEnabled = IsEnabled;
-        this.DefaultValue = DefaultValue;
-        this.Options = Options ?? new List<Option>();
-        this.SelectedValue = SelectedValue;
+            // Ensure the ContentDialog is set to the correct XamlRoot
+            XamlRoot = XamlRoot,
+        };
+
+        // Show the ContentDialog asynchronously
+        isLoadingBarOpen = true;
+        await waitForInfo.ShowAsync();
+        waitForInfo.Closing += (_, __) => isLoadingBarOpen = false;
     }
 
-    public string Key
+    private async void GetMachineType(object _, RoutedEventArgs __)
     {
-        get; set;
-    }
-    public string Title
-    {
-        get; set;
-    }
-    public string Description
-    {
-        get; set;
-    }
-    public string Type
-    {
-        get; set;
-    } // "bool" or "select"
-    public bool IsEnabled
-    {
-        get; set;
-    }
-    public bool DefaultValue
-    {
-        get; set;
-    }
-    public List<Option> Options
-    {
-        get; set;
-    }
-    public Option SelectedValue
-    {
-        get; set;
-    }
-}
-
-public class Option
-{
-    // Explicit default constructor
-    public Option()
-    {
-        FriendlyName = string.Empty;
-        Key = string.Empty;
+        ShowLoadingProgressBarAsync();
+        string info = await VmChecker.GetMachineType();
+        info = info.Trim();
+        waitForInfo.Title = "Device Information";
+        waitForInfo.Content = info;
+        waitForInfo.CloseButtonText = "OK";
     }
 
-    [JsonConstructor]
-    public Option(string FriendlyName, string Key)
+    private async void AboutHourSync(object _, RoutedEventArgs __)
     {
-        this.FriendlyName = FriendlyName ?? string.Empty;
-        this.Key = Key ?? string.Empty;
-    }
+        var notesPath = Path.Combine(AppContext.BaseDirectory, "releaseNotes.json");
+        var notesJson = File.ReadAllText(notesPath);
 
-    public string FriendlyName
-    {
-        get; set;
-    }
-    public string Key
-    {
-        get; set;
+        var releaseNotes = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(notesJson);
+
+        var package = Package.Current.Id.Version;
+        var versionString = $"{package.Major}.{package.Minor}.{package.Revision}";
+
+        var richText = new RichTextBlock();
+
+        if (releaseNotes.TryGetValue(versionString, out var currentNotes))
+        {
+            var currentHeading = new Paragraph { Margin = new Thickness(0, 0, 0, 10) };
+            currentHeading.Inlines.Add(new Run { Text = $"What's new in {versionString}", FontWeight = new FontWeight(550), FontSize = 18 });
+            richText.Blocks.Add(currentHeading);
+
+            var currentParagraph = new Paragraph();
+            foreach (var note in currentNotes)
+            {
+                currentParagraph.Inlines.Add(new Run { Text = $"• {note}\n" });
+            }
+            richText.Blocks.Add(currentParagraph);
+        }
+        else
+        {
+            var missing = new Paragraph();
+            missing.Inlines.Add(new Run { Text = $"No release notes found for {versionString}" });
+            richText.Blocks.Add(missing);
+        }
+
+        // Archive of past updates
+        foreach (var kvp in releaseNotes.OrderByDescending(r => r.Key))
+        {
+            if (kvp.Key == versionString) continue; // Skip current
+
+            var heading = new Paragraph { Margin = new Thickness(0, 10, 0, 5) };
+            heading.Inlines.Add(new Run { Text = $"Version {kvp.Key}", FontWeight = new FontWeight(550), FontSize = 16 });
+            richText.Blocks.Add(heading);
+
+            var para = new Paragraph();
+            foreach (var note in kvp.Value)
+            {
+                para.Inlines.Add(new Run { Text = $"• {note}\n" });
+            }
+            richText.Blocks.Add(para);
+        }
+
+        var stack = new StackPanel();
+        stack.Children.Add(new TextBlock
+        {
+            Text = "Release Notes",
+            FontSize = 25,
+            FontWeight = new FontWeight(600),
+            Margin = new Thickness(0, 0, 0, 10)
+        });
+        stack.Children.Add(new ScrollViewer
+        {
+            Content = richText,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Visible
+        });
+
+        var dialog = new ContentDialog
+        {
+            Content = stack,
+            CloseButtonText = "OK",
+            XamlRoot = XamlRoot
+        };
+
+        await dialog.ShowAsync();
     }
 }
 

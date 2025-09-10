@@ -370,3 +370,4 @@ VMDetector.cs
 Private.cs
 /dll-save
 /Installers/
+*.lnk

@@ -39,7 +39,7 @@
                 </DropDownButton>
             </StackPanel>
 
-            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+            <StackPanel Orientation="Horizontal" Margin="0 10">
                 <TextBox x:Name="SearchBox" 
                      Width="300"
                      PlaceholderText="Search requests..."
@@ -48,7 +48,7 @@
         </StackPanel>
 
         <!-- Main content grid in the second row -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="1" x:Name="RequestsGrid">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*"/>
                 <ColumnDefinition Width="1*"/>
@@ -57,7 +57,7 @@
             <!-- ScrollViewer in the first column -->
             <ScrollViewer Grid.Column="0" VerticalScrollMode="Auto" VerticalScrollBarVisibility="Auto">
                 <Grid>
-                    <StackPanel x:Name="RequestsPanel" Margin="0 10">
+                    <StackPanel x:Name="RequestsPanel" Margin="0, 0, 0, 10">
 
                         <TextBlock Text="Pending Requests:"/>
                         <StackPanel x:Name="PendingReqsPanel" Margin="0 10 0 10"/>
@@ -70,9 +70,6 @@
                     </StackPanel>
                 </Grid>
             </ScrollViewer>
-
-            <!-- Frame in the second column -->
-            <Frame Grid.Column="1" x:Name="ContentFrame"/>
         </Grid>
     </Grid>
 </Page>

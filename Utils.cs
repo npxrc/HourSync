@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace HourSync;
 internal static class Utils
@@ -23,12 +25,12 @@ internal static class Utils
         }
 
         // Loop through each version part
-        for (int i = 0; i < 3; i++)
+        for (var i = 0; i < 3; i++)
         {
             try
             {
-                int fetchedPart = int.Parse(fetchedVersionParts[i]);
-                int currentPart = int.Parse(currentVersionParts[i]);
+                var fetchedPart = int.Parse(fetchedVersionParts[i]);
+                var currentPart = int.Parse(currentVersionParts[i]);
 
                 if (fetchedPart > currentPart)
                 {
@@ -49,23 +51,33 @@ internal static class Utils
     }
     public static string FormatTimeAgo(DateTime inputDateTime)
     {
-        DateTime now = DateTime.Now;
-        TimeSpan diff = now - inputDateTime;
+        var now = DateTime.Now;
+        var diff = now - inputDateTime;
 
-        int roundedMinutes = diff.Seconds >= 30
+        var roundedMinutes = diff.Seconds >= 30
             ? (int)Math.Round(diff.TotalMinutes)
             : (int)Math.Floor(diff.TotalMinutes);
 
-        int days = (int)diff.TotalDays;
-        int hours = (int)diff.TotalHours % 24;
-        int minutes = roundedMinutes % 60;
+        var days = (int)diff.TotalDays;
+        var hours = (int)diff.TotalHours % 24;
+        var minutes = roundedMinutes % 60;
 
         if (days == 0 && hours == 0 && minutes == 0)
+        {
             return "Submitted just now.";
+        }
 
-        string result = "Submitted ";
-        if (days > 0) result += $"{days} day{(days > 1 ? "s" : "")}, ";
-        if (hours > 0 || days > 0) result += $"{hours} hour{(hours > 1 ? "s" : "")}, ";
+        var result = "Submitted ";
+        if (days > 0)
+        {
+            result += $"{days} day{(days > 1 ? "s" : "")}, ";
+        }
+
+        if (hours > 0 || days > 0)
+        {
+            result += $"{hours} hour{(hours > 1 ? "s" : "")}, ";
+        }
+
         result += $"{minutes} minute{(minutes > 1 ? "s" : "")} ago.";
 
         return result;
@@ -93,4 +105,124 @@ internal static class Utils
         };
     }
 
+}
+// Add this context class for source generation
+[JsonSourceGenerationOptions(WriteIndented = true)]
+[JsonSerializable(typeof(Dictionary<string, SettingDefinition>))]
+[JsonSerializable(typeof(SettingDefinition))]
+[JsonSerializable(typeof(Option))]
+[JsonSerializable(typeof(List<Option>))]
+public partial class SettingsJsonContext : JsonSerializerContext;
+
+// Updated classes for System.Text.Json
+public class SettingDefinition
+{
+    public SettingDefinition()
+    {
+        Key = string.Empty;
+        Title = string.Empty;
+        Description = string.Empty;
+        Type = string.Empty;
+        Options = [];
+        SelectedValue = null;
+        IsEnabled = true;
+        DefaultValue = true;
+    }
+
+    [JsonConstructor]
+    public SettingDefinition(
+        string key,
+        string title,
+        string description,
+        string type,
+        bool isEnabled,
+        bool defaultValue,
+        List<Option> options,
+        Option? selectedValue)
+    {
+        Key = key ?? string.Empty;
+        Title = title ?? string.Empty;
+        Description = description ?? string.Empty;
+        Type = type ?? string.Empty;
+        IsEnabled = isEnabled;
+        DefaultValue = defaultValue;
+        Options = options ?? [];
+        SelectedValue = selectedValue;
+    }
+
+    [JsonPropertyName("Key")]
+    public string Key
+    {
+        get; set;
+    }
+
+    [JsonPropertyName("Title")]
+    public string Title
+    {
+        get; set;
+    }
+
+    [JsonPropertyName("Description")]
+    public string Description
+    {
+        get; set;
+    }
+
+    [JsonPropertyName("Type")]
+    public string Type
+    {
+        get; set;
+    }
+
+    [JsonPropertyName("IsEnabled")]
+    public bool IsEnabled
+    {
+        get; set;
+    }
+
+    [JsonPropertyName("DefaultValue")]
+    public bool DefaultValue
+    {
+        get; set;
+    }
+
+    [JsonPropertyName("Options")]
+    public List<Option> Options
+    {
+        get; set;
+    }
+
+    [JsonPropertyName("SelectedValue")]
+    public Option? SelectedValue
+    {
+        get; set;
+    }
+}
+
+public class Option
+{
+    public Option()
+    {
+        FriendlyName = string.Empty;
+        Key = string.Empty;
+    }
+
+    [JsonConstructor]
+    public Option(string friendlyName, string key)
+    {
+        FriendlyName = friendlyName ?? string.Empty;
+        Key = key ?? string.Empty;
+    }
+
+    [JsonPropertyName("FriendlyName")]
+    public string FriendlyName
+    {
+        get; set;
+    }
+
+    [JsonPropertyName("Key")]
+    public string Key
+    {
+        get; set;
+    }
 }

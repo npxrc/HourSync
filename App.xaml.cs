@@ -24,6 +24,10 @@ public partial class App : Application
     public NavigationView NavigationView;
     private NavigationViewItem loginTag;
     private NavigationViewItem homeTag;
+
+    public Home homePage = null;
+    public bool isOnHome = false;
+
     private NavigationViewItem createSubmission
     {
         get; set;
@@ -79,7 +83,7 @@ public partial class App : Application
     private string previousPage = "null";
 
     public DiscordRpcClient client = new("1342974846090481766");
-    private DiscordRPC.Button[] buttons = new[]{
+    private DiscordRPC.Button[] buttons = [
         new DiscordRPC.Button()
         {
             Label = "Download HourSync",
@@ -90,7 +94,7 @@ public partial class App : Application
             Label = "View on GitHub",
             Url = "https://github.com/npxrc/HourSync"
         }
-    };
+    ];
 
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
@@ -144,7 +148,10 @@ public partial class App : Application
         {
             SlideNavigationTransitionInfo effect;
             previousPage = currentPage;
-            if (previousPage == item.Tag.ToString()) return;
+            if (previousPage == item.Tag.ToString())
+            {
+                return;
+            }
 
             string targetPage = item.Tag.ToString();
 
@@ -154,7 +161,11 @@ public partial class App : Application
             if (targetPage == "settings")
             {
                 // settings always slides vertically
-                if (previousPage == "settings") return;
+                if (previousPage == "settings")
+                {
+                    return;
+                }
+
                 effect = new SlideNavigationTransitionInfo()
                 {
                     Effect = SlideNavigationTransitionEffect.FromBottom
@@ -199,6 +210,14 @@ public partial class App : Application
 
             if (targetType != null)
             {
+                if (targetType == typeof(Home))
+                {
+                    isOnHome = true;
+                }
+                else
+                {
+                    isOnHome = false;
+                }
                 rootFrame.Navigate(
                     targetType,
                     new object[] { LoginResult, Username, Password, HomeResult },
@@ -222,6 +241,7 @@ public partial class App : Application
         {
             NavigationViewModel.RefreshMenuItems(isLoggedIn: true);
             rootFrame.Navigate(typeof(Home), new object[] { loginResult, username, password, getresp }, new DrillInNavigationTransitionInfo());
+            isOnHome = true;
         }
     }
 
@@ -242,6 +262,8 @@ public partial class App : Application
         NavigationViewModel.RefreshMenuItems(isLoggedIn: false);
         rootFrame.Navigate(typeof(Login), false);
         currentPage = "login";
+
+        isOnHome = false;
     }
 
     public void BackClicked()
@@ -263,6 +285,7 @@ public partial class App : Application
     {
         HomeResult = getresp;
         rootFrame.Navigate(typeof(Home), new object[] { LoginResult, Username, Password, getresp }, new DrillInNavigationTransitionInfo());
+        isOnHome = true;
     }
 
     public void UpdateHomeContent(string getresp)
@@ -278,20 +301,24 @@ public partial class App : Application
         {
             case "login":
                 state = "Logging in";
+                isOnHome = false;
                 break;
             case "home":
                 state = "Viewing Homepage";
+                isOnHome = true;
                 break;
             case "create":
                 state = "Submitting eHours";
+                isOnHome = false;
                 break;
             case "settings":
                 state = "Changing Settings";
+                isOnHome = false;
                 break;
         }
         if (details.Length > 0)
         {
-            FileMgr.Log($"setting presence");
+            FileMgr.Log("setting presence");
             client.SetPresence(new RichPresence()
             {
                 Details = details,
@@ -319,7 +346,7 @@ public partial class App : Application
                 Buttons = buttons,
                 Type = ActivityType.Playing
             });
-            System.Diagnostics.Trace.WriteLine($"Set presence to default");
+            System.Diagnostics.Trace.WriteLine("Set presence to default");
         }
     }
 }

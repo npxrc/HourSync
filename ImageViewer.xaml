@@ -5,18 +5,51 @@
     xmlns:local="using:HourSync"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d">
+    mc:Ignorable="d"
+    Title="Image Viewer"
+    Activated="Window_Activated">
 
     <Grid>
-        <ScrollViewer x:Name="ScrollViewer">
-            <Image Margin="0,35,0,0" x:Name="DisplayedImage"
-                   Stretch="Uniform"/>
+        <!-- Titlebar area -->
+        <Grid x:Name="AppTitleBar"
+              Height="32"
+              VerticalAlignment="Top">
+            <TextBlock Text="Image Viewer"
+                       VerticalAlignment="Center"
+                       Margin="12,0,0,0"
+                       Style="{StaticResource CaptionTextBlockStyle}" />
+        </Grid>
+
+        <!-- Image Viewer -->
+        <ScrollViewer x:Name="ImageScrollViewer"
+            ZoomMode="Enabled"
+            HorizontalScrollBarVisibility="Auto"
+            VerticalScrollBarVisibility="Auto"
+            Margin="0,32,0,0"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+            <Image x:Name="DisplayedImage"
+                   Stretch="Uniform"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"/>
         </ScrollViewer>
-        <TextBlock x:Name="ImgTitle"
-                   Style="{ThemeResource TitleTextBlockStyle}"
-                   Text="Loading image..."
-                   Margin="36"
-                   Canvas.ZIndex="1"
-                   VerticalAlignment="Top"/>
+
+        <!-- Bottom bar -->
+        <StackPanel Orientation="Horizontal"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Bottom"
+            Margin="0,0,0,12"
+            Spacing="12">
+
+            <Border CornerRadius="6.7" x:Name="BottomBar" Padding="6,7">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Button Content="Fit" Click="FitButton_Click"/>
+                    <Button Content="100%" Click="ActualSizeButton_Click"/>
+                    <Button Content="Zoom In" Click="ZoomInButton_Click"/>
+                    <Button Content="Zoom Out" Click="ZoomOutButton_Click"/>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
     </Grid>
 </Window>

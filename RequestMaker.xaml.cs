@@ -49,29 +49,27 @@ public sealed partial class RequestMaker : Page
         },
     };
 
+    private DialogService dialogManager = new();
+
     private int logInAgainAttempts = 0;
 
-    public ObservableCollection<ImageDisplayItem> ImageDisplayItems { get; } = new();
+    public ObservableCollection<ImageDisplayItem> ImageDisplayItems { get; } = [];
 
     public RequestMaker()
     {
         InitializeComponent();
         Loaded += loaded;
 
-        eventTitle.LostFocus += (sender, e) =>
-        {
-            UpdatePresence();
-        };
-        NumericTextBox.LostFocus += (sender, e) =>
-        {
-            UpdatePresence();
-        };
+        eventTitle.LostFocus += (_, __) => UpdatePresence();
+        NumericTextBox.LostFocus += (_, __) => UpdatePresence();
     }
 
-    private async void loaded(object sender, RoutedEventArgs e)
+#pragma warning disable IDE1006 // Naming Styles
+    private async void loaded(object _, RoutedEventArgs __)
+#pragma warning restore IDE1006 // Naming Styles
     {
         // Disable dev tools and context menu
-        webView.CoreWebView2Initialized += (s, e) =>
+        webView.CoreWebView2Initialized += (_, __) =>
         {
             // Turn off dev tools
             webView.CoreWebView2.Settings.AreDevToolsEnabled = false;
@@ -142,12 +140,12 @@ public sealed partial class RequestMaker : Page
         string anyHours = "to log";
         try
         {
-            if (NumericTextBox != null && NumericTextBox.Text.Length > 0)
+            if (NumericTextBox?.Text.Length > 0)
             {
                 anyHours = $"{NumericTextBox.Text} hours for";
             }
 
-            if (eventTitle != null && eventTitle.Text.Length > 0)
+            if (eventTitle?.Text.Length > 0)
             {
                 FileMgr.Log("Setting presence to `" + $"Requesting {anyHours} \"{eventTitle.Text}\" `");
                 ((App)Application.Current).UpdatePresence(
@@ -196,12 +194,12 @@ public sealed partial class RequestMaker : Page
             );
         }
         eventTitle.KeyUp += KeyUp_SaveDraft;
-        eventDate.SelectedDateChanged += (sender, e) => KeyUp_SaveDraft(sender, null);
+        eventDate.SelectedDateChanged += (sender, __) => KeyUp_SaveDraft(sender, null);
         eventBody.KeyUp += KeyUp_SaveDraft;
         Loaded += OnPageLoaded;
     }
 
-    private async void OnPageLoaded(object sender, RoutedEventArgs e)
+    private async void OnPageLoaded(object _, RoutedEventArgs __)
     {
         Loaded -= OnPageLoaded;
         bool res = await LoadDraft();
@@ -212,7 +210,7 @@ public sealed partial class RequestMaker : Page
     }
 
     //Button clicks
-    private async void ImageUpload_Click(object sender, RoutedEventArgs e)
+    private async void ImageUpload_Click(object _, RoutedEventArgs __)
     {
         // Create and initialize the picker
         var openPicker = new FileOpenPicker();
@@ -256,7 +254,7 @@ public sealed partial class RequestMaker : Page
             SaveDraft(); // Save draft when images are added
         }
     }
-    private void RemoveImage_Click(object sender, RoutedEventArgs e)
+    private void RemoveImage_Click(object sender, RoutedEventArgs __)
     {
         if (sender is Button button && button.Tag is string imagePath)
         {
@@ -289,17 +287,9 @@ public sealed partial class RequestMaker : Page
         }
     }
 
-    private async void SubmitButton_Click(object sender, RoutedEventArgs e)
+    private async void SubmitButton_Click(object _, RoutedEventArgs __)
     {
-        var dialog = new ContentDialog
-        {
-            Title = "Confirm",
-            Content = "Ready to submit? Click 'Continue' to proceed.",
-            PrimaryButtonText = "Continue",
-            CloseButtonText = "Cancel",
-            XamlRoot = XamlRoot,
-        };
-        ContentDialogResult result = await dialog.ShowAsync();
+        ContentDialogResult result = await dialogManager.ShowDialog("Confirm", "Ready to submit? Click 'Submit' to proceed.", "Cancel", "Submit", "", XamlRoot);
 
         // Handle the result
         if (result == ContentDialogResult.Primary)
@@ -319,9 +309,7 @@ public sealed partial class RequestMaker : Page
             char[] invalidChars = Path.GetInvalidFileNameChars();
 
             // Remove invalid characters from the event title
-            string cleanedText = new string(rawText
-                .Where(c => !invalidChars.Contains(c))  // Remove invalid characters
-                .ToArray());
+            string cleanedText = new string([.. rawText.Where(c => !invalidChars.Contains(c))]);
 
             SaveDraft("drafts/" + cleanedText);
 
@@ -333,17 +321,9 @@ public sealed partial class RequestMaker : Page
         }
     }
 
-    private async void ClearButton_Click(object sender, RoutedEventArgs e)
+    private async void ClearButton_Click(object _, RoutedEventArgs __)
     {
-        var dialog = new ContentDialog
-        {
-            Title = "Confirm",
-            Content = "Are you sure you want to clear the form?",
-            PrimaryButtonText = "Continue",
-            CloseButtonText = "Cancel",
-            XamlRoot = XamlRoot,
-        };
-        ContentDialogResult result = await dialog.ShowAsync();
+        ContentDialogResult result = await dialogManager.ShowDialog("Confirm", "Are you sure you want to clear the form?", "Cancel", "Continue", "", XamlRoot);
 
         if (result == ContentDialogResult.Primary)
         {
@@ -359,11 +339,11 @@ public sealed partial class RequestMaker : Page
             UpdateImageUI();
 
             FileMgr.DeleteFile("draft.json");
-            LoadDraft();
+            await LoadDraft();
         }
     }
 
-    private async void OpenDraft_Click(object sender, RoutedEventArgs e)
+    private async void OpenDraft_Click(object _, RoutedEventArgs __)
     {
         var localAppDataPath = Environment.GetFolderPath(
             Environment.SpecialFolder.LocalApplicationData
@@ -376,15 +356,7 @@ public sealed partial class RequestMaker : Page
         }
         catch (Exception ex)
         {
-            var dialog = new ContentDialog
-            {
-                Title = "Open Draft Error",
-                Content =
-                    "An error occurred when opening the draft. Take your laptop to tech at this point brochacho.",
-                PrimaryButtonText = "OK",
-                XamlRoot = XamlRoot,
-            };
-            await dialog.ShowAsync();
+            await dialogManager.ShowDialog("Open Draft Error", "An error occurred when opening the draft. Try again later.", "OK", "", "", XamlRoot);
             FileMgr.Log(
                 "An exception occurred at "
                     + DateTime.Now
@@ -423,13 +395,7 @@ public sealed partial class RequestMaker : Page
 
             if (responseString.Contains("See your current eHours"))
             {
-                await new ContentDialog
-                {
-                    Title = "Success",
-                    Content = $"{title} was just submitted for {hours} eHours.",
-                    PrimaryButtonText = "OK",
-                    XamlRoot = XamlRoot,
-                }.ShowAsync();
+                await dialogManager.ShowDialog("Success", $"{title} was just submitted for {hours} eHours", "OK", "", "", XamlRoot);
 
                 // Instead of navigating immediately, update the UI on this page
                 UpdateUIAfterSubmission();
@@ -455,7 +421,6 @@ public sealed partial class RequestMaker : Page
                 {
                     FileMgr.LogError("Too many log in attempts reached, check the code.");
                     throw new Exception("Too many log in attempts reached, check the code.");
-                    ((App)Application.Current).Exit();
                 }
                 bool isLoggedInAgain = await LogInAgain();
                 logInAgainAttempts++;
@@ -465,27 +430,14 @@ public sealed partial class RequestMaker : Page
                 }
                 else
                 {
-                    await new ContentDialog()
-                    {
-                        Title = "Incorrect credentials",
-                        Content =
-                            $"Your credentials for the user {username} are incorrect. Please log in again.",
-                        PrimaryButtonText = "OK",
-                        XamlRoot = XamlRoot,
-                    }.ShowAsync();
+                    await dialogManager.ShowDialog("Incorrect Credentials", $"Your credentials for the user {username} are incorrect. Please log in again.", "OK", "", "", XamlRoot);
                 }
             }
         }
         catch (Exception ex)
         {
             FileMgr.LogError(ex.Message);
-            await new ContentDialog
-            {
-                Title = "Error",
-                Content = $"An error occurred when submitting {title}.",
-                PrimaryButtonText = "OK",
-                XamlRoot = XamlRoot,
-            }.ShowAsync();
+            await dialogManager.ShowDialog("Error", $"An error occurred when submitting {title}.", "OK", "", "", XamlRoot);
         }
     }
 
@@ -582,15 +534,7 @@ public sealed partial class RequestMaker : Page
         }
         catch (Exception)
         {
-            var dialog = new ContentDialog
-            {
-                Title = "Save Error",
-                Content =
-                    "An error occurred when saving your draft.\r\nIt may be a good idea to also save your request elsewhere.",
-                PrimaryButtonText = "Okay",
-                XamlRoot = XamlRoot,
-            };
-            await dialog.ShowAsync();
+            await dialogManager.ShowDialog("Save Error", "An error occurred when saving your draft. It may be a good idea to also save your request elsewhere.");
         }
     }
 
@@ -644,14 +588,7 @@ public sealed partial class RequestMaker : Page
         catch (Exception)
         {
             DraftLoadedSuccessfully.Visibility = Visibility.Collapsed;
-            var dialog = new ContentDialog
-            {
-                Title = "Load Draft Error",
-                Content = "An error occurred loading a previous draft.",
-                PrimaryButtonText = "OK",
-                XamlRoot = XamlRoot,
-            };
-            await dialog.ShowAsync();
+            await dialogManager.ShowDialog("Load Draft Error", "An error occurred when loading a previous draft.", "OK", "", "", XamlRoot);
             FileMgr.DeleteFile("draft.json");
             return false;
         }
@@ -693,18 +630,9 @@ public sealed partial class RequestMaker : Page
         return text.Length > 0 ? text[..^1] : text;
     }
 
-    private async void Delete_Draft(object sender, RoutedEventArgs e)
+    private async void Delete_Draft(object _, RoutedEventArgs __)
     {
-        var dialog = new ContentDialog
-        {
-            Title = "Confirmation",
-            Content = "Are you sure you want to delete the draft?",
-            PrimaryButtonText = "Yes",
-            SecondaryButtonText = "Open Draft",
-            CloseButtonText = "No",
-            XamlRoot = XamlRoot,
-        };
-        ContentDialogResult result = await dialog.ShowAsync();
+        ContentDialogResult result = await dialogManager.ShowDialog("Confirm", "Are you sure you want to delete the draft?", "No", "Yes", "Open Draft", XamlRoot);
         if (result == ContentDialogResult.Primary)
         {
             FileMgr.DeleteFile("draft.json");

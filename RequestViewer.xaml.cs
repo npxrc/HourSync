@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using HourSyncCoreLib;
 using HtmlAgilityPack;
@@ -17,6 +18,17 @@ namespace HourSync;
 
 public sealed partial class RequestViewer : Window
 {
+    /*
+    TODO: Combine ImageViewer, BrowserView, and this page into one file
+
+    Baby steps to achieve:
+    - Set up a frame
+    - Move this code into a page
+    - Navigate to the main Request itself when the window is activated
+    - Allow user to click image viewer or browser view
+    - when clicked, navigate to the viewers and put a back button which navigates frame backwards so state is saved
+     */
+
     private bool isEditing = false;
 
     private string id;
@@ -47,11 +59,15 @@ public sealed partial class RequestViewer : Window
 
     private int logInAgainAttempts = 0;
 
+    private string initialRequestBody;
+
+    private DialogService dialogManager = new();
+
     public RequestViewer(
         string id,
         string phpSessionId,
         string nameOfAcademy,
-        string eventName,
+        string nameOfEvent,
         HourSyncCore.Status status,
         string username,
         string password
@@ -69,7 +85,9 @@ public sealed partial class RequestViewer : Window
         this.id = id;
         this.phpSessionId = phpSessionId;
         this.nameOfAcademy = nameOfAcademy;
-        this.eventName = eventName.Split('\n')[0];
+        eventName = nameOfEvent.Split('\n')[0];
+        FileMgr.Log(nameOfEvent);
+        eventTitle.Text = nameOfEvent;
         this.status = status;
         this.username = username;
         this.password = password;
@@ -77,7 +95,7 @@ public sealed partial class RequestViewer : Window
         FileMgr.Log("Running PostAsync()");
         _ = PostAsync();
 
-        Closed += async (s, e) =>
+        Closed += (_, __) =>
         {
             if (isEditing)
             {
@@ -85,11 +103,7 @@ public sealed partial class RequestViewer : Window
                 _mainWindow.ClosedEditor(id, this);
             }
         };
-    }
-
-    private async Task<ContentDialogResult> ShowDialog(string title, string content, string closeButtonText = "", string primaryButtonText = "", string secondaryButtonText = "")
-    {
-        return await new ContentDialog { Title = title, Content = content, CloseButtonText = closeButtonText.Length > 0 ? closeButtonText : null, PrimaryButtonText = primaryButtonText.Length > 0 ? primaryButtonText : null, SecondaryButtonText = secondaryButtonText.Length > 0 ? secondaryButtonText : null, XamlRoot = RootGrid.XamlRoot }.ShowAsync();
+        SetupMinimumWindowSize();
     }
 
     private async Task PostAsync()
@@ -106,33 +120,31 @@ public sealed partial class RequestViewer : Window
 
             progressBar.IsIndeterminate = false;
 
-            if (status == HourSyncCore.Status.Accepted)
+            pendingStatus.Text = status.ToString();
+            openBrowserButton.IsEnabled = true;
+            if (status != HourSyncCore.Status.Returned)
             {
-                pendingStatus.Text = "Accepted";
                 progressBar.Value = 100;
-            }
-            else if (status == HourSyncCore.Status.Denied)
-            {
-                pendingStatus.Text = "Denied";
-                progressBar.Value = 100;
-                progressBar.ShowError = true;
-            }
-            else if (status == HourSyncCore.Status.Pending)
-            {
-                pendingStatus.Text = "Pending";
-                progressBar.Value = 100;
-                progressBar.ShowPaused = true;
+                if (status == HourSyncCore.Status.Denied)
+                {
+                    progressBar.ShowError = true;
+                }
+                else if (status == HourSyncCore.Status.Pending)
+                {
+                    progressBar.ShowPaused = true;
 
-                editReqButton.IsEnabled = true;
-                delReqButton.IsEnabled = true;
+                    editReqButton.IsEnabled = true;
+                    delReqButton.IsEnabled = true;
+                }
             }
             else if (status == HourSyncCore.Status.Returned)
             {
-                pendingStatus.Text = "Returned";
-                progressBar.IsIndeterminate = true; // should already be
+                progressBar.IsIndeterminate = true;
             }
 
             eventBody.Text = response.Body;
+            initialRequestBody = response.Body;
+
             foreach (string ImagePath in response.Images)
             {
                 LoadImage(ImagePath);
@@ -148,8 +160,6 @@ public sealed partial class RequestViewer : Window
             {
                 FileMgr.LogError("Too many log in attempts reached, check the code.");
                 throw new Exception("Too many log in attempts reached, check the code.");
-                ((App)Application.Current).Exit();
-                Close();
             }
             bool isLoggedInAgain = await LogInAgain();
             logInAgainAttempts++;
@@ -159,13 +169,7 @@ public sealed partial class RequestViewer : Window
             }
             else
             {
-                await new ContentDialog()
-                {
-                    Title = "Incorrect credentials",
-                    Content = $"Your credentials for the user {username} are incorrect. Please log in again.",
-                    PrimaryButtonText = "OK",
-                    XamlRoot = RootGrid.XamlRoot,
-                }.ShowAsync();
+                await dialogManager.ShowDialog("Incorrect Credentials", $"Your credentials for the user {username} are incorrect. Please log in again.", "OK");
             }
         }
         else
@@ -173,7 +177,7 @@ public sealed partial class RequestViewer : Window
             FileMgr.LogError($"Success: {response.Success}, Logged In: {response.LoggedIn}");
             FileMgr.LogError($"{response.Error}");
 
-            await ShowDialog("Error", "An error occurred. Please check the log for more information", "Okay");
+            await dialogManager.ShowDialog("Error", "An error occurred. Please check the log for more information", "Okay");
             Close();
         }
     }
@@ -197,7 +201,7 @@ public sealed partial class RequestViewer : Window
     private void LoadImage(string ImagePath)
     {
         // Create a base URL for relative paths
-        string baseUrl = "https://academyendorsement.olatheschools.com/";
+        const string baseUrl = "https://academyendorsement.olatheschools.com/";
 
         // If src contains "../", it needs to be fixed
         if (ImagePath.StartsWith("../"))
@@ -250,7 +254,7 @@ public sealed partial class RequestViewer : Window
         PrimaryButtonText = null, // Ensure there's no default button
     };
 
-    private async void ShowDeleteProgressBar()
+    private async void ShowDeleteProgressBar(string title = "Deleting")
     {
         // Initialize and configure the ContentDialog
         waitForDeleteProgressBar = new()
@@ -264,7 +268,7 @@ public sealed partial class RequestViewer : Window
 
         waitForDelete = new()
         {
-            Title = "Deleting",
+            Title = title,
             CloseButtonText = null,
             PrimaryButtonText = null, // Ensure there's no default button
             Content = waitForDeleteProgressBar,
@@ -279,7 +283,8 @@ public sealed partial class RequestViewer : Window
 
     private string afterDelReqResp = "";
 
-    private async void DelReq(object sender, RoutedEventArgs e)
+    private bool bypassDelReqDialog = false;
+    private async void DelReq(object _, RoutedEventArgs __)
     {
         if (doc.DocumentNode.SelectSingleNode("//*[@id='Delete']").InnerHtml.Length > 1)
         {
@@ -291,8 +296,14 @@ public sealed partial class RequestViewer : Window
                 CloseButtonText = "No",
                 XamlRoot = RootGrid.XamlRoot,
             };
-            ContentDialogResult result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.Primary)
+#pragma warning disable RCS1118 // Mark local variable as const
+            ContentDialogResult result = ContentDialogResult.None;
+#pragma warning restore RCS1118 // Mark local variable as const
+            if (!bypassDelReqDialog)
+            {
+                await dialog.ShowAsync();
+            }
+            if (bypassDelReqDialog || result == ContentDialogResult.Primary)
             {
                 try
                 {
@@ -318,23 +329,34 @@ public sealed partial class RequestViewer : Window
                     );
                     var responseString = await response.Content.ReadAsStringAsync();
 
+                    if (responseString.Contains("See your current eHours"))
+                    {
+                        var loggedIn = await LogInAgain();
+                        if (loggedIn)
+                        {
+                            bypassDelReqDialog = true;
+                            DelReq(null, null);
+                            bypassDelReqDialog = false;
+                        }
+                        else
+                        {
+                            waitForDelete.Hide();
+                            await dialogManager.ShowDialog("Incorrect Credentials", $"Your credentials for the user {username} are incorrect. Please log in again.", "OK");
+                        }
+                    }
+
                     FileMgr.WriteToFile("delreq.txt", responseString);
                     afterDelReqResp = responseString;
                     waitForDeleteProgressBar.IsIndeterminate = false;
                     waitForDeleteProgressBar.Value = 100;
-                    waitForDelete.Title = "Deleted succesfully";
+                    waitForDelete.Title = "Deleted Succesfully";
                     waitForDelete.CloseButtonText = "Close";
                     waitForDelete.CloseButtonClick += GoBackToHomeAndUpdate;
                 }
                 catch (Exception ex)
                 {
-                    FileMgr.Log(
-                        "An exception occurred at "
-                            + DateTime.Now
-                            + " when deleting request "
-                            + eventName
-                            + ". Exception: "
-                            + ex.Message
+                    FileMgr.LogError(
+                        "Error while deleting request: " + ex.Message
                     );
                     waitForDeleteProgressBar.ShowError = true;
                     waitForDelete.Title = "Error Deleting. Check the log for more info.";
@@ -346,27 +368,27 @@ public sealed partial class RequestViewer : Window
         {
             try
             {
-                _ = ShowDialog("Cannot Delete", "You cannot delete this request because it has already been accepted or denied by your academy instructor. Please contact the instructor of the "
+                _ = dialogManager.ShowDialog("Cannot Delete", "You cannot delete this request because it has already been accepted or denied by your academy instructor. Please contact the instructor of the "
                         + nameOfAcademy
                         + " for further instructions.", "OK");
             }
             catch (Exception ex)
             {
                 FileMgr.Log(ex.Message);
-                _ = ShowDialog("Cannot Delete", "You cannot delete this request because it has already been accepted or denied by your academy instructor. Please contact the instructor of the "
+                _ = dialogManager.ShowDialog("Cannot Delete", "You cannot delete this request because it has already been accepted or denied by your academy instructor. Please contact the instructor of the "
                         + nameOfAcademy
                         + " for further instructions.", "OK");
             }
         }
     }
 
-    private void GoBackToHomeAndUpdate(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+    private void GoBackToHomeAndUpdate(ContentDialog _, ContentDialogButtonClickEventArgs __)
     {
         ((App)App.Current).GoToHomeAfterDel(afterDelReqResp);
         Close();
     }
 
-    private async void EditReq(object sender, RoutedEventArgs e)
+    private async void EditReq(object _, RoutedEventArgs __)
     {
         MainWindow _mainWindow = (MainWindow)((App)Application.Current).m_window;
         bool res = _mainWindow.NowEditingViewer(id, this);
@@ -376,10 +398,11 @@ public sealed partial class RequestViewer : Window
             EditEnabled.Visibility = Visibility.Visible;
             eventBody.IsReadOnly = false;
             eventBody.Focus(FocusState.Keyboard);
+            editingControls.Visibility = Visibility.Visible;
         }
         else
         {
-            var contentRes = await ShowDialog("Max Editors Reached", "This request is already open in another editor. Please close that editor or continue working there.", "Close", "Go to Existing Editor");
+            var contentRes = await dialogManager.ShowDialog("Max Editors Reached", "This request is already open in another editor. Please close that editor or continue working there.", "Close", "Go to Existing Editor");
             if (contentRes == ContentDialogResult.Primary)
             {
                 _mainWindow.FocusEditor(id);
@@ -387,8 +410,154 @@ public sealed partial class RequestViewer : Window
         }
     }
 
-    private void Button_Click(object sender, RoutedEventArgs e)
+    private bool bypassUpdateReqDialog = false;
+    private async void UpdateReqClick(object _, RoutedEventArgs __)
     {
+        ContentDialogResult result = ContentDialogResult.None;
+        if (!bypassUpdateReqDialog)
+        {
+            result = await dialogManager.ShowDialog("Confirm Edit", "Are you sure you want to update this request?", "No", "Update");
+        }
 
+        if (bypassUpdateReqDialog || result == ContentDialogResult.Primary)
+        {
+            ShowDeleteProgressBar("Updating");
+            HourSyncCore.UpdatedRequest request = new()
+            {
+                NewContent = eventBody.Text,
+                State = status,
+                Value = id
+            };
+            var response = await HourSyncCore.EditRequest(phpSessionId, request);
+            if (response.Success)
+            {
+                waitForDeleteProgressBar.IsIndeterminate = false;
+                waitForDeleteProgressBar.Value = 100;
+                waitForDelete.Title = "Updated Succesfully";
+                waitForDelete.CloseButtonText = "Close";
+
+                MainWindow _mainWindow = (MainWindow)((App)Application.Current).m_window;
+                _mainWindow.ClosedEditor(id, this);
+
+                ((App)Application.Current).UpdateHomeContent(response.HtmlResponse);
+
+                waitForDelete.CloseButtonClick += (_, __) => Close();
+            }
+            else if (!response.LoggedIn)
+            {
+                var loggedIn = await LogInAgain();
+                if (loggedIn)
+                {
+                    bypassUpdateReqDialog = true;
+                    UpdateReqClick(null, null);
+                    bypassUpdateReqDialog = false;
+                }
+                else
+                {
+                    waitForDelete.Hide();
+                    await dialogManager.ShowDialog("Incorrect Credentials", $"Your credentials for the user {username} are incorrect. Please log in again.", "OK");
+                }
+            }
+            else if (response.Error != null)
+            {
+                FileMgr.LogError("Error while updating a request:" + response.Error);
+                await dialogManager.ShowDialog("Error", "An error occurred, check the log for more info.", "OK");
+            }
+            else
+            {
+                FileMgr.LogError("No error was provided, but editing was unsuccessful.");
+                await dialogManager.ShowDialog("Error", "Something else went wrong but we are unable to determine the cause. Try again using the official portal.", "OK");
+            }
+        }
+    }
+
+    private async void CancelEdit(object _, RoutedEventArgs __)
+    {
+        var resp = await dialogManager.ShowDialog("Confirm", "Are you sure you want to stop editing? Your edits will be discarded.", "No", "Discard");
+        if (resp == ContentDialogResult.Primary)
+        {
+            eventBody.IsReadOnly = true;
+            eventBody.Text = initialRequestBody;
+
+            MainWindow _mainWindow = (MainWindow)((App)Application.Current).m_window;
+            _mainWindow.ClosedEditor(id, this);
+        }
+    }
+
+    private void OpenBrowser(object _, RoutedEventArgs __)
+    {
+        BrowserView browser = new(phpSessionId);
+        browser.Activate();
+    }
+
+    // Set min size
+
+    private const int WM_GETMINMAXINFO = 0x0024;
+    private const int GWL_WNDPROC = -4;
+
+    private IntPtr _hwnd;
+    private WNDPROC _newWndProc;
+    private IntPtr _oldWndProc;
+
+    // Minimum window size in pixels
+    private int MIN_WIDTH = 410;
+    private int MIN_HEIGHT = 500;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT
+    {
+        public int x;
+        public int y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MINMAXINFO
+    {
+        public POINT ptReserved;
+        public POINT ptMaxSize;
+        public POINT ptMaxPosition;
+        public POINT ptMinTrackSize;
+        public POINT ptMaxTrackSize;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate IntPtr WNDPROC(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, WNDPROC dwNewLong);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
+
+    public void SetupMinimumWindowSize()
+    {
+        // Get the window handle
+        _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+
+        // Create our window procedure delegate
+        _newWndProc = new WNDPROC(WindowProc);
+
+        // Subclass the window
+        _oldWndProc = SetWindowLongPtr(_hwnd, GWL_WNDPROC, _newWndProc);
+    }
+
+    public IntPtr WindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
+    {
+        switch (msg)
+        {
+            case WM_GETMINMAXINFO:
+                // Handle the minimum window size
+                var minMaxInfo = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+                minMaxInfo.ptMinTrackSize.x = MIN_WIDTH;
+                minMaxInfo.ptMinTrackSize.y = MIN_HEIGHT;
+                Marshal.StructureToPtr(minMaxInfo, lParam, true);
+                return IntPtr.Zero;
+        }
+
+        // Call the original window procedure for all other messages
+        return CallWindowProc(_oldWndProc, hWnd, msg, wParam, lParam);
     }
 }

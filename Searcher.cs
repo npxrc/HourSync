@@ -1,4 +1,5 @@
-﻿using System;
+﻿#pragma warning disable IDE0079 // remove unnecessary suppression is apparently a warning so im disabling it
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -18,34 +19,42 @@ public static class Searcher
     public static int CalculateLevenshteinDistance(string source, string target)
     {
         if (string.IsNullOrEmpty(source))
+        {
             return string.IsNullOrEmpty(target) ? 0 : target.Length;
+        }
 
         if (string.IsNullOrEmpty(target))
+        {
             return source.Length;
+        }
 
         // Convert to lowercase for case-insensitive comparison
         source = source.ToLowerInvariant();
         target = target.ToLowerInvariant();
 
-        int sourceLength = source.Length;
-        int targetLength = target.Length;
+        var sourceLength = source.Length;
+        var targetLength = target.Length;
 
         // Create a matrix to store distances
-        int[,] matrix = new int[sourceLength + 1, targetLength + 1];
+        var matrix = new int[sourceLength + 1, targetLength + 1];
 
         // Initialize the first row and column
-        for (int i = 0; i <= sourceLength; i++)
+        for (var i = 0; i <= sourceLength; i++)
+        {
             matrix[i, 0] = i;
+        }
 
-        for (int j = 0; j <= targetLength; j++)
+        for (var j = 0; j <= targetLength; j++)
+        {
             matrix[0, j] = j;
+        }
 
         // Calculate distances
-        for (int i = 1; i <= sourceLength; i++)
+        for (var i = 1; i <= sourceLength; i++)
         {
-            for (int j = 1; j <= targetLength; j++)
+            for (var j = 1; j <= targetLength; j++)
             {
-                int cost = (source[i - 1] == target[j - 1]) ? 0 : 1;
+                var cost = (source[i - 1] == target[j - 1]) ? 0 : 1;
 
                 matrix[i, j] = Math.Min(
                     Math.Min(
@@ -68,43 +77,48 @@ public static class Searcher
     /// <returns>List of matching requests ordered by relevance</returns>
     public static List<Core.EHourRequest> FuzzySearch(string query, List<Core.EHourRequest> requests, int maxDistance = 2)
     {
-        if (string.IsNullOrWhiteSpace(query) || requests == null || !requests.Any())
-            return new List<Core.EHourRequest>();
-
-        var results = new List<(Core.EHourRequest Request, int Distance, double Score)>();
-
-        foreach (var request in requests)
+        if (!string.IsNullOrWhiteSpace(query) && requests?.Count == 0)
         {
-            // Search in description
-            int descriptionDistance = CalculateLevenshteinDistance(query, request.Description);
+            var results = new List<(Core.EHourRequest Request, int Distance, double Score)>();
 
-            // Also check if query is a substring (partial match)
-            bool isSubstring = request.Description.ToLowerInvariant().Contains(query.ToLowerInvariant());
-
-            // Calculate a combined score (lower is better)
-            double score = descriptionDistance;
-
-            // Bonus for substring matches
-            if (isSubstring)
-                score *= 0.5; // Give substring matches a significant bonus
-
-            // Bonus for shorter descriptions (more specific matches)
-            if (request.Description.Length < query.Length * 3)
-                score *= 0.8;
-
-            // Only include if within acceptable distance or is a substring
-            if (descriptionDistance <= maxDistance || isSubstring)
+            foreach (var request in requests)
             {
-                results.Add((request, descriptionDistance, score));
-            }
-        }
+                // Search in description
+                var descriptionDistance = CalculateLevenshteinDistance(query, request.Description);
 
-        // Sort by score (ascending - lower is better) and return requests
-        return results
+                // Also check if query is a substring (partial match)
+                var isSubstring = request.Description.Contains(query, StringComparison.InvariantCultureIgnoreCase);
+
+                // Calculate a combined score (lower is better)
+                double score = descriptionDistance;
+
+                // Bonus for substring matches
+                if (isSubstring)
+                {
+                    score *= 0.5; // Give substring matches a significant bonus
+                }
+
+                // Bonus for shorter descriptions (more specific matches)
+                if (request.Description.Length < query.Length * 3)
+                {
+                    score *= 0.8;
+                }
+
+                // Only include if within acceptable distance or is a substring
+                if (descriptionDistance <= maxDistance || isSubstring)
+                {
+                    results.Add((request, descriptionDistance, score));
+                }
+            }
+
+            // Sort by score (ascending - lower is better) and return requests
+            return [.. results
             .OrderBy(r => r.Score)
             .ThenBy(r => r.Distance)
-            .Select(r => r.Request)
-            .ToList();
+            .Select(r => r.Request)];
+        }
+
+        return [];
     }
 
     /// <summary>
@@ -163,21 +177,23 @@ public static class Searcher
         /// <returns>List of matching requests</returns>
         public static List<Core.EHourRequest> SearchByDate(string query, List<Core.EHourRequest> requests)
         {
-            if (string.IsNullOrWhiteSpace(query) || requests == null || !requests.Any())
-                return new List<Core.EHourRequest>();
-
-            var matchingRequests = new List<Core.EHourRequest>();
-            var queryLower = query.ToLowerInvariant().Trim();
-
-            foreach (var request in requests)
+            if (!string.IsNullOrWhiteSpace(query) && requests?.Count == 0)
             {
-                if (IsDateMatch(queryLower, request.Date))
+                var matchingRequests = new List<Core.EHourRequest>();
+                var queryLower = query.ToLowerInvariant().Trim();
+
+                foreach (var request in requests)
                 {
-                    matchingRequests.Add(request);
+                    if (IsDateMatch(queryLower, request.Date))
+                    {
+                        matchingRequests.Add(request);
+                    }
                 }
+
+                return matchingRequests;
             }
 
-            return matchingRequests;
+            return [];
         }
 
         /// <summary>
@@ -189,37 +205,43 @@ public static class Searcher
         private static bool IsDateMatch(string query, string dateString)
         {
             if (string.IsNullOrEmpty(dateString))
+            {
                 return false;
+            }
 
             // Try to parse the request date
-            if (!DateTime.TryParse(dateString, out DateTime requestDate))
+            if (!DateTime.TryParse(dateString, out var requestDate))
+            {
                 return false;
+            }
 
             // Check for year match (e.g., "2023")
+#pragma warning disable SYSLIB1045 // Convert to 'GeneratedRegexAttribute'.
             if (Regex.IsMatch(query, @"^\d{4}$"))
             {
-                if (int.TryParse(query, out int year))
+                if (int.TryParse(query, out var year))
                 {
                     return requestDate.Year == year;
                 }
             }
 
             // Check for month name match (e.g., "february", "feb")
-            if (MonthNames.ContainsKey(query))
+            if (MonthNames.TryGetValue(query, out var value))
             {
-                return requestDate.Month == MonthNames[query];
+                return requestDate.Month == value;
             }
 
             // Check for month and year (e.g., "february 2023", "feb 2023")
             var monthYearMatch = Regex.Match(query, @"^(\w+)\s+(\d{4})$");
+#pragma warning restore SYSLIB1045 // Convert to 'GeneratedRegexAttribute'.
             if (monthYearMatch.Success)
             {
-                string monthStr = monthYearMatch.Groups[1].Value;
-                string yearStr = monthYearMatch.Groups[2].Value;
+                var monthStr = monthYearMatch.Groups[1].Value;
+                var yearStr = monthYearMatch.Groups[2].Value;
 
-                if (MonthNames.ContainsKey(monthStr) && int.TryParse(yearStr, out int year))
+                if (MonthNames.TryGetValue(monthStr, out var val) && int.TryParse(yearStr, out var year))
                 {
-                    return requestDate.Month == MonthNames[monthStr] && requestDate.Year == year;
+                    return requestDate.Month == val && requestDate.Year == year;
                 }
             }
 
@@ -329,27 +351,28 @@ public static class Searcher
         /// <returns>Combined and deduplicated list of matching requests</returns>
         public static List<Core.EHourRequest> SearchCombined(string query, List<Core.EHourRequest> requests, int maxDistance = 2)
         {
-            if (string.IsNullOrWhiteSpace(query) || requests == null || !requests.Any())
-                return new List<Core.EHourRequest>();
+            if (!string.IsNullOrWhiteSpace(query) && requests?.Count == 0)
+            {
+                // Get results from both search methods
+                var fuzzyResults = FuzzySearch(query, requests, maxDistance);
+                var dateResults = NaturalDateSearch.SearchByDate(query, requests);
 
-            // Get results from both search methods
-            var fuzzyResults = FuzzySearch(query, requests, maxDistance);
-            var dateResults = NaturalDateSearch.SearchByDate(query, requests);
+                // Combine and deduplicate results (using Value as unique identifier)
+                var combinedResults = fuzzyResults
+                    .Concat(dateResults)
+                    .GroupBy(r => r.Value)
+                    .Select(g => g.First())
+                    .ToList();
 
-            // Combine and deduplicate results (using Value as unique identifier)
-            var combinedResults = fuzzyResults
-                .Concat(dateResults)
-                .GroupBy(r => r.Value)
-                .Select(g => g.First())
-                .ToList();
+                // Prioritize fuzzy matches over date matches for scoring
+                var fuzzyResultValues = new HashSet<string>(fuzzyResults.Select(r => r.Value));
 
-            // Prioritize fuzzy matches over date matches for scoring
-            var fuzzyResultValues = new HashSet<string>(fuzzyResults.Select(r => r.Value));
-
-            return combinedResults
+                return [.. combinedResults
                 .OrderBy(r => fuzzyResultValues.Contains(r.Value) ? 0 : 1) // Fuzzy matches first
-                .ThenBy(r => r.Description) // Then by description
-                .ToList();
+                .ThenBy(r => r.Description)];
+            }
+
+            return [];
         }
 
         /// <summary>

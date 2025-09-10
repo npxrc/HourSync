@@ -4,6 +4,9 @@
 #pragma warning disable IDE0052 // Remove unread private members
 #pragma warning disable CA1861 // Avoid constant arrays as arguments
 #pragma warning disable CsWinRT1029 // Class not trimming / AOT compatible
+
+//Home.xaml.cs
+
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -11,7 +14,6 @@ using System.Linq;
 using HtmlAgilityPack;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using Core = HourSyncCoreLib.HourSyncCore;
 
@@ -29,6 +31,7 @@ public sealed partial class Home : Page
     private List<Core.EHourRequest> AcceptedRequests = [];
     private List<Core.EHourRequest> DeniedRequests = [];
 
+    private DialogService dialogManager = new();
     public Home()
     {
         InitializeComponent();
@@ -80,17 +83,24 @@ public sealed partial class Home : Page
         }
 
         ((App)Application.Current).UpdatePresence("home", $"Signed in as {loginResult.StudentName}");
+        ((App)Application.Current).homePage = this;
     }
 
-    private async void Home_Loaded(object sender, RoutedEventArgs e)
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        ((App)Application.Current).isOnHome = false;
+        ((App)Application.Current).homePage = null;
+    }
+
+    private async void Home_Loaded(object _, RoutedEventArgs __)
     {
         ParseProgressTo200();
 
         var parsed = Core.ParseRequests(getresp);  // static call from the DLL
-        ReturnedRequests = parsed.Returned ?? new();
-        PendingRequests = parsed.Pending ?? new();
-        AcceptedRequests = parsed.Accepted ?? new();
-        DeniedRequests = parsed.Denied ?? new();
+        ReturnedRequests = parsed.Returned ?? [];
+        PendingRequests = parsed.Pending ?? [];
+        AcceptedRequests = parsed.Accepted ?? [];
+        DeniedRequests = parsed.Denied ?? [];
 
         CreateLayout();
 
@@ -141,9 +151,11 @@ public sealed partial class Home : Page
                 0
             ];
             double.TryParse(barval, NumberStyles.Any, CultureInfo.InvariantCulture, out double numberOfHours);
-            var percentto200 = ((numberOfHours / 2) >= 100 ? 100 : numberOfHours / 2);
-            var percentto300 = ((numberOfHours / 3) >= 100 ? 100 : numberOfHours / 3);
-            var percentto400 = ((numberOfHours / 4) >= 100 ? 100 : numberOfHours / 4);
+
+            var percentto200 = Math.Round((numberOfHours / 2.0) >= 100 ? 100 : numberOfHours / 2.0, 2);
+            var percentto300 = Math.Round((numberOfHours / 3.0) >= 100 ? 100 : numberOfHours / 3.0, 2);
+            var percentto400 = Math.Round((numberOfHours / 4.0) >= 100 ? 100 : numberOfHours / 4.0, 2);
+
             var selectedProgress = await FileMgr.GetSettingValueAsync("endorsementSelection.SelectedValue.FriendlyName");
             if (selectedProgress != null && selectedProgress is string)
             {
@@ -152,7 +164,11 @@ public sealed partial class Home : Page
                 FileMgr.Log($"{(numberOfHours / selectedProgressNumber) * 100}");
                 numberOfHours = ((numberOfHours / (selectedProgressNumber / 100)) >= 100 ? 100 : (numberOfHours / (selectedProgressNumber / 100)));
             }
-            else numberOfHours = percentto200;
+            else
+            {
+                numberOfHours = percentto200;
+            }
+
             StudentEHourProgress.Value = numberOfHours;
             ToolTipService.SetToolTip(
                 StudentEHourProgress,
@@ -172,7 +188,7 @@ public sealed partial class Home : Page
                 StudentEHourProgress,
                 "An error occurred when processing your percent to Endorsement."
             );
-            progressToEndorsementText.Text = $"0%";
+            progressToEndorsementText.Text = "0%";
             ToolTipService.SetToolTip(
                 progressToEndorsementText,
                 "An error occurred when processing your percent to Endorsement."
@@ -182,22 +198,38 @@ public sealed partial class Home : Page
 
     private void CreateLayout()
     {
-        foreach (var request in ReturnedRequests)
-        {
-            CreateButton(request, "returned");
-        }
-        foreach (var request in PendingRequests)
-        {
-            CreateButton(request, "pending");
-        }
+        double acceptedHours = 0;
+        double deniedHours = 0;
+        double pendingHours = 0;
+        double returnedHours = 0;
+
         foreach (var request in AcceptedRequests)
         {
             CreateButton(request, "accepted");
+            acceptedHours += double.TryParse(request.Hours, out var hrs) ? hrs : 0;
         }
         foreach (var request in DeniedRequests)
         {
             CreateButton(request, "denied");
+            deniedHours += double.TryParse(request.Hours, out var hrs) ? hrs : 0;
         }
+        foreach (var request in PendingRequests)
+        {
+            CreateButton(request, "pending");
+            pendingHours += double.TryParse(request.Hours, out var hrs) ? hrs : 0;
+        }
+        foreach (var request in ReturnedRequests)
+        {
+            CreateButton(request, "returned");
+            returnedHours += double.TryParse(request.Hours, out var hrs) ? hrs : 0;
+        }
+        string pending = "";
+        if (pendingHours > 0)
+        {
+            pending = $"Pending Hours: {pendingHours}\r\n";
+        }
+        StudentEHours.Text = $"Accepted Hours: {acceptedHours}\r\n{pending}Accept Rate: {(acceptedHours / (returnedHours + deniedHours + acceptedHours)) * 100}% ({acceptedHours}/{returnedHours + deniedHours + acceptedHours})";
+
         ((App)Application.Current).NavigationViewModel.MenuItems[1].MenuItems.Clear();
     }
 
@@ -230,7 +262,7 @@ public sealed partial class Home : Page
                 break;
         }
         NavigationViewItem item = new() { Tag = request.Value, Content = $"{request.Description}", Name = $"{request.Description} - {request.Date}" };
-        item.Tapped += (object sender, TappedRoutedEventArgs e) =>
+        item.Tapped += (sender, _) =>
         {
             var clickedItem = sender as NavigationViewItem;
             var content = clickedItem?.Content as string;
@@ -269,7 +301,7 @@ public sealed partial class Home : Page
 
     private MainWindow _mainWindow;
 
-    private void RequestButton_Click(object sender, RoutedEventArgs e)
+    private void RequestButton_Click(object sender, RoutedEventArgs __)
     {
         _mainWindow = (MainWindow)((App)Application.Current).m_window;
         Button clickedButton = (Button)sender;
@@ -294,18 +326,9 @@ public sealed partial class Home : Page
         );
     }
 
-    private async void Logout_Click(object sender, RoutedEventArgs e)
+    private async void Logout_Click(object _, RoutedEventArgs __)
     {
-        var dialog = new ContentDialog
-        {
-            Title = "Confirm Logout",
-            Content = "Are you sure you want to log out?",
-            PrimaryButtonText = "Yes",
-            SecondaryButtonText = "No",
-            XamlRoot = XamlRoot,
-        };
-
-        ContentDialogResult result = await dialog.ShowAsync();
+        ContentDialogResult result = await dialogManager.ShowDialog("Confirm Logout", "Are you sure you want to log out?", "No", "Yes", "", XamlRoot);
 
         if (result == ContentDialogResult.Primary)
         {
@@ -314,32 +337,32 @@ public sealed partial class Home : Page
         }
     }
 
-    private void SortDateOtoN(object sender, RoutedEventArgs e)
+    private void SortDateOtoN(object _, RoutedEventArgs __)
     {
         Sort("date", "old");
     }
 
-    private void SortDateNtoO(object sender, RoutedEventArgs e)
+    private void SortDateNtoO(object _, RoutedEventArgs __)
     {
         Sort("date", "new");
     }
 
-    private void SortNameAtoZ(object sender, RoutedEventArgs e)
+    private void SortNameAtoZ(object _, RoutedEventArgs __)
     {
         Sort("name", "a");
     }
 
-    private void SortNameZtoA(object sender, RoutedEventArgs e)
+    private void SortNameZtoA(object _, RoutedEventArgs __)
     {
         Sort("name", "z");
     }
 
-    private void SortHoursLtoH(object sender, RoutedEventArgs e)
+    private void SortHoursLtoH(object _, RoutedEventArgs __)
     {
         Sort("hours", "low");
     }
 
-    private void SortHoursHtoL(object sender, RoutedEventArgs e)
+    private void SortHoursHtoL(object _, RoutedEventArgs __)
     {
         Sort("hours", "high");
     }
@@ -358,17 +381,17 @@ public sealed partial class Home : Page
         // Sort each list based on the criteria
         if (from == "old" || from == "a" || from == "low")
         {
-            ReturnedRequests = ReturnedRequests.OrderBy(keySelector).ToList();
-            PendingRequests = PendingRequests.OrderBy(keySelector).ToList();
-            AcceptedRequests = AcceptedRequests.OrderBy(keySelector).ToList();
-            DeniedRequests = DeniedRequests.OrderBy(keySelector).ToList();
+            ReturnedRequests = [.. ReturnedRequests.OrderBy(keySelector)];
+            PendingRequests = [.. PendingRequests.OrderBy(keySelector)];
+            AcceptedRequests = [.. AcceptedRequests.OrderBy(keySelector)];
+            DeniedRequests = [.. DeniedRequests.OrderBy(keySelector)];
         }
         else if (from == "new" || from == "z" || from == "high")
         {
-            ReturnedRequests = ReturnedRequests.OrderByDescending(keySelector).ToList();
-            PendingRequests = PendingRequests.OrderByDescending(keySelector).ToList();
-            AcceptedRequests = AcceptedRequests.OrderByDescending(keySelector).ToList();
-            DeniedRequests = DeniedRequests.OrderByDescending(keySelector).ToList();
+            ReturnedRequests = [.. ReturnedRequests.OrderByDescending(keySelector)];
+            PendingRequests = [.. PendingRequests.OrderByDescending(keySelector)];
+            AcceptedRequests = [.. AcceptedRequests.OrderByDescending(keySelector)];
+            DeniedRequests = [.. DeniedRequests.OrderByDescending(keySelector)];
         }
 
         // Recreate the layout with the sorted lists
@@ -401,7 +424,7 @@ public sealed partial class Home : Page
             CreateButton(request, "denied");
         }
     }
-    private void Search(object sender, TextChangedEventArgs e)
+    private void Search(object sender, TextChangedEventArgs _)
     {
         var textBox = (TextBox)sender;
         var text = textBox.Text;
@@ -444,6 +467,23 @@ public sealed partial class Home : Page
         foreach (var request in searchResults["denied"])
         {
             CreateButton(request, "denied");
+        }
+    }
+
+    public void OnWindowSizeChanged(double windowWidth)
+    {
+        // Update the UI based on window width
+        if (windowWidth < 1008)
+        {
+            // Single column layout
+            RequestsGrid.ColumnDefinitions[0].Width = new GridLength(1, GridUnitType.Star);
+            RequestsGrid.ColumnDefinitions[1].Width = new GridLength(0);
+        }
+        else
+        {
+            // Two column layout
+            RequestsGrid.ColumnDefinitions[0].Width = new GridLength(2, GridUnitType.Star);
+            RequestsGrid.ColumnDefinitions[1].Width = new GridLength(1, GridUnitType.Star);
         }
     }
 }

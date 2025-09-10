@@ -5,13 +5,18 @@
 #pragma warning disable IDE0060 // Remove unused parameter
 #pragma warning disable CA1861 // Avoid constant arrays as arguments
 #pragma warning disable CsWinRT1029 // Class not trimming / AOT compatible
+
+//Login.xaml.cs
+
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using HourSyncCoreLib;
@@ -31,7 +36,7 @@ namespace HourSync;
 
 public sealed partial class Login : Page
 {
-    private readonly string APPVERSIONNUMBER = "1.3.0";
+    private readonly string APPVERSIONNUMBER = "1.4.0";
     private readonly string appDataFolder = "HourSync";
     private readonly string logFilePath;
     private string phpSessionId;
@@ -40,16 +45,14 @@ public sealed partial class Login : Page
     private string username;
     private string password;
 
+    private DialogService dialogManager = new();
+
     private static readonly CookieContainer _cookieContainer = new();
     private static readonly HttpClientHandler _handler = new()
     {
         CookieContainer = _cookieContainer,
         AllowAutoRedirect = true,
     };
-    private async Task<ContentDialogResult> ShowDialog(string title, string content, string closeButtonText = "", string primaryButtonText = "", string secondaryButtonText = "")
-    {
-        return await new ContentDialog { Title = title, Content = content, CloseButtonText = closeButtonText.Length > 0 ? closeButtonText : null, PrimaryButtonText = primaryButtonText.Length > 0 ? primaryButtonText : null, SecondaryButtonText = secondaryButtonText.Length > 0 ? secondaryButtonText : null, XamlRoot = XamlRoot }.ShowAsync();
-    }
     private static readonly HttpClient _client = new(_handler)
     {
         DefaultRequestHeaders =
@@ -60,9 +63,6 @@ public sealed partial class Login : Page
             },
         },
     };
-
-    private readonly DispatcherTimer _themeCheckTimer;
-    private bool _currentThemeIsDark = false;
 
     public Login()
     {
@@ -79,17 +79,13 @@ public sealed partial class Login : Page
             FileMgr.LogError(ex.Message);
         }
         InitializeComponent();
+        this.DataContext = new LoginViewModel();
 
-        // Initialize the timer
-        _themeCheckTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(250), // Check every 250 ms
-        };
-        _themeCheckTimer.Tick += (sender, e) => UpdateTheme();
-        _themeCheckTimer.Start();
+        // Replace timer with event-based theme handling
+        var uiSettings = new UISettings();
+        uiSettings.ColorValuesChanged += OnSystemThemeChanged;
 
         // Initial theme check
-        UpdateTheme();
         ApplyTheme(IsDarkTheme());
 
         logFilePath = Path.Combine(
@@ -108,15 +104,55 @@ public sealed partial class Login : Page
         System.Diagnostics.Trace.WriteLine("Executable is located in: " + exeDirectory);
     }
 
+    private void OnSystemThemeChanged(UISettings _, object __)
+    {
+        // Use dispatcher to update UI thread
+        DispatcherQueue.TryEnqueue(() => ApplyTheme(IsDarkTheme()));
+    }
+
+    // Clean up event handlers when page is navigated away from
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        var uiSettings = new UISettings();
+        uiSettings.ColorValuesChanged -= OnSystemThemeChanged;
+
+        base.OnNavigatedFrom(e);
+    }
+
+    public static bool IsDarkTheme()
+    {
+        var uiSettings = new UISettings();
+        var color = uiSettings.GetColorValue(UIColorType.Background);
+
+        // Simple heuristic to determine if the theme is dark
+        return color.R < 128 && color.G < 128 && color.B < 128;
+    }
+
+    private void ApplyTheme(bool isDarkTheme)
+    {
+        if (isDarkTheme)
+        {
+            loginBanner.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(
+                new Uri("ms-appx:///Assets/hoursync-dark-login-banner.png")
+            );
+        }
+        else
+        {
+            loginBanner.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(
+                new Uri("ms-appx:///Assets/hoursync-light-login-banner.png")
+            );
+        }
+    }
+
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         try
         {
             if (VmChecker.IsVirtualMachine())
             {
-                Loaded += async (sender, args) =>
+                Loaded += async (_, __) =>
                 {
-                    await ShowDialog("Virtual Machine Detected", "Please use legitimate hardware in order to use HourSync. If you believe this is a false detection, please email neil@hoursync.net.");
+                    await dialogManager.ShowDialog("Virtual Machine Detected", "Please use legitimate hardware in order to use HourSync. If you believe this is a false detection, please email neil@hoursync.net.", "OK", "", "", XamlRoot);
                     Application.Current.Exit();
                 };
                 return;
@@ -148,7 +184,7 @@ public sealed partial class Login : Page
             {
                 if (isFirstTime)
                 {
-                    Loaded += async (sender, args) =>
+                    Loaded += async (_, __) =>
                         await HandleFirstTimeSetupAsync();
                 }
             }
@@ -166,7 +202,7 @@ public sealed partial class Login : Page
             PasswordBox.Password = PassFromVault;
             if (isFirstTime)
             {
-                Loaded += async (sender, args) =>
+                Loaded += async (_, __) =>
                     await HandleFirstTimeSetupAsync();
             }
         }
@@ -181,7 +217,7 @@ public sealed partial class Login : Page
         {
             FileMgr.Log("Welcome to HourSync! Downloading current settings.");
 
-            var result = await ShowDialog("Welcome!", "Welcome to HourSync! This app requires the internet to initialize for the first time (and also to even log in!), so if you haven't connected, please do so now, or exit the app and try again later.\n\nThis app is meant to provide a centralized and easy to use experience to manage your eHours. Experience a modern design, an accessible interface, draft saving, and completely optional AI features.\n\nThe author of this app, Neil, wishes you enjoy this app and find it useful. Thanks!", "Cancel", "Download");
+            var result = await dialogManager.ShowDialog("Welcome!", "Welcome to HourSync! This app requires the internet to initialize for the first time (and also to even log in!), so if you haven't connected, please do so now, or exit the app and try again later.\n\nThis app is meant to provide a centralized and easy to use experience to manage your eHours. Experience a modern design, an accessible interface, draft saving, and completely optional AI features.\n\nThe author of this app, Neil, wishes you enjoy this app and find it useful. Thanks!", "Cancel", "Download", "", XamlRoot);
             if (result == ContentDialogResult.Primary)
             {
                 FileMgr.Log("Downloading settings.json.");
@@ -196,7 +232,7 @@ public sealed partial class Login : Page
             }
         }
 
-        if (autoLoginEnabled.ToString().ToLower() == "true")
+        if (autoLoginEnabled.ToString().Equals("true", StringComparison.CurrentCultureIgnoreCase))
         {
             FileMgr.Log("AutoLogin is enabled. Logging in automatically.");
             if (await CheckForUpdate())
@@ -260,69 +296,11 @@ public sealed partial class Login : Page
             waitForLogin.Content = waitForLoginProgressBar;
             waitForLogin.Title = "No Internet";
             waitForLogin.CloseButtonText = "OK";
+            waitForLogin.CloseButtonClick += (_, __) => ((App)Application.Current).m_window.Close();
         }
     }
 
-
-
-    private void UpdateTheme()
-    {
-        bool isDarkTheme = IsDarkTheme();
-        if (isDarkTheme != _currentThemeIsDark)
-        {
-            _currentThemeIsDark = isDarkTheme;
-            ApplyTheme(isDarkTheme);
-        }
-
-        if (UsernameTextBox.Text.Length < 1)
-        {
-            UsernameTextBox.BorderBrush = null;
-            UsernameTextBox.BorderThickness = new Thickness(0);
-            return;
-        }
-
-        string pattern = @"^\d{3}[a-zA-Z]{3}(0[1-9]|[12][0-9]|3[01])$";
-
-        if (!Regex.IsMatch(UsernameTextBox.Text, pattern))
-        {
-            // Handle invalid input, e.g., show a message or change the TextBox border color
-            UsernameTextBox.BorderThickness = new Thickness(2);
-            UsernameTextBox.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 200, 50, 30));
-        }
-        else
-        {
-            // Reset the border color if the input is valid
-            UsernameTextBox.BorderBrush = null;
-            UsernameTextBox.BorderThickness = new Thickness(0);
-        }
-    }
-
-    public static bool IsDarkTheme()
-    {
-        var uiSettings = new UISettings();
-        var color = uiSettings.GetColorValue(UIColorType.Background);
-
-        // Simple heuristic to determine if the theme is dark
-        return color.R < 128 && color.G < 128 && color.B < 128;
-    }
-
-    private void ApplyTheme(bool isDarkTheme)
-    {
-        if (isDarkTheme)
-        {
-            loginBanner.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(
-                new Uri("ms-appx:///Assets/hoursync-dark-login-banner.png")
-            );
-        }
-        else
-        {
-            loginBanner.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(
-                new Uri("ms-appx:///Assets/hoursync-light-login-banner.png")
-            );
-        }
-    }
-
-    private async void LoginButton_Click(object sender, RoutedEventArgs e)
+    private async void LoginButton_Click(object _, RoutedEventArgs __)
     {
         FileMgr.Log("Login button clicked");
         username = UsernameTextBox.Text;
@@ -330,21 +308,14 @@ public sealed partial class Login : Page
 
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
         {
-            var dialog = new ContentDialog
-            {
-                Title = "Error",
-                Content = "Please enter both username and password.",
-                CloseButtonText = "OK",
-                XamlRoot = XamlRoot,
-            };
-            await dialog.ShowAsync();
+            await dialogManager.ShowDialog("Error", "Please enter both a username and password", "OK", "", "", XamlRoot);
             return;
         }
         FileMgr.Log("Running PerformLogin()");
         await PerformLogin();
     }
 
-    private async void ForgotPassword_Click(object sender, RoutedEventArgs e)
+    private async void ForgotPassword_Click(object _, RoutedEventArgs __)
     {
 
         TextBlock textBlock = new()
@@ -363,16 +334,12 @@ public sealed partial class Login : Page
         Hyperlink hyperlink = new Hyperlink();
         hyperlink.Inlines.Add(new Run { Text = "enter your username in the Microsoft signin screen" });
 
-        string pattern = @"^\d{3}[a-zA-Z]{3}(0[1-9]|[12][0-9]|3[01])$";
         string loginHint = "";
-        if (Regex.IsMatch(UsernameTextBox.Text, pattern))
+        if (UsernameRegex().IsMatch(UsernameTextBox.Text))
         {
             loginHint = $"&login_hint={UsernameTextBox.Text}@stu.olatheschools.org";
         }
-        hyperlink.Click += async (s, e) =>
-        {
-            await Launcher.LaunchUriAsync(new Uri("https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=4765445b-32c6-49b0-83e6-1d93765276ca&redirect_uri=https%3A%2F%2Fwww.office.com%2Flandingv2&response_type=code%20id_token&scope=openid%20profile%20https%3A%2F%2Fwww.office.com%2Fv2%2FOfficeHome.All&response_mode=form_post&nonce=638905623156382711.NWVmYjg2YmMtODYwNy00MjUzLTk3Y2EtZGM5NWJkNDRjN2EzNWY0MGU2ODctMjg5OS00YjdhLTk1NDctOWIxNzcxYjFiNWEz&ui_locales=en-US&mkt=en-US&client-request-id=d6b60022-0d04-4323-bffa-978dc5b47402&state=_VvDr_oNwSPwxhWhEE2kkuQ8dZYOw3sIZ0DfFzDlZV0ff2PZIdKFh1ijP73ymrNqfm4mpC08XAD2WaU54Eu36GPzVxLQ5eeFFX3aU16ZBs2Kylcuzq8cB09raAiJ1wjRteyQevEpQ9TYy8gvcQsdDyVuA9S6lC8waZ0Q53KQtFZzh5s5l-3Hn1G9xX2PQzGevuc7pcAxfAodoFYXE_0EQNuXn6YGPdbwbOKZV1M6nzfTp6euVJj1145OBFUEob8HTj_YsPcUX0igOv08DutyAC3_XosmUGv6mRqAChU4lzI&x-client-SKU=ID_NET8_0&x-client-ver=8.5.0.0" + loginHint));
-        };
+        hyperlink.Click += async (_, __) => await Launcher.LaunchUriAsync(new Uri("https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=19db86c3-b2b9-44cc-b339-36da233a3be2&redirect_uri=https%3A%2F%2Fmysignins.microsoft.com&scope=openid+profile+email+offline_access&response_type=code&response_mode=fragment&code_challenge=9PI188Gb7y4H7AP9K0Sy4sYivPrB1h-r8EY62pWg-MM&code_challenge_method=S256&state=461c659f-7fe7-4fb5-a11b-0e87f8e46500" + loginHint));
 
         textBlock.Inlines.Add(hyperlink);
 
@@ -391,7 +358,7 @@ public sealed partial class Login : Page
 
     private bool isShiftPressedInUsernameBox = false;
 
-    private async void UsernameTextBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    private async void UsernameTextBox_KeyDown(object _, KeyRoutedEventArgs e)
     {
         if (e.Key == VirtualKey.Enter)
         {
@@ -420,7 +387,7 @@ public sealed partial class Login : Page
         }
     }
 
-    private void UsernameTextBox_KeyUp(object sender, KeyRoutedEventArgs e)
+    private void UsernameTextBox_KeyUp(object _, KeyRoutedEventArgs e)
     {
         if (e.Key == VirtualKey.Shift)
         {
@@ -435,9 +402,7 @@ public sealed partial class Login : Page
             return;
         }
 
-        string pattern = @"^\d{3}[a-zA-Z]{3}(0[1-9]|[12][0-9]|3[01])$";
-
-        if (!Regex.IsMatch(UsernameTextBox.Text, pattern))
+        if (!UsernameRegex().IsMatch(UsernameTextBox.Text))
         {
             // Handle invalid input, e.g., show a message or change the TextBox border color
             UsernameTextBox.BorderThickness = new Thickness(2);
@@ -451,7 +416,7 @@ public sealed partial class Login : Page
         }
     }
 
-    private void PasswordBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    private void PasswordBox_KeyDown(object _, KeyRoutedEventArgs e)
     {
         if (e.Key == VirtualKey.Enter)
         {
@@ -509,7 +474,13 @@ public sealed partial class Login : Page
         try
         {
             FileMgr.Log("Attempting login via HourSyncCore");
+            if (password.Length < 6)
+            {
+                ShowLoginError("Password length is too short");
+                return;
+            }
             var loginResult = await HourSyncCore.Login(username, password);
+            FileMgr.Log("Done");
 
             if (!string.IsNullOrEmpty(loginResult.Error) || string.IsNullOrEmpty(loginResult.PhpSessionId))
             {
@@ -578,7 +549,7 @@ public sealed partial class Login : Page
 
         if (result == "true")
         {
-            var clicked = await ShowDialog("New Update Available", "A newer version is available. Would you like to update?", "Later", "Update");
+            var clicked = await dialogManager.ShowDialog("New Update Available", "A newer version is available. Would you like to update?", "Later", "Update", "", XamlRoot);
             if (clicked == ContentDialogResult.Primary)
             {
                 ShowLoginProgressBarAsync();
@@ -644,13 +615,13 @@ public sealed partial class Login : Page
                         new ProcessStartInfo
                         {
                             FileName = downloadPath,
-                            Arguments = $"-o\"{extractPath}\" -y", // Specify extraction path
+                            Arguments = "/SILENT",
                             UseShellExecute = true,
                             CreateNoWindow = true,
                         }
                     );
 
-                    FileMgr.Log("Handing it off to 7zip.");
+                    FileMgr.Log("Handing it off to Inno.");
 
                     Application.Current.Exit();
                 }
@@ -668,10 +639,96 @@ public sealed partial class Login : Page
         }
         else if (result == "error")
         {
-            await ShowDialog("Update Check Error", "An error occurred while checking for updates.", "", "Okay");
+            await dialogManager.ShowDialog("Update Check Error", "An error occurred while checking for updates.", "", "Okay", "", XamlRoot);
             return true;
         }
 
         return false;
+    }
+
+    [GeneratedRegex(@"^\d{3}[a-zA-Z]{3}(0[1-9]|[12][0-9]|3[01])$")]
+    private static partial Regex UsernameRegex();
+}
+// ViewModel
+public class LoginViewModel : INotifyPropertyChanged
+{
+    private string _username;
+    private bool _hasValidationError;
+    private Brush _borderBrush;
+    private Thickness _borderThickness;
+
+    public string Username
+    {
+        get => _username;
+        set
+        {
+            _username = value;
+            OnPropertyChanged();
+            ValidateUsername();
+        }
+    }
+
+    public bool HasValidationError
+    {
+        get => _hasValidationError;
+        set
+        {
+            _hasValidationError = value;
+            OnPropertyChanged();
+            UpdateBorderAppearance();
+        }
+    }
+
+    public Brush BorderBrush
+    {
+        get => _borderBrush;
+        set
+        {
+            _borderBrush = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public Thickness BorderThickness
+    {
+        get => _borderThickness;
+        set
+        {
+            _borderThickness = value;
+            OnPropertyChanged();
+        }
+    }
+
+    private void ValidateUsername()
+    {
+        if (string.IsNullOrEmpty(Username))
+        {
+            HasValidationError = false;
+            return;
+        }
+
+        const string pattern = @"^\d{3}[a-zA-Z]{3}(0[1-9]|[12][0-9]|3[01])$";
+        HasValidationError = !Regex.IsMatch(Username, pattern);
+    }
+
+    private void UpdateBorderAppearance()
+    {
+        if (HasValidationError)
+        {
+            BorderThickness = new Thickness(2);
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 200, 50, 30));
+        }
+        else
+        {
+            BorderThickness = new Thickness(0);
+            BorderBrush = null;
+        }
+    }
+
+    // INotifyPropertyChanged implementation
+    public event PropertyChangedEventHandler PropertyChanged;
+    protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }

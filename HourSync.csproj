@@ -22,12 +22,7 @@
 
 		<ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
 	</PropertyGroup>
-	<ItemGroup>
-	  <Compile Remove="TemplateEngineHost\**" />
-	  <EmbeddedResource Remove="TemplateEngineHost\**" />
-	  <None Remove="TemplateEngineHost\**" />
-	  <Page Remove="TemplateEngineHost\**" />
-	</ItemGroup>
+	
 	<ItemGroup>
 		<Content Remove="Assets\BadgeLogo.scale-100.png" />
 		<Content Remove="Assets\BadgeLogo.scale-125.png" />
@@ -83,10 +78,12 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<None Remove="BrowserView.xaml" />
 		<None Remove="DiscordRPC.dll" />
 		<None Remove="Home.xaml" />
 		<None Remove="ImageViewer.xaml" />
 		<None Remove="Login.xaml" />
+		<None Remove="releaseNotes.json" />
 		<None Remove="RequestMaker.xaml" />
 		<None Remove="RequestViewer.xaml" />
 		<None Remove="Settings.xaml" />
@@ -100,11 +97,14 @@
 		<Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
 		<Content Include="Assets\Wide310x150Logo.scale-200.png" />
 		<Content Include="logo.ico" />
+		<Content Include="releaseNotes.json">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
 	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="HtmlAgilityPack" Version="1.12.2" />
-		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
+		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4948" />
 		<PackageReference Include="Microsoft.WindowsAppSDK" Version="1.7.250606001" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 		<Manifest Include="$(ApplicationManifest)" />
@@ -135,6 +135,9 @@
 		</Content>
 		<Content Update="Assets\hoursync-dark-login-banner.png">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+		<Content Update="Assets\logo.ico">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</Content>
 	</ItemGroup>
 
@@ -278,6 +281,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Page Update="BrowserView.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</Page>
 		<None Update="linker.xml" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 </Project>

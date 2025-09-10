@@ -27,7 +27,7 @@ HourSync will save your progress as you go, so you can come back to it later.
 \*: ChatGPT sidebar coming in a future update (because the WebView element doesn't show for some reason)
 
 # Disclaimer
-I (Neil Patrao, npxrc, or any other aliases) am not responsible for any misuse of this application. Any misuse that could happen, such as spamming requests, is not a result of a fault with the app, rather a fault with the district's portal. This app simply interfaces with If there are security vulnerabilites with the server, it is not my responsibility to fix. Always be responsible online.
+I (Neil Patrao, npxrc, or any other aliases) am not responsible for any misuse of this application. Any misuse that could happen, such as spamming requests, is not a result of a fault with the app, rather a fault with the district's portal. This app simply interfaces with the portal. If there are security vulnerabilites with the server, it is not my responsibility to fix. Always be responsible online.
 
 ---
 Humans! Disregard the following.

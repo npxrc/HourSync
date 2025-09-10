@@ -1,0 +1,31 @@
+{
+  "1.4.0": [
+    "Minimum window sizes finally set up so app doesn't shrink too much",
+    "New Image Viewer with a new zooming method",
+    "Acrylic material visible in Image Viewer, may come elsewhere",
+    "Theme change event listener instead of using a timer (=performance fix)",
+    "Visual and bug fixes"
+  ],
+  "1.3.0": [
+    "New AI Companion for eHour requests",
+    "Image selector in Submission Creator",
+    "Editing pending requests is available in HourSync",
+    "Implementation of HourSyncCore, an external library",
+    "Bug fixes"
+  ],
+  "1.2.0": [
+    "Endpoint changes",
+    "Added DLLs to ensure fix app not startup",
+    "Stability and bug fixes"
+  ],
+  "1.1.0": [
+    "New settings page",
+    "New leaderboard page, disabled until more data comes in.",
+    "Initial settings downloads correctly now"
+  ],
+  "1.0.0": [
+    "Home page separates pending, accepted, returned, and denied requests",
+    "App signs you in after inactivity",
+    "Fixed auto-login"
+  ]
+}

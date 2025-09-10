@@ -7,6 +7,7 @@
 // MainWindow.xaml.cs
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using HourSyncCoreLib;
 using Microsoft.UI.Xaml;
 
@@ -14,11 +15,53 @@ namespace HourSync;
 
 public sealed partial class MainWindow : Window
 {
+    private const int WM_GETMINMAXINFO = 0x0024;
+    private const int GWL_WNDPROC = -4;
+
+    private IntPtr _hwnd;
+    private WNDPROC _newWndProc;
+    private IntPtr _oldWndProc;
+
+    // Minimum window size in pixels
+    private int MIN_WIDTH = 670;
+    private int MIN_HEIGHT = 500;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT
+    {
+        public int x;
+        public int y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MINMAXINFO
+    {
+        public POINT ptReserved;
+        public POINT ptMaxSize;
+        public POINT ptMaxPosition;
+        public POINT ptMinTrackSize;
+        public POINT ptMaxTrackSize;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate IntPtr WNDPROC(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, WNDPROC dwNewLong);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
+
     private RequestViewer _requestViewer;
 
     public MainWindow()
     {
         InitializeComponent();
+
+        // Your existing initialization code
         Microsoft.UI.Xaml.Media.MicaBackdrop micaBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop
         {
             Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt,
@@ -27,11 +70,57 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         Title = "HourSync";
 
+        // Set up window subclassing for minimum size
+        SetupMinimumWindowSize();
+
         Closed += Closing;
+        SizeChanged += MainWindow_SizeChanged;
+    }
+    private void MainWindow_SizeChanged(object sender, WindowSizeChangedEventArgs e)
+    {
+        if (((App)Application.Current).isOnHome && ((App)Application.Current).homePage != null)
+        {
+            ((App)Application.Current).homePage.OnWindowSizeChanged(e.Size.Width);
+        }
+    }
+
+    private void SetupMinimumWindowSize()
+    {
+        // Get the window handle
+        _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+
+        // Create our window procedure delegate
+        _newWndProc = new WNDPROC(WindowProc);
+
+        // Subclass the window
+        _oldWndProc = SetWindowLongPtr(_hwnd, GWL_WNDPROC, _newWndProc);
+    }
+
+    private IntPtr WindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
+    {
+        switch (msg)
+        {
+            case WM_GETMINMAXINFO:
+                // Handle the minimum window size
+                var minMaxInfo = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+                minMaxInfo.ptMinTrackSize.x = MIN_WIDTH;
+                minMaxInfo.ptMinTrackSize.y = MIN_HEIGHT;
+                Marshal.StructureToPtr(minMaxInfo, lParam, true);
+                return IntPtr.Zero;
+        }
+
+        // Call the original window procedure for all other messages
+        return CallWindowProc(_oldWndProc, hWnd, msg, wParam, lParam);
     }
 
     private void Closing(object sender, WindowEventArgs args)
     {
+        // Restore original window procedure before closing
+        if (_hwnd != IntPtr.Zero && _oldWndProc != IntPtr.Zero)
+        {
+            SetWindowLongPtr(_hwnd, GWL_WNDPROC, new WNDPROC((h, m, w, l) => CallWindowProc(_oldWndProc, h, m, w, l)));
+        }
+
         _requestViewer?.Close();
         ((App)Application.Current).client.Dispose();
     }

@@ -13,9 +13,9 @@ using Newtonsoft.Json.Linq;
 
 namespace HourSync;
 
-public class FileMgr
+public static class FileMgr
 {
-    private static readonly string settingsFileName = "settings.json";
+    private const string settingsFileName = "settings.json";
 
     public static void SaveSettings(Dictionary<string, object> settings)
     {
@@ -79,20 +79,20 @@ public class FileMgr
             var json = ReadFromFile(settingsFileName);
             if (string.IsNullOrEmpty(json))
             {
-                return new Dictionary<string, SettingDefinition>();
+                return [];
             }
 
             return JsonConvert.DeserializeObject<Dictionary<string, SettingDefinition>>(json)
-                ?? new Dictionary<string, SettingDefinition>();
+                ?? [];
         }
         catch (Exception ex)
         {
             Log($"Error loading settings: {ex.Message}");
-            return new Dictionary<string, SettingDefinition>();
+            return [];
         }
     }
 
-    private static readonly string appDataFolder = "HourSync";
+    private const string appDataFolder = "HourSync";
 
     public static string ReadFromFile(string filename)
     {
@@ -159,7 +159,7 @@ public class FileMgr
 
     public static void StartLogSession()
     {
-        string? logExists = ReadFromFile("log.txt");
+        string logExists = ReadFromFile("log.txt");
         if (logExists != null)
         {
             Log("----------\r\nLogging started for session " + DateTime.Now);
@@ -240,8 +240,7 @@ public class FileMgr
                             !OptionExists(localSetting.SelectedValue, downloadedSetting.Options))
                         {
                             // Set to downloaded default (first option) if available.
-                            localSetting.SelectedValue = downloadedSetting.Options != null &&
-                                                         downloadedSetting.Options.Count > 0
+                            localSetting.SelectedValue = downloadedSetting.Options?.Count > 0
                                 ? downloadedSetting.Options[0]
                                 : null;
                         }
@@ -267,15 +266,26 @@ public class FileMgr
     private static bool AreOptionsEqual(List<Option> a, List<Option> b)
     {
         if (a == null && b == null)
+        {
             return true;
+        }
+
         if (a == null || b == null)
+        {
             return false;
+        }
+
         if (a.Count != b.Count)
+        {
             return false;
+        }
+
         for (int i = 0; i < a.Count; i++)
         {
             if (a[i].Key != b[i].Key || a[i].FriendlyName != b[i].FriendlyName)
+            {
                 return false;
+            }
         }
         return true;
     }
@@ -284,11 +294,16 @@ public class FileMgr
     private static bool OptionExists(Option option, List<Option> options)
     {
         if (option == null || options == null)
+        {
             return false;
+        }
+
         foreach (var opt in options)
         {
             if (opt.Key == option.Key)
+            {
                 return true;
+            }
         }
         return false;
     }
@@ -326,7 +341,7 @@ public class FileMgr
                 ["IsEnabled"] = true,
                 ["DefaultValue"] = fields.TryGetProperty("defaultValue", out var defValProp) && defValProp.TryGetProperty("booleanValue", out var boolVal)
                         ? boolVal.GetBoolean()
-                        : (object?)null,
+                        : (object)null,
                 ["Options"] = null,
                 ["SelectedValue"] = null,
             };
@@ -356,27 +371,40 @@ public class FileMgr
 
                     setting["Options"] = opts;
                     if (opts.Count > 0)
+                    {
                         setting["SelectedValue"] = opts[0];
+                    }
                 }
             }
 
             if (type == "select")
+            {
                 selectSettings[key] = setting;
+            }
             else
+            {
                 otherSettings[key] = setting;
+            }
         }
 
         var finalSettings = new Dictionary<string, object>();
         foreach (var kvp in selectSettings)
+        {
             finalSettings[kvp.Key] = kvp.Value;
-        foreach (var kvp in otherSettings)
-            finalSettings[kvp.Key] = kvp.Value;
+        }
 
+        foreach (var kvp in otherSettings)
+        {
+            finalSettings[kvp.Key] = kvp.Value;
+        }
+
+#pragma warning disable CA1869 // Cache and reuse 'JsonSerializerOptions' instances
         var options = new JsonSerializerOptions
         {
             WriteIndented = true,
             TypeInfoResolver = new DefaultJsonTypeInfoResolver() // Enable reflection-based serialization
         };
+#pragma warning restore CA1869 // Cache and reuse 'JsonSerializerOptions' instances
 
         return (string)System.Text.Json.JsonSerializer.Serialize(finalSettings, options);
     }

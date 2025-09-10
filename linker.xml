@@ -2,5 +2,10 @@
 <linker>
 	<assembly fullname="HourSync">
 		<type fullname="HourSync.SettingDefinition" preserve="all" />
+		<type fullname="HourSync.Option" preserve="all" />
+	</assembly>
+	<!-- Also preserve Newtonsoft.Json attributes -->
+	<assembly fullname="Newtonsoft.Json">
+		<type fullname="Newtonsoft.Json.JsonConstructorAttribute" preserve="all" />
 	</assembly>
 </linker>

@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:HourSync"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" d:DataContext="{d:DesignInstance Type=local:LoginViewModel}"
     mc:Ignorable="d">
 
     <Grid>
@@ -33,11 +33,14 @@
                     HorizontalAlignment="Center"
                     Margin="0,20,0,12">
             <TextBox x:Name="UsernameTextBox"
-                     PlaceholderText="District Username"
-                     Width="200"
-                     Margin="0,0,10,0"
-                     PreviewKeyDown="UsernameTextBox_KeyDown"
-                     PreviewKeyUp="UsernameTextBox_KeyUp"/>
+                 Text="{Binding Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 BorderBrush="{Binding BorderBrush, Mode=OneWay}"
+                 BorderThickness="{Binding BorderThickness, Mode=OneWay}"
+                 PlaceholderText="District Username"
+                 Width="200"
+                 Margin="0,0,10,0"
+                 PreviewKeyDown="UsernameTextBox_KeyDown"
+                 PreviewKeyUp="UsernameTextBox_KeyUp"/>
             <PasswordBox x:Name="PasswordBox"
                          PlaceholderText="District Password"
                          Width="200"
