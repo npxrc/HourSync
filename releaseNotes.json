@@ -1,4 +1,10 @@
 {
+  "1.5.0": [
+    "Leaderboard has been released",
+    "Streamlined request viewing processs",
+    "BrowserView has been moved into RequestViewer",
+    "Performance updates by using binding and other fixes"
+  ],
   "1.4.0": [
     "Minimum window sizes finally set up so app doesn't shrink too much",
     "New Image Viewer with a new zooming method",

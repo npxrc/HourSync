@@ -11,11 +11,11 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using DiscordRPC;
+using HourSyncCoreLib;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
-using Core = HourSyncCoreLib.HourSyncCore;
 
 namespace HourSync;
 public partial class App : Application
@@ -26,7 +26,6 @@ public partial class App : Application
     private NavigationViewItem homeTag;
 
     public Home homePage = null;
-    public bool isOnHome = false;
 
     private NavigationViewItem createSubmission
     {
@@ -36,10 +35,10 @@ public partial class App : Application
     {
         get; private set;
     }
-    public Window m_window;
+    public MainWindow m_window;
 
     // Properties to hold parameters
-    public Core.LoginResult LoginResult
+    public LoginResult LoginResult
     {
         get; set;
     }
@@ -79,8 +78,8 @@ public partial class App : Application
     {
         get; set;
     }
-    private string currentPage = "home";
-    private string previousPage = "null";
+    private string currentPageForNav = "home";
+    private string previousPageForNav = "null";
 
     public DiscordRpcClient client = new("1342974846090481766");
     private DiscordRPC.Button[] buttons = [
@@ -147,8 +146,8 @@ public partial class App : Application
         if (args.InvokedItemContainer is NavigationViewItem item)
         {
             SlideNavigationTransitionInfo effect;
-            previousPage = currentPage;
-            if (previousPage == item.Tag.ToString())
+            previousPageForNav = currentPageForNav;
+            if (previousPageForNav == item.Tag.ToString())
             {
                 return;
             }
@@ -161,7 +160,7 @@ public partial class App : Application
             if (targetPage == "settings")
             {
                 // settings always slides vertically
-                if (previousPage == "settings")
+                if (previousPageForNav == "settings")
                 {
                     return;
                 }
@@ -174,7 +173,7 @@ public partial class App : Application
             else
             {
                 // both target and previous are in the linear strip
-                int prevIndex = pageOrder.IndexOf(previousPage);
+                int prevIndex = pageOrder.IndexOf(previousPageForNav);
                 int newIndex = pageOrder.IndexOf(targetPage);
 
                 if (prevIndex < newIndex)
@@ -195,7 +194,7 @@ public partial class App : Application
                 }
             }
 
-            currentPage = targetPage;
+            currentPageForNav = targetPage;
 
             // navigate to correct page type
             Type targetType = targetPage switch
@@ -210,14 +209,6 @@ public partial class App : Application
 
             if (targetType != null)
             {
-                if (targetType == typeof(Home))
-                {
-                    isOnHome = true;
-                }
-                else
-                {
-                    isOnHome = false;
-                }
                 rootFrame.Navigate(
                     targetType,
                     new object[] { LoginResult, Username, Password, HomeResult },
@@ -227,7 +218,7 @@ public partial class App : Application
         }
     }
 
-    public void LoggedIn(Core.LoginResult loginResult, string username, string password, string getresp, bool navigate = true)
+    public void LoggedIn(LoginResult loginResult, string username, string password, string getresp, bool navigate = true)
     {
         LoginResult = loginResult;
         Username = username;
@@ -241,14 +232,13 @@ public partial class App : Application
         {
             NavigationViewModel.RefreshMenuItems(isLoggedIn: true);
             rootFrame.Navigate(typeof(Home), new object[] { loginResult, username, password, getresp }, new DrillInNavigationTransitionInfo());
-            isOnHome = true;
         }
     }
 
     public void LoggedOut()
     {
         // Clear user-specific data
-        previousPage = currentPage;
+        previousPageForNav = currentPageForNav;
         Username = null;
         Password = null;
         PhpSessionId = null;
@@ -261,9 +251,7 @@ public partial class App : Application
 
         NavigationViewModel.RefreshMenuItems(isLoggedIn: false);
         rootFrame.Navigate(typeof(Login), false);
-        currentPage = "login";
-
-        isOnHome = false;
+        currentPageForNav = "login";
     }
 
     public void BackClicked()
@@ -285,7 +273,6 @@ public partial class App : Application
     {
         HomeResult = getresp;
         rootFrame.Navigate(typeof(Home), new object[] { LoginResult, Username, Password, getresp }, new DrillInNavigationTransitionInfo());
-        isOnHome = true;
     }
 
     public void UpdateHomeContent(string getresp)
@@ -301,19 +288,15 @@ public partial class App : Application
         {
             case "login":
                 state = "Logging in";
-                isOnHome = false;
                 break;
             case "home":
                 state = "Viewing Homepage";
-                isOnHome = true;
                 break;
             case "create":
                 state = "Submitting eHours";
-                isOnHome = false;
                 break;
             case "settings":
                 state = "Changing Settings";
-                isOnHome = false;
                 break;
         }
         if (details.Length > 0)

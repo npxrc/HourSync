@@ -28,6 +28,8 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using Newtonsoft.Json.Linq;
+using Windows.ApplicationModel;
+using Windows.Storage;
 using Windows.System;
 using Windows.UI;
 using Windows.UI.ViewManagement;
@@ -36,7 +38,6 @@ namespace HourSync;
 
 public sealed partial class Login : Page
 {
-    private readonly string APPVERSIONNUMBER = "1.4.0";
     private readonly string appDataFolder = "HourSync";
     private readonly string logFilePath;
     private string phpSessionId;
@@ -235,7 +236,7 @@ public sealed partial class Login : Page
         if (autoLoginEnabled.ToString().Equals("true", StringComparison.CurrentCultureIgnoreCase))
         {
             FileMgr.Log("AutoLogin is enabled. Logging in automatically.");
-            if (await CheckForUpdate())
+            if (await CheckForUpdateIfNeeded())
             {
                 return;
             }
@@ -464,7 +465,10 @@ public sealed partial class Login : Page
         };
 
         // Show the ContentDialog asynchronously
-        await waitForLogin.ShowAsync();
+        if (!DialogManager.IsDialogOpen)
+        {
+            await waitForLogin.ShowAsync();
+        }
     }
 
     private async Task PerformLogin()
@@ -536,6 +540,32 @@ public sealed partial class Login : Page
         waitForLogin.CloseButtonText = "OK";
     }
 
+    //check for update if it's been 24 hours since last check, mainly to prevent me, the developer, from calling the API a ton of times
+    private async Task<bool> CheckForUpdateIfNeeded()
+    {
+        var localSettings = ApplicationData.Current.LocalSettings;
+        string lastCheckKey = "LastUpdateCheck";
+
+        DateTime now = DateTime.Now;
+
+        if (localSettings.Values.TryGetValue(lastCheckKey, out object storedDateObj) &&
+            DateTime.TryParse(storedDateObj.ToString(), out DateTime storedDate))
+        {
+            if ((now - storedDate) < TimeSpan.FromDays(1))
+            {
+                // Last check was less than 24h ago, skip
+                return false;
+            }
+        }
+
+        // Save current time
+        localSettings.Values[lastCheckKey] = now.ToString("o"); // "o" = round-trip ISO 8601
+
+        // Run the actual update check
+        return await CheckForUpdate();
+    }
+
+
     private async Task<bool> CheckForUpdate()
     {
         string versionURL = Private.Version();
@@ -545,7 +575,10 @@ public sealed partial class Login : Page
         var obj = JObject.Parse(json);
         string latestVersion = (string)obj["fields"]?["version"]?["stringValue"];
 
-        string result = Utils.IsNewerVersion(latestVersion, APPVERSIONNUMBER);
+        var package = Package.Current.Id.Version;
+        var versionString = $"{package.Major}.{package.Minor}.{package.Revision}";
+
+        string result = Utils.IsNewerVersion(latestVersion, versionString);
 
         if (result == "true")
         {

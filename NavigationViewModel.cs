@@ -75,7 +75,6 @@ public partial class NavigationViewModel : INotifyPropertyChanged
                 Content = "Leaderboard",
                 Tag = "leaderboard",
                 Icon = new SymbolIcon(Symbol.OutlineStar),
-                IsEnabled = false
             }
         ];
 
@@ -110,7 +109,7 @@ public partial class NavigationViewModel : INotifyPropertyChanged
                     item.IsEnabled = isLoggedIn;
                     break;
                 case "leaderboard":
-                    item.IsEnabled = false;
+                    item.IsEnabled = isLoggedIn;
                     break;
                 case "settings":
                     item.IsEnabled = true;

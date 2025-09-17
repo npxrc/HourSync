@@ -3,9 +3,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Core = HourSyncCoreLib.HourSyncCore;
+using HourSyncCoreLib;
 
 // This ENTIRE file was written by Claude, please don't ask me to explain what ANY of it does.
+
+// Update: So vibe coding is quite stupid since AI may write if conditions that don't make sense
+// For example, in the FuzzySearch method, the code checked that the requests list was EMPTY before searching
+// Which makes literally 0 sense since you want to only search requests lists that HAVE stuff inside.
 
 namespace HourSync;
 public static class Searcher
@@ -75,50 +79,49 @@ public static class Searcher
     /// <param name="requests">List of requests to search through</param>
     /// <param name="maxDistance">Maximum allowed Levenshtein distance (default: 2)</param>
     /// <returns>List of matching requests ordered by relevance</returns>
-    public static List<Core.EHourRequest> FuzzySearch(string query, List<Core.EHourRequest> requests, int maxDistance = 2)
+    public static List<EHourRequest> FuzzySearch(string query, List<EHourRequest> requests, int maxDistance = 2)
     {
-        if (!string.IsNullOrWhiteSpace(query) && requests?.Count == 0)
+        if (string.IsNullOrWhiteSpace(query) || requests == null || requests.Count == 0)
         {
-            var results = new List<(Core.EHourRequest Request, int Distance, double Score)>();
-
-            foreach (var request in requests)
-            {
-                // Search in description
-                var descriptionDistance = CalculateLevenshteinDistance(query, request.Description);
-
-                // Also check if query is a substring (partial match)
-                var isSubstring = request.Description.Contains(query, StringComparison.InvariantCultureIgnoreCase);
-
-                // Calculate a combined score (lower is better)
-                double score = descriptionDistance;
-
-                // Bonus for substring matches
-                if (isSubstring)
-                {
-                    score *= 0.5; // Give substring matches a significant bonus
-                }
-
-                // Bonus for shorter descriptions (more specific matches)
-                if (request.Description.Length < query.Length * 3)
-                {
-                    score *= 0.8;
-                }
-
-                // Only include if within acceptable distance or is a substring
-                if (descriptionDistance <= maxDistance || isSubstring)
-                {
-                    results.Add((request, descriptionDistance, score));
-                }
-            }
-
-            // Sort by score (ascending - lower is better) and return requests
-            return [.. results
-            .OrderBy(r => r.Score)
-            .ThenBy(r => r.Distance)
-            .Select(r => r.Request)];
+            return [];
         }
 
-        return [];
+        var results = new List<(EHourRequest Request, int Distance, double Score)>();
+        foreach (var request in requests)
+        {
+            // Search in description
+            var descriptionDistance = CalculateLevenshteinDistance(query, request.Description);
+
+            // Also check if query is a substring (partial match)
+            var isSubstring = request.Description.Contains(query, StringComparison.InvariantCultureIgnoreCase);
+
+            // Calculate a combined score (lower is better)
+            double score = descriptionDistance;
+
+            // Bonus for substring matches
+            if (isSubstring)
+            {
+                score *= 0.5; // Give substring matches a significant bonus
+            }
+
+            // Bonus for shorter descriptions (more specific matches)
+            if (request.Description.Length < query.Length * 3)
+            {
+                score *= 0.8;
+            }
+
+            // Only include if within acceptable distance or is a substring
+            if (descriptionDistance <= maxDistance || isSubstring)
+            {
+                results.Add((request, descriptionDistance, score));
+            }
+        }
+
+        // Sort by score (ascending - lower is better) and return requests
+        return [.. results
+        .OrderBy(r => r.Score)
+        .ThenBy(r => r.Distance)
+        .Select(r => r.Request)];
     }
 
     /// <summary>
@@ -131,15 +134,16 @@ public static class Searcher
     /// <param name="deniedRequests">Denied requests list</param>
     /// <param name="maxDistance">Maximum allowed Levenshtein distance</param>
     /// <returns>Dictionary with search results categorized by status</returns>
-    public static Dictionary<string, List<Core.EHourRequest>> SearchAllRequests(
+    public static Dictionary<string, List<EHourRequest>> SearchAllRequests(
         string query,
-        List<Core.EHourRequest> returnedRequests,
-        List<Core.EHourRequest> pendingRequests,
-        List<Core.EHourRequest> acceptedRequests,
-        List<Core.EHourRequest> deniedRequests,
+        List<EHourRequest> returnedRequests,
+        List<EHourRequest> pendingRequests,
+        List<EHourRequest> acceptedRequests,
+        List<EHourRequest> deniedRequests,
         int maxDistance = 2)
     {
-        return new Dictionary<string, List<Core.EHourRequest>>
+        FileMgr.Log(query);
+        return new Dictionary<string, List<EHourRequest>>
         {
             ["returned"] = FuzzySearch(query, returnedRequests, maxDistance),
             ["pending"] = FuzzySearch(query, pendingRequests, maxDistance),
@@ -154,20 +158,20 @@ public static class Searcher
     public static class NaturalDateSearch
     {
         private static readonly Dictionary<string, int> MonthNames = new(StringComparer.OrdinalIgnoreCase)
-    {
-        {"january", 1}, {"jan", 1},
-        {"february", 2}, {"feb", 2},
-        {"march", 3}, {"mar", 3},
-        {"april", 4}, {"apr", 4},
-        {"may", 5},
-        {"june", 6}, {"jun", 6},
-        {"july", 7}, {"jul", 7},
-        {"august", 8}, {"aug", 8},
-        {"september", 9}, {"sep", 9}, {"sept", 9},
-        {"october", 10}, {"oct", 10},
-        {"november", 11}, {"nov", 11},
-        {"december", 12}, {"dec", 12}
-    };
+        {
+            {"january", 1}, {"jan", 1},
+            {"february", 2}, {"feb", 2},
+            {"march", 3}, {"mar", 3},
+            {"april", 4}, {"apr", 4},
+            {"may", 5},
+            {"june", 6}, {"jun", 6},
+            {"july", 7}, {"jul", 7},
+            {"august", 8}, {"aug", 8},
+            {"september", 9}, {"sep", 9}, {"sept", 9},
+            {"october", 10}, {"oct", 10},
+            {"november", 11}, {"nov", 11},
+            {"december", 12}, {"dec", 12}
+        };
 
         /// <summary>
         /// Searches for requests based on natural date expressions
@@ -175,25 +179,25 @@ public static class Searcher
         /// <param name="query">Search query (e.g., "february", "2023", "march 2024")</param>
         /// <param name="requests">List of requests to search through</param>
         /// <returns>List of matching requests</returns>
-        public static List<Core.EHourRequest> SearchByDate(string query, List<Core.EHourRequest> requests)
+        public static List<EHourRequest> SearchByDate(string query, List<EHourRequest> requests)
         {
-            if (!string.IsNullOrWhiteSpace(query) && requests?.Count == 0)
+            if (string.IsNullOrWhiteSpace(query) || requests == null || requests.Count == 0)
             {
-                var matchingRequests = new List<Core.EHourRequest>();
-                var queryLower = query.ToLowerInvariant().Trim();
-
-                foreach (var request in requests)
-                {
-                    if (IsDateMatch(queryLower, request.Date))
-                    {
-                        matchingRequests.Add(request);
-                    }
-                }
-
-                return matchingRequests;
+                return [];
             }
 
-            return [];
+            var matchingRequests = new List<EHourRequest>();
+            var queryLower = query.ToLowerInvariant().Trim();
+
+            foreach (var request in requests)
+            {
+                if (IsDateMatch(queryLower, request.Date))
+                {
+                    matchingRequests.Add(request);
+                }
+            }
+
+            return matchingRequests;
         }
 
         /// <summary>
@@ -321,14 +325,14 @@ public static class Searcher
         /// <summary>
         /// Searches across all request lists using natural date expressions
         /// </summary>
-        public static Dictionary<string, List<Core.EHourRequest>> SearchAllRequestsByDate(
+        public static Dictionary<string, List<EHourRequest>> SearchAllRequestsByDate(
             string query,
-            List<Core.EHourRequest> returnedRequests,
-            List<Core.EHourRequest> pendingRequests,
-            List<Core.EHourRequest> acceptedRequests,
-            List<Core.EHourRequest> deniedRequests)
+            List<EHourRequest> returnedRequests,
+            List<EHourRequest> pendingRequests,
+            List<EHourRequest> acceptedRequests,
+            List<EHourRequest> deniedRequests)
         {
-            return new Dictionary<string, List<Core.EHourRequest>>
+            return new Dictionary<string, List<EHourRequest>>
             {
                 ["returned"] = SearchByDate(query, returnedRequests),
                 ["pending"] = SearchByDate(query, pendingRequests),
@@ -349,44 +353,44 @@ public static class Searcher
         /// <param name="requests">List of requests to search</param>
         /// <param name="maxDistance">Maximum Levenshtein distance for fuzzy matching</param>
         /// <returns>Combined and deduplicated list of matching requests</returns>
-        public static List<Core.EHourRequest> SearchCombined(string query, List<Core.EHourRequest> requests, int maxDistance = 2)
+        public static List<EHourRequest> SearchCombined(string query, List<EHourRequest> requests, int maxDistance = 2)
         {
-            if (!string.IsNullOrWhiteSpace(query) && requests?.Count == 0)
+            if (string.IsNullOrWhiteSpace(query) || requests == null || requests.Count == 0)
             {
-                // Get results from both search methods
-                var fuzzyResults = FuzzySearch(query, requests, maxDistance);
-                var dateResults = NaturalDateSearch.SearchByDate(query, requests);
-
-                // Combine and deduplicate results (using Value as unique identifier)
-                var combinedResults = fuzzyResults
-                    .Concat(dateResults)
-                    .GroupBy(r => r.Value)
-                    .Select(g => g.First())
-                    .ToList();
-
-                // Prioritize fuzzy matches over date matches for scoring
-                var fuzzyResultValues = new HashSet<string>(fuzzyResults.Select(r => r.Value));
-
-                return [.. combinedResults
-                .OrderBy(r => fuzzyResultValues.Contains(r.Value) ? 0 : 1) // Fuzzy matches first
-                .ThenBy(r => r.Description)];
+                return [];
             }
 
-            return [];
+            // Get results from both search methods
+            var fuzzyResults = FuzzySearch(query, requests, maxDistance);
+            var dateResults = NaturalDateSearch.SearchByDate(query, requests);
+
+            // Combine and deduplicate results (using Value as unique identifier)
+            var combinedResults = fuzzyResults
+                .Concat(dateResults)
+                .GroupBy(r => r.Value)
+                .Select(g => g.First())
+                .ToList();
+
+            // Prioritize fuzzy matches over date matches for scoring
+            var fuzzyResultValues = new HashSet<string>(fuzzyResults.Select(r => r.Value));
+
+            return [.. combinedResults
+            .OrderBy(r => fuzzyResultValues.Contains(r.Value) ? 0 : 1) // Fuzzy matches first
+            .ThenBy(r => r.Description)];
         }
 
         /// <summary>
         /// Performs combined search across all request categories
         /// </summary>
-        public static Dictionary<string, List<Core.EHourRequest>> SearchAllRequestsCombined(
+        public static Dictionary<string, List<EHourRequest>> SearchAllRequestsCombined(
             string query,
-            List<Core.EHourRequest> returnedRequests,
-            List<Core.EHourRequest> pendingRequests,
-            List<Core.EHourRequest> acceptedRequests,
-            List<Core.EHourRequest> deniedRequests,
+            List<EHourRequest> returnedRequests,
+            List<EHourRequest> pendingRequests,
+            List<EHourRequest> acceptedRequests,
+            List<EHourRequest> deniedRequests,
             int maxDistance = 2)
         {
-            return new Dictionary<string, List<Core.EHourRequest>>
+            return new Dictionary<string, List<EHourRequest>>
             {
                 ["returned"] = SearchCombined(query, returnedRequests, maxDistance),
                 ["pending"] = SearchCombined(query, pendingRequests, maxDistance),

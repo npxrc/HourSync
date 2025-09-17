@@ -150,6 +150,10 @@ public static class FileMgr
         {
             Directory.CreateDirectory(Path.GetDirectoryName(logFilePath));
             File.AppendAllText(logFilePath, $"\r\n{toLog}");
+            if (System.Diagnostics.Debugger.IsAttached)
+            {
+                System.Diagnostics.Trace.WriteLine($"{DateTime.Now} - {toLog}");
+            }
         }
         catch (Exception ex)
         {

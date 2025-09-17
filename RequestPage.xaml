@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Window
-    x:Class="HourSync.RequestViewer"
+<Page
+    x:Class="HourSync.RequestPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:HourSync"
@@ -9,9 +9,9 @@
     mc:Ignorable="d">
     <Grid x:Name="RootGrid">
         <ScrollViewer VerticalScrollMode="Auto"
-                      VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollMode="Disabled"
-                      HorizontalScrollBarVisibility="Disabled">
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollMode="Disabled"
+                  HorizontalScrollBarVisibility="Disabled">
             <Grid Margin="10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="3*"/>
@@ -23,103 +23,102 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <StackPanel Grid.Row="0"
-                        Orientation="Vertical">
+                    Orientation="Vertical">
                     <TextBlock x:Name="eventTitle"
-                            Text="Loading"
-                            Margin="36, 29, 0, 0"
-                            Style="{StaticResource TitleTextBlockStyle}"/>
+                        Text="Loading"
+                        Margin="36, 29, 0, 0"
+                        Style="{StaticResource TitleTextBlockStyle}"/>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Requested number of eHours:"
-                                Margin="36, 0, 5, 0"
-                                Style="{StaticResource SubtitleTextBlockStyle}"/>
+                            Margin="36, 0, 5, 0"
+                            Style="{StaticResource SubtitleTextBlockStyle}"/>
                         <TextBlock x:Name="reqdEHourCount"
-                                Text="---"
-                                Style="{StaticResource SubtitleTextBlockStyle}"/>
+                            Text="---"
+                            Style="{StaticResource SubtitleTextBlockStyle}"/>
                     </StackPanel>
                     <StackPanel Orientation="Vertical"
-                            Margin="36, 0, 0, 0">
+                        Margin="36, 0, 0, 0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Status: "
-                                    Margin="0, 0, 5, 0"/>
+                                Margin="0, 0, 5, 0"/>
                             <TextBlock x:Name="pendingStatus"
-                                    Text="---"
-                                    Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                                Text="---"
+                                Style="{StaticResource BodyStrongTextBlockStyle}"/>
                         </StackPanel>
                         <ProgressBar x:Name="progressBar"
-                                IsIndeterminate="True"
-                                MaxWidth="500"
-                                Width="500"
-                                HorizontalAlignment="Left"
-                                Margin="0, 10, 0, 5"/>
+                            IsIndeterminate="True"
+                            MaxWidth="500"
+                            Width="500"
+                            HorizontalAlignment="Left"
+                            Margin="0, 10, 0, 5"/>
                         <StackPanel Orientation="Horizontal" Margin="0,10,0,10">
                             <Button Content="Delete Request"
-                                    x:Name="delReqButton"
-                                    IsEnabled="False"
-                                    Click="DelReq"/>
+                                x:Name="delReqButton"
+                                IsEnabled="False"
+                                Click="DelReq"/>
                             <Button Content="Edit Request"
-                                    Margin="5,0"
-                                    x:Name="editReqButton"
-                                    IsEnabled="False"
-                                    Click="EditReq"/>
+                                Margin="5,0"
+                                x:Name="editReqButton"
+                                IsEnabled="False"
+                                Click="EditReq"/>
                             <Button Content="Open in Browser"
-                                    x:Name="openBrowserButton"
-                                    IsEnabled="False"
-                                    Click="OpenBrowser"/>
+                                x:Name="openBrowserButton"
+                                IsEnabled="False"
+                                Click="OpenBrowser"/>
                         </StackPanel>
                     </StackPanel>
                     <StackPanel Orientation="Vertical">
                         <StackPanel Orientation="Horizontal"
-                                Margin="36, 0, 0, 0">
+                            Margin="36, 0, 0, 0">
                             <TextBlock Text="Date Submitted: " Margin="0,0,5,0"/>
                             <TextBlock x:Name="dateSubtd"
-                                    Text="---"
-                                    Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                                Text="---"
+                                Style="{StaticResource BodyStrongTextBlockStyle}"/>
                         </StackPanel>
                         <TextBlock x:Name="submittedTimeAgoText"
-                                Text="---"
-                                Margin="36, 0, 0, 0"/>
+                            Text="---"
+                            Margin="36, 0, 0, 0"/>
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Row="1"
-                        Orientation="Vertical"
-                        Margin="36, 0">
+                    Orientation="Vertical"
+                    Margin="36, 0">
                     <StackPanel x:Name="EditEnabled" Grid.Row="0" Visibility="Collapsed">
                         <InfoBar x:Name="EditEnabledBar" IsOpen="True" Severity="Success" Title="Editing has been enabled" Message="Make any changes you need and click 'Update' when you're done." Margin="0, 10, 0, 5" IsClosable="False"/>
                     </StackPanel>
                     <TextBlock Grid.Row="1"
-                            Text="Event Description:"/>
+                        Text="Event Description:"/>
                     <TextBox Grid.Row="1"
-                            Text="If it still says loading after a while, try closing and reopening the request. Otherwise, try logging in again."
-                            x:Name="eventBody"
-                            IsReadOnly="True"
-                            TextWrapping="Wrap"
-                            AcceptsReturn="True"
-                            Height="200"
-                            ScrollViewer.VerticalScrollBarVisibility="Visible"
-                            ScrollViewer.IsScrollInertiaEnabled="True"
-                            Margin="0, 10"/>
+                        Text="If it still says loading after a while, try closing and reopening the request. Otherwise, try logging in again."
+                        x:Name="eventBody"
+                        IsReadOnly="True"
+                        TextWrapping="Wrap"
+                        AcceptsReturn="True"
+                        Height="200"
+                        ScrollViewer.VerticalScrollBarVisibility="Visible"
+                        ScrollViewer.IsScrollInertiaEnabled="True"
+                        Margin="0, 10"/>
                     <StackPanel x:Name="editingControls" Visibility="Collapsed" Orientation="Horizontal" Margin="0,10">
                         <Button Click="UpdateReqClick" Margin="0,0,5,0">Update</Button>
                         <Button Click="CancelEdit">Cancel</Button>
                     </StackPanel>
                 </StackPanel>
                 <StackPanel x:Name="ImageMainContainer"
-                        Grid.Row="2"
-                        Margin="36, 0"
-                        Visibility="Collapsed">
+                    Grid.Row="2"
+                    Margin="36, 0"
+                    Visibility="Collapsed">
                     <TextBlock Text="Images uploaded:"/>
                     <ScrollViewer HorizontalScrollMode="Auto"
-                                  HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollMode="Disabled"
-                                  VerticalScrollBarVisibility="Disabled"
-                                  Margin="0, 10">
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollMode="Disabled"
+                              VerticalScrollBarVisibility="Disabled"
+                              Margin="0, 10">
                         <StackPanel Orientation="Horizontal"
-                                x:Name="ImagePanel">
-                            <!-- Your content here -->
+                            x:Name="ImagePanel">
                         </StackPanel>
                     </ScrollViewer>
                 </StackPanel>
             </Grid>
         </ScrollViewer>
     </Grid>
-</Window>
+</Page>

@@ -18,6 +18,7 @@ using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel;
+using Windows.Foundation;
 using Windows.UI.Text;
 
 namespace HourSync;
@@ -369,10 +370,14 @@ public sealed partial class Settings : Page
             FontWeight = new FontWeight(600),
             Margin = new Thickness(0, 0, 0, 10)
         });
+        MainWindow mainWindow = ((App)Application.Current).m_window;
+
+        Size windowSize = mainWindow.WindowSize;
         stack.Children.Add(new ScrollViewer
         {
             Content = richText,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Visible
+            VerticalScrollBarVisibility = ScrollBarVisibility.Visible,
+            MaxHeight = (0.8 * windowSize.Height)
         });
 
         var dialog = new ContentDialog

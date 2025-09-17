@@ -22,14 +22,13 @@ using Newtonsoft.Json;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
-using Core = HourSyncCoreLib.HourSyncCore;
 
 namespace HourSync;
 
 public sealed partial class RequestMaker : Page
 {
     private List<string> selectedImages = [];
-    private Core.LoginResult loginResult;
+    private LoginResult loginResult;
     private string username;
     private string password;
     private static readonly CookieContainer _cookieContainer = new();
@@ -55,6 +54,8 @@ public sealed partial class RequestMaker : Page
 
     public ObservableCollection<ImageDisplayItem> ImageDisplayItems { get; } = [];
 
+    private bool isAiEnabled = false;
+
     public RequestMaker()
     {
         InitializeComponent();
@@ -62,6 +63,14 @@ public sealed partial class RequestMaker : Page
 
         eventTitle.LostFocus += (_, __) => UpdatePresence();
         NumericTextBox.LostFocus += (_, __) => UpdatePresence();
+
+        ((App)Application.Current).m_window.SizeChanged += (_, e) => OnWindowSizeChanged(e.Size.Width);
+
+        var mainWindow = ((App)Application.Current).m_window as MainWindow;
+        if (mainWindow != null)
+        {
+            OnWindowSizeChanged(mainWindow.WindowSize.Width);
+        }
     }
 
 #pragma warning disable IDE1006 // Naming Styles
@@ -94,6 +103,8 @@ public sealed partial class RequestMaker : Page
                 return;
             }
         }
+
+        isAiEnabled = true;
 
         // Try to get the aiCompanion setting
         if (settings.TryGetValue("aiCompanion", out var aiCompanionSetting))
@@ -173,7 +184,7 @@ public sealed partial class RequestMaker : Page
             // Check the number of parameters
             if (parameters.Length >= 4)
             {
-                loginResult = (Core.LoginResult)parameters[0];
+                loginResult = (LoginResult)parameters[0];
                 username = parameters[1] as string;
                 password = parameters[2] as string;
             }
@@ -369,6 +380,7 @@ public sealed partial class RequestMaker : Page
     //POST request
     private async Task PostRequestAsync(string title, string date, string hours, string desc)
     {
+        SubmitButton.IsEnabled = false;
         try
         {
             string formattedDate = DateTime.Parse(date).ToString("yyyy-MM-dd");
@@ -397,10 +409,8 @@ public sealed partial class RequestMaker : Page
             {
                 await dialogManager.ShowDialog("Success", $"{title} was just submitted for {hours} eHours", "OK", "", "", XamlRoot);
 
-                // Instead of navigating immediately, update the UI on this page
                 UpdateUIAfterSubmission();
 
-                // Optional: Navigate after a short delay to ensure UI updates are visible
                 FileMgr.DeleteFile("draft.json");
                 ((App)Application.Current).UpdateHomeContent(responseString);
                 Frame.Navigate(
@@ -431,6 +441,7 @@ public sealed partial class RequestMaker : Page
                 else
                 {
                     await dialogManager.ShowDialog("Incorrect Credentials", $"Your credentials for the user {username} are incorrect. Please log in again.", "OK", "", "", XamlRoot);
+                    SubmitButton.IsEnabled = true;
                 }
             }
         }
@@ -645,6 +656,81 @@ public sealed partial class RequestMaker : Page
             OpenDraft_Click(null, null);
         }
     }
+
+    private void OnWindowSizeChanged(double windowWidth)
+    {
+        //System.Diagnostics.Trace.WriteLine($"{windowWidth}");
+        // Update the UI based on window width
+        if (windowWidth < 1300)
+        {
+            ContentGrid.ColumnDefinitions[0].Width = new GridLength(1, GridUnitType.Star);
+            ContentGrid.ColumnDefinitions[1].Width = new GridLength(0, GridUnitType.Star);
+
+            MainGrid.ColumnDefinitions[0].Width = new GridLength(2.5, GridUnitType.Star);
+            popOut.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            ContentGrid.ColumnDefinitions[0].Width = new GridLength(10, GridUnitType.Star);
+            ContentGrid.ColumnDefinitions[1].Width = new GridLength(1, GridUnitType.Star);
+
+            MainGrid.ColumnDefinitions[0].Width = new GridLength(3.5, GridUnitType.Star);
+            popOut.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private Window browserWindow;
+
+    private void PopOutBrowser(object sender, RoutedEventArgs e)
+    {
+        // First, remove the webview from its current parent
+        if (webView.Parent is Panel currentParent)
+        {
+            currentParent.Children.Remove(webView);
+        }
+
+        // Create new window with a simple Grid container
+        var browserContainer = new Grid();
+        browserContainer.Children.Add(webView);
+
+        browserWindow = new Window
+        {
+            Content = browserContainer,
+            Title = "HourSync AI Companion"
+        };
+
+        browserWindow.Closed += BrowserWindow_Closed;
+        browserWindow.Activate();
+
+        browserWindow.ExtendsContentIntoTitleBar = true;
+    }
+
+    private void BrowserWindow_Closed(object sender, WindowEventArgs args)
+    {
+        // Move webview back to original location
+        if (browserWindow?.Content is Grid grid && grid.Children.Contains(webView))
+        {
+            grid.Children.Remove(webView);
+
+            // Find the Grid that's in Column 1 of MainGrid (the right column)
+            var rightColumnGrid = MainGrid.Children.OfType<Grid>().FirstOrDefault(g => Grid.GetColumn(g) == 1);
+
+            if (rightColumnGrid != null)
+            {
+                // Set it back to the middle row (Grid.Row="1")
+                Grid.SetRow(webView, 1);
+                rightColumnGrid.Children.Add(webView);
+            }
+            else
+            {
+                // Fallback: add it directly to MainGrid with proper positioning
+                Grid.SetColumn(webView, 1);
+                Grid.SetRow(webView, 0); // Since MainGrid doesn't have explicit rows defined
+                MainGrid.Children.Add(webView);
+            }
+        }
+        browserWindow = null;
+    }
 }
 
 public class ImageDisplayItem
@@ -659,7 +745,6 @@ public class ImageDisplayItem
     }
 }
 
-// Keep your existing classes
 public class Draft
 {
     public string Title
@@ -679,12 +764,4 @@ public class Draft
         get; set;
     }
     public List<string> ImagePaths { get; set; } = [];
-}
-
-public class ImageDef
-{
-    public string Location
-    {
-        get; init;
-    }
 }

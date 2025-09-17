@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:core="using:HourSyncCoreLib"
     mc:Ignorable="d">
 
     <Grid Margin="36, 40">
@@ -56,19 +57,124 @@
 
             <!-- ScrollViewer in the first column -->
             <ScrollViewer Grid.Column="0" VerticalScrollMode="Auto" VerticalScrollBarVisibility="Auto">
-                <Grid>
-                    <StackPanel x:Name="RequestsPanel" Margin="0, 0, 0, 10">
-
-                        <TextBlock Text="Pending Requests:"/>
-                        <StackPanel x:Name="PendingReqsPanel" Margin="0 10 0 10"/>
-                        <TextBlock Text="Accepted Requests:"/>
-                        <StackPanel x:Name="AcceptedReqsPanel" Margin="0 10 0 10"/>
-                        <TextBlock Text="Returned Requests:"/>
-                        <StackPanel x:Name="ReturnedReqsPanel" Margin="0 10 0 10"/>
-                        <TextBlock Text="Denied Requests:"/>
-                        <StackPanel x:Name="DeniedReqsPanel" Margin="0 10 0 10"/>
+                <StackPanel x:Name="RequestsPanel" Margin="0, 0, 0, 10">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Pending Requests -" Margin="0,0,5,0"/>
+                        <TextBlock Text="{x:Bind PendingRequests.Count, Mode=OneWay}"/>
                     </StackPanel>
-                </Grid>
+                    <ListView ItemsSource="{x:Bind PendingRequests, Mode=OneWay}" SelectionMode="None" Margin="-15, 5, 0, 0">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="core:EHourRequest">
+                                <Button
+                                    Tag="{x:Bind Value}" 
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Height="80"
+                                    Margin="0,0,0,10"
+                                    Click="RequestButton_Click">
+                                    <Button.Content>
+                                        <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap">
+                                            <Run Text="{x:Bind Description}"/>
+                                            <LineBreak/>
+                                            <Run Text="Hours:"/>
+                                            <Run Text="{x:Bind Hours}"/>
+                                            <LineBreak/>
+                                            <Run Text="Date:"/>
+                                            <Run Text="{x:Bind Date}"/>
+                                        </TextBlock>
+                                    </Button.Content>
+                                </Button>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Accepted Requests -" Margin="0,0,5,0"/>
+                        <TextBlock Text="{x:Bind AcceptedRequests.Count, Mode=OneWay}"/>
+                    </StackPanel>
+                    <ListView ItemsSource="{x:Bind AcceptedRequests, Mode=OneWay}" SelectionMode="None" Margin="-15, 5, 0, 0">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="core:EHourRequest">
+                                <Button
+                                    Tag="{x:Bind Value}" 
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Height="80"
+                                    Margin="0,0,0,10"
+                                    Click="RequestButton_Click">
+                                    <Button.Content>
+                                        <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap">
+                                            <Run Text="{x:Bind Description}"/>
+                                            <LineBreak/>
+                                            <Run Text="Hours:"/>
+                                            <Run Text="{x:Bind Hours}"/>
+                                            <LineBreak/>
+                                            <Run Text="Date:"/>
+                                            <Run Text="{x:Bind Date}"/>
+                                        </TextBlock>
+                                    </Button.Content>
+                                </Button>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Returned Requests -" Margin="0,0,5,0"/>
+                        <TextBlock Text="{x:Bind ReturnedRequests.Count, Mode=OneWay}"/>
+                    </StackPanel>
+                    <ListView ItemsSource="{x:Bind ReturnedRequests, Mode=OneWay}" SelectionMode="None" Margin="-15, 5, 0, 0">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="core:EHourRequest">
+                                <Button
+                                    Tag="{x:Bind Value}" 
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Height="80"
+                                    Margin="0,0,0,10"
+                                    Click="RequestButton_Click">
+                                    <Button.Content>
+                                        <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap">
+                                            <Run Text="{x:Bind Description}"/>
+                                            <LineBreak/>
+                                            <Run Text="Hours:"/>
+                                            <Run Text="{x:Bind Hours}"/>
+                                            <LineBreak/>
+                                            <Run Text="Date:"/>
+                                            <Run Text="{x:Bind Date}"/>
+                                        </TextBlock>
+                                    </Button.Content>
+                                </Button>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Denied Requests -" Margin="0,0,5,0"/>
+                        <TextBlock Text="{x:Bind DeniedRequests.Count, Mode=OneWay}"/>
+                    </StackPanel>
+                    <ListView ItemsSource="{x:Bind DeniedRequests, Mode=OneWay}" SelectionMode="None" Margin="-15, 5, 0, 0">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="core:EHourRequest">
+                                <Button
+                                    Tag="{x:Bind Value}" 
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Height="80"
+                                    Margin="0,0,0,10"
+                                    Click="RequestButton_Click">
+                                    <Button.Content>
+                                        <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap">
+                                            <Run Text="{x:Bind Description}"/>
+                                            <LineBreak/>
+                                            <Run Text="Hours:"/>
+                                            <Run Text="{x:Bind Hours}"/>
+                                            <LineBreak/>
+                                            <Run Text="Date:"/>
+                                            <Run Text="{x:Bind Date}"/>
+                                        </TextBlock>
+                                    </Button.Content>
+                                </Button>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
             </ScrollViewer>
         </Grid>
     </Grid>

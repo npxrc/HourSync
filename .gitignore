@@ -371,3 +371,7 @@ Private.cs
 /dll-save
 /Installers/
 *.lnk
+# No, the following ignore does NOT mean that HourSync crawls sites.
+# Well.. technically it does make automated requests.
+# But the crawl folder just shows me what's missing from the official site so I can add those functionalities to HourSync
+/crawl

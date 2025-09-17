@@ -9,33 +9,45 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using HourSyncCoreLib;
 using HtmlAgilityPack;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
-using Core = HourSyncCoreLib.HourSyncCore;
 
 namespace HourSync;
 
 public sealed partial class Home : Page
 {
-    private Core.LoginResult loginResult;
+    private LoginResult loginResult;
     private string username;
     private string password;
     private string getresp;
     private HtmlDocument doc = new();
-    private List<Core.EHourRequest> ReturnedRequests = [];
-    private List<Core.EHourRequest> PendingRequests = [];
-    private List<Core.EHourRequest> AcceptedRequests = [];
-    private List<Core.EHourRequest> DeniedRequests = [];
+
+    // Change these to ObservableCollection for UI binding
+    public ObservableCollection<EHourRequest> ReturnedRequests = [];
+    public ObservableCollection<EHourRequest> PendingRequests = [];
+    public ObservableCollection<EHourRequest> AcceptedRequests = [];
+    public ObservableCollection<EHourRequest> DeniedRequests = [];
+
+    // Master lists that never change unless you actually fetch new data
+    private List<EHourRequest> AllReturned = [];
+    private List<EHourRequest> AllPending = [];
+    private List<EHourRequest> AllAccepted = [];
+    private List<EHourRequest> AllDenied = [];
 
     private DialogService dialogManager = new();
+
     public Home()
     {
         InitializeComponent();
         Loaded += Home_Loaded;
+
+        ((App)Application.Current).m_window.SizeChanged += (s, e) => { OnWindowSizeChanged(e.Size.Width); };
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -46,7 +58,7 @@ public sealed partial class Home : Page
             // Check the number of parameters
             if (parameters.Length >= 4)
             {
-                loginResult = (Core.LoginResult)parameters[0];
+                loginResult = (LoginResult)parameters[0];
                 username = parameters[1] as string;
                 password = parameters[2] as string;
                 getresp = parameters[3] as string;
@@ -88,7 +100,6 @@ public sealed partial class Home : Page
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
-        ((App)Application.Current).isOnHome = false;
         ((App)Application.Current).homePage = null;
     }
 
@@ -96,11 +107,19 @@ public sealed partial class Home : Page
     {
         ParseProgressTo200();
 
-        var parsed = Core.ParseRequests(getresp);  // static call from the DLL
-        ReturnedRequests = parsed.Returned ?? [];
-        PendingRequests = parsed.Pending ?? [];
-        AcceptedRequests = parsed.Accepted ?? [];
-        DeniedRequests = parsed.Denied ?? [];
+        var parsed = HourSyncCore.ParseRequests(getresp);  // static call from the DLL
+
+        // Convert Lists to ObservableCollections
+        PopulateObservableCollection(ReturnedRequests, parsed.Returned ?? []);
+        PopulateObservableCollection(PendingRequests, parsed.Pending ?? []);
+        PopulateObservableCollection(AcceptedRequests, parsed.Accepted ?? []);
+        PopulateObservableCollection(DeniedRequests, parsed.Denied ?? []);
+
+        // Keep master lists as regular Lists
+        AllReturned = (parsed.Returned ?? []).ToList();
+        AllPending = (parsed.Pending ?? []).ToList();
+        AllAccepted = (parsed.Accepted ?? []).ToList();
+        AllDenied = (parsed.Denied ?? []).ToList();
 
         CreateLayout();
 
@@ -139,6 +158,16 @@ public sealed partial class Home : Page
         catch (Exception ex)
         {
             FileMgr.Log($"Error retrieving sortBy setting: {ex.Message}");
+        }
+    }
+
+    // Helper method to populate ObservableCollection from List
+    private void PopulateObservableCollection(ObservableCollection<EHourRequest> target, List<EHourRequest> source)
+    {
+        target.Clear();
+        foreach (var item in source)
+        {
+            target.Add(item);
         }
     }
 
@@ -205,23 +234,23 @@ public sealed partial class Home : Page
 
         foreach (var request in AcceptedRequests)
         {
-            CreateButton(request, "accepted");
             acceptedHours += double.TryParse(request.Hours, out var hrs) ? hrs : 0;
+            CreateMenuItem(request);
         }
         foreach (var request in DeniedRequests)
         {
-            CreateButton(request, "denied");
             deniedHours += double.TryParse(request.Hours, out var hrs) ? hrs : 0;
+            CreateMenuItem(request);
         }
         foreach (var request in PendingRequests)
         {
-            CreateButton(request, "pending");
             pendingHours += double.TryParse(request.Hours, out var hrs) ? hrs : 0;
+            CreateMenuItem(request);
         }
         foreach (var request in ReturnedRequests)
         {
-            CreateButton(request, "returned");
             returnedHours += double.TryParse(request.Hours, out var hrs) ? hrs : 0;
+            CreateMenuItem(request);
         }
         string pending = "";
         if (pendingHours > 0)
@@ -233,34 +262,8 @@ public sealed partial class Home : Page
         ((App)Application.Current).NavigationViewModel.MenuItems[1].MenuItems.Clear();
     }
 
-    private void CreateButton(Core.EHourRequest request, string type)
+    private void CreateMenuItem(EHourRequest request)
     {
-        Button requestButton = new Button
-        {
-            Content = $"{request.Description}\nHours: {request.Hours}\nDate: {request.Date}",
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Left,
-            Height = 80,
-            Margin = new Thickness(0, 0, 0, 10),
-            Tag = request.Value,
-        };
-        requestButton.Click += RequestButton_Click;
-
-        switch (type)
-        {
-            case "returned":
-                ReturnedReqsPanel.Children.Add(requestButton);
-                break;
-            case "pending":
-                PendingReqsPanel.Children.Add(requestButton);
-                break;
-            case "accepted":
-                AcceptedReqsPanel.Children.Add(requestButton);
-                break;
-            case "denied":
-                DeniedReqsPanel.Children.Add(requestButton);
-                break;
-        }
         NavigationViewItem item = new() { Tag = request.Value, Content = $"{request.Description}", Name = $"{request.Description} - {request.Date}" };
         item.Tapped += (sender, _) =>
         {
@@ -296,7 +299,6 @@ public sealed partial class Home : Page
         {
             menu.Add(i);
         }
-
     }
 
     private MainWindow _mainWindow;
@@ -306,9 +308,8 @@ public sealed partial class Home : Page
         _mainWindow = (MainWindow)((App)Application.Current).m_window;
         Button clickedButton = (Button)sender;
         string value = (string)clickedButton.Tag;
-        string evtName = (string)clickedButton.Content;
 
-        // Find the request by value
+        // Find the request by value - now search in ObservableCollections
         var request = ReturnedRequests
             .Concat(PendingRequests)
             .Concat(AcceptedRequests)
@@ -319,7 +320,7 @@ public sealed partial class Home : Page
             value,
             loginResult.PhpSessionId,
             loginResult.StudentAcademy,
-            evtName,
+            request.Description,
             request.State,
             username,
             password
@@ -369,104 +370,80 @@ public sealed partial class Home : Page
 
     private void Sort(string way, string from)
     {
-        // Define a comparison function based on the sorting criteria
-        Func<Core.EHourRequest, object> keySelector = way switch
+        Func<EHourRequest, object> keySelector = way switch
         {
-            "date" => request => DateTime.Parse(request.Date), // Sort by date
-            "name" => request => request.Description,         // Sort by name
-            "hours" => request => decimal.Parse(request.Hours),   // Sort by hours
-            _ => request => request.Description              // Default to name
+            "date" => request => DateTime.Parse(request.Date),
+            "name" => request => request.Description,
+            "hours" => request => decimal.Parse(request.Hours),
+            _ => request => request.Description
         };
 
-        // Sort each list based on the criteria
-        if (from == "old" || from == "a" || from == "low")
-        {
-            ReturnedRequests = [.. ReturnedRequests.OrderBy(keySelector)];
-            PendingRequests = [.. PendingRequests.OrderBy(keySelector)];
-            AcceptedRequests = [.. AcceptedRequests.OrderBy(keySelector)];
-            DeniedRequests = [.. DeniedRequests.OrderBy(keySelector)];
-        }
-        else if (from == "new" || from == "z" || from == "high")
-        {
-            ReturnedRequests = [.. ReturnedRequests.OrderByDescending(keySelector)];
-            PendingRequests = [.. PendingRequests.OrderByDescending(keySelector)];
-            AcceptedRequests = [.. AcceptedRequests.OrderByDescending(keySelector)];
-            DeniedRequests = [.. DeniedRequests.OrderByDescending(keySelector)];
-        }
+        bool ascending = from == "old" || from == "a" || from == "low";
 
-        // Recreate the layout with the sorted lists
-        RecreateLayout();
+        // Use the ApplySort method to sort ObservableCollections
+        ApplySort(ReturnedRequests, keySelector, !ascending);
+        ApplySort(PendingRequests, keySelector, !ascending);
+        ApplySort(AcceptedRequests, keySelector, !ascending);
+        ApplySort(DeniedRequests, keySelector, !ascending);
     }
-    private void RecreateLayout()
+
+    private void ApplySort(ObservableCollection<EHourRequest> collection,
+                           Func<EHourRequest, object> keySelector,
+                           bool descending)
     {
-        ((App)Application.Current).NavigationViewModel.MenuItems[1].MenuItems.Clear();
-        // Clear all panels
-        ReturnedReqsPanel.Children.Clear();
-        PendingReqsPanel.Children.Clear();
-        AcceptedReqsPanel.Children.Clear();
-        DeniedReqsPanel.Children.Clear();
+        var sorted = descending
+            ? collection.OrderByDescending(keySelector).ToList()
+            : collection.OrderBy(keySelector).ToList();
 
-        // Recreate buttons for each list
-        foreach (var request in ReturnedRequests)
-        {
-            CreateButton(request, "returned");
-        }
-        foreach (var request in PendingRequests)
-        {
-            CreateButton(request, "pending");
-        }
-        foreach (var request in AcceptedRequests)
-        {
-            CreateButton(request, "accepted");
-        }
-        foreach (var request in DeniedRequests)
-        {
-            CreateButton(request, "denied");
-        }
+        collection.Clear();
+        foreach (var item in sorted)
+            collection.Add(item);
     }
+
     private void Search(object sender, TextChangedEventArgs _)
     {
-        var textBox = (TextBox)sender;
-        var text = textBox.Text;
+        var text = ((TextBox)sender).Text;
+
         if (string.IsNullOrWhiteSpace(text))
         {
-            RecreateLayout();
+            ReloadAllRequests();
             return;
         }
 
+        FileMgr.Log("Searching for " + text);
+
         var searchResults = Searcher.CombinedSearch.SearchAllRequestsCombined(
             text,
-            ReturnedRequests,
-            PendingRequests,
-            AcceptedRequests,
-            DeniedRequests,
+            AllReturned,
+            AllPending,
+            AllAccepted,
+            AllDenied,
             maxDistance: 2
         );
 
-        ((App)Application.Current).NavigationViewModel.MenuItems[1].MenuItems.Clear();
+        FileMgr.Log("Found " + (searchResults["returned"].Count + searchResults["pending"].Count + +searchResults["accepted"].Count + +searchResults["denied"].Count) + " results");
 
-        // Clear all panels
-        ReturnedReqsPanel.Children.Clear();
-        PendingReqsPanel.Children.Clear();
-        AcceptedReqsPanel.Children.Clear();
-        DeniedReqsPanel.Children.Clear();
+        ReplaceCollection(ReturnedRequests, searchResults["returned"]);
+        ReplaceCollection(PendingRequests, searchResults["pending"]);
+        ReplaceCollection(AcceptedRequests, searchResults["accepted"]);
+        ReplaceCollection(DeniedRequests, searchResults["denied"]);
+    }
 
-        // Recreate buttons for each list
-        foreach (var request in searchResults["returned"])
+    private void ReloadAllRequests()
+    {
+        ReplaceCollection(ReturnedRequests, AllReturned);
+        ReplaceCollection(PendingRequests, AllPending);
+        ReplaceCollection(AcceptedRequests, AllAccepted);
+        ReplaceCollection(DeniedRequests, AllDenied);
+    }
+
+    private void ReplaceCollection(ObservableCollection<EHourRequest> target,
+                                   IEnumerable<EHourRequest> items)
+    {
+        target.Clear();
+        foreach (var item in items)
         {
-            CreateButton(request, "returned");
-        }
-        foreach (var request in searchResults["pending"])
-        {
-            CreateButton(request, "pending");
-        }
-        foreach (var request in searchResults["accepted"])
-        {
-            CreateButton(request, "accepted");
-        }
-        foreach (var request in searchResults["denied"])
-        {
-            CreateButton(request, "denied");
+            target.Add(item);
         }
     }
 

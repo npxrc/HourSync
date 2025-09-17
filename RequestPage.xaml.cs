@@ -1,34 +1,21 @@
-﻿#pragma warning disable IDE0079 // Remove unnecessary suppression
-#pragma warning disable IDE0007 // Use implicit type
-#pragma warning disable IDE0044 // Add readonly modifier
-#pragma warning disable IDE0052 // Remove unread private members
 using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using HourSyncCoreLib;
 using HtmlAgilityPack;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Navigation;
+
+// To learn more about WinUI, the WinUI project structure,
+// and more about our project templates, see: http://aka.ms/winui-project-info.
 
 namespace HourSync;
-
-public sealed partial class RequestViewer : Window
+public sealed partial class RequestPage : Page
 {
-    /*
-    TODO: Combine ImageViewer, BrowserView, and this page into one file
-
-    Baby steps to achieve:
-    - Set up a frame
-    - Move this code into a page
-    - Navigate to the main Request itself when the window is activated
-    - Allow user to click image viewer or browser view
-    - when clicked, navigate to the viewers and put a back button which navigates frame backwards so state is saved
-     */
-
     private bool isEditing = false;
 
     private string id;
@@ -51,7 +38,7 @@ public sealed partial class RequestViewer : Window
         },
     };
     private string nameOfAcademy;
-    private HourSyncCore.Status status;
+    private Status status;
     private HtmlDocument doc = new();
 
     private string username;
@@ -61,55 +48,46 @@ public sealed partial class RequestViewer : Window
 
     private string initialRequestBody;
 
-    private DialogService dialogManager = new();
+    private readonly DialogService dialogManager = new();
 
-    public RequestViewer(
-        string id,
-        string phpSessionId,
-        string nameOfAcademy,
-        string nameOfEvent,
-        HourSyncCore.Status status,
-        string username,
-        string password
-    )
+    public event EventHandler RequestClosed;
+    public event EventHandler<RequestEditEventArgs> EditStarted;
+    public event EventHandler EditCancelled;
+    public event EventHandler<OpenBrowserEventArgs> BrowserOpenEvent;
+
+    public RequestPage()
     {
         InitializeComponent();
-        Microsoft.UI.Xaml.Media.MicaBackdrop micaBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop
+    }
+
+    protected async override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+
+        if (e.Parameter.GetType() == typeof(RequestContext))
         {
-            Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt,
-        };
-        SystemBackdrop = micaBackdrop;
-        ExtendsContentIntoTitleBar = true;
-        Title = "Request Viewer";
+            RequestContext ctx = (RequestContext)e.Parameter;
+            id = ctx.Id;
+            phpSessionId = ctx.PhpSessionId;
+            nameOfAcademy = ctx.AcademyName;
+            eventName = ctx.EventName;
+            status = ctx.Status;
+            username = ctx.Username;
+            password = ctx.Password;
 
-        this.id = id;
-        this.phpSessionId = phpSessionId;
-        this.nameOfAcademy = nameOfAcademy;
-        eventName = nameOfEvent.Split('\n')[0];
-        FileMgr.Log(nameOfEvent);
-        eventTitle.Text = nameOfEvent;
-        this.status = status;
-        this.username = username;
-        this.password = password;
-
-        FileMgr.Log("Running PostAsync()");
-        _ = PostAsync();
-
-        Closed += (_, __) =>
+            // Now that everything is initialized, safe to start.
+            await PostAsync();
+        }
+        else
         {
-            if (isEditing)
-            {
-                MainWindow _mainWindow = (MainWindow)((App)Application.Current).m_window;
-                _mainWindow.ClosedEditor(id, this);
-            }
-        };
-        SetupMinimumWindowSize();
+            throw new ArgumentException();
+        }
     }
 
     private async Task PostAsync()
     {
         FileMgr.Log("Getting request via HourSyncCore");
-        HourSyncCore.FetchedEHourRequest response = await HourSyncCore.GetRequest(phpSessionId, id, true);
+        FetchedEHourRequest response = await HourSyncCore.GetRequest(phpSessionId, id, true);
 
         if (response.Success && response.LoggedIn)
         {
@@ -122,14 +100,14 @@ public sealed partial class RequestViewer : Window
 
             pendingStatus.Text = status.ToString();
             openBrowserButton.IsEnabled = true;
-            if (status != HourSyncCore.Status.Returned)
+            if (status != Status.Returned)
             {
                 progressBar.Value = 100;
-                if (status == HourSyncCore.Status.Denied)
+                if (status == Status.Denied)
                 {
                     progressBar.ShowError = true;
                 }
-                else if (status == HourSyncCore.Status.Pending)
+                else if (status == Status.Pending)
                 {
                     progressBar.ShowPaused = true;
 
@@ -137,7 +115,7 @@ public sealed partial class RequestViewer : Window
                     delReqButton.IsEnabled = true;
                 }
             }
-            else if (status == HourSyncCore.Status.Returned)
+            else if (status == Status.Returned)
             {
                 progressBar.IsIndeterminate = true;
             }
@@ -178,7 +156,7 @@ public sealed partial class RequestViewer : Window
             FileMgr.LogError($"{response.Error}");
 
             await dialogManager.ShowDialog("Error", "An error occurred. Please check the log for more information", "Okay");
-            Close();
+
         }
     }
 
@@ -385,7 +363,7 @@ public sealed partial class RequestViewer : Window
     private void GoBackToHomeAndUpdate(ContentDialog _, ContentDialogButtonClickEventArgs __)
     {
         ((App)App.Current).GoToHomeAfterDel(afterDelReqResp);
-        Close();
+        RequestClosed?.Invoke(this, null);
     }
 
     private async void EditReq(object _, RoutedEventArgs __)
@@ -399,6 +377,8 @@ public sealed partial class RequestViewer : Window
             eventBody.IsReadOnly = false;
             eventBody.Focus(FocusState.Keyboard);
             editingControls.Visibility = Visibility.Visible;
+
+            EditStarted?.Invoke(this, null);
         }
         else
         {
@@ -422,7 +402,7 @@ public sealed partial class RequestViewer : Window
         if (bypassUpdateReqDialog || result == ContentDialogResult.Primary)
         {
             ShowDeleteProgressBar("Updating");
-            HourSyncCore.UpdatedRequest request = new()
+            UpdatedRequest request = new()
             {
                 NewContent = eventBody.Text,
                 State = status,
@@ -441,7 +421,8 @@ public sealed partial class RequestViewer : Window
 
                 ((App)Application.Current).UpdateHomeContent(response.HtmlResponse);
 
-                waitForDelete.CloseButtonClick += (_, __) => Close();
+                //waitForDelete.CloseButtonClick += (_, __) => Close();
+                //TODO : grab parent and close it
             }
             else if (!response.LoggedIn)
             {
@@ -479,6 +460,7 @@ public sealed partial class RequestViewer : Window
             eventBody.IsReadOnly = true;
             eventBody.Text = initialRequestBody;
 
+            EditCancelled?.Invoke(this, null);
             MainWindow _mainWindow = (MainWindow)((App)Application.Current).m_window;
             _mainWindow.ClosedEditor(id, this);
         }
@@ -486,78 +468,25 @@ public sealed partial class RequestViewer : Window
 
     private void OpenBrowser(object _, RoutedEventArgs __)
     {
-        BrowserView browser = new(phpSessionId);
-        browser.Activate();
+        FileMgr.Log("OpenBrowser invoked");
+        BrowserOpenEvent?.Invoke(this, new OpenBrowserEventArgs(phpSessionId));
     }
+}
 
-    // Set min size
-
-    private const int WM_GETMINMAXINFO = 0x0024;
-    private const int GWL_WNDPROC = -4;
-
-    private IntPtr _hwnd;
-    private WNDPROC _newWndProc;
-    private IntPtr _oldWndProc;
-
-    // Minimum window size in pixels
-    private int MIN_WIDTH = 410;
-    private int MIN_HEIGHT = 500;
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct POINT
+public class RequestEditEventArgs : EventArgs
+{
+    public string RequestId
     {
-        public int x;
-        public int y;
+        get;
     }
+    public RequestEditEventArgs(string requestId) => RequestId = requestId;
+}
 
-    [StructLayout(LayoutKind.Sequential)]
-    public struct MINMAXINFO
+public class OpenBrowserEventArgs : EventArgs
+{
+    public string PhpSessionId
     {
-        public POINT ptReserved;
-        public POINT ptMaxSize;
-        public POINT ptMaxPosition;
-        public POINT ptMinTrackSize;
-        public POINT ptMaxTrackSize;
+        get;
     }
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate IntPtr WNDPROC(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, WNDPROC dwNewLong);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
-
-    public void SetupMinimumWindowSize()
-    {
-        // Get the window handle
-        _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-
-        // Create our window procedure delegate
-        _newWndProc = new WNDPROC(WindowProc);
-
-        // Subclass the window
-        _oldWndProc = SetWindowLongPtr(_hwnd, GWL_WNDPROC, _newWndProc);
-    }
-
-    public IntPtr WindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
-    {
-        switch (msg)
-        {
-            case WM_GETMINMAXINFO:
-                // Handle the minimum window size
-                var minMaxInfo = Marshal.PtrToStructure<MINMAXINFO>(lParam);
-                minMaxInfo.ptMinTrackSize.x = MIN_WIDTH;
-                minMaxInfo.ptMinTrackSize.y = MIN_HEIGHT;
-                Marshal.StructureToPtr(minMaxInfo, lParam, true);
-                return IntPtr.Zero;
-        }
-
-        // Call the original window procedure for all other messages
-        return CallWindowProc(_oldWndProc, hWnd, msg, wParam, lParam);
-    }
+    public OpenBrowserEventArgs(string sessID) => PhpSessionId = sessID;
 }

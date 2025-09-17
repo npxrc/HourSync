@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using HourSyncCoreLib;
 using Microsoft.UI.Xaml;
+using Windows.Foundation;
 
 namespace HourSync;
 
@@ -55,7 +56,13 @@ public sealed partial class MainWindow : Window
     [DllImport("user32.dll")]
     private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
 
-    private RequestViewer _requestViewer;
+    private RequestManager _requestViewer;
+
+    public event EventHandler<WindowSizeChangedEventArgs> OnSizeChange;
+    public Size WindowSize
+    {
+        get; private set;
+    }
 
     public MainWindow()
     {
@@ -74,14 +81,11 @@ public sealed partial class MainWindow : Window
         SetupMinimumWindowSize();
 
         Closed += Closing;
-        SizeChanged += MainWindow_SizeChanged;
-    }
-    private void MainWindow_SizeChanged(object sender, WindowSizeChangedEventArgs e)
-    {
-        if (((App)Application.Current).isOnHome && ((App)Application.Current).homePage != null)
+        SizeChanged += (s, e) =>
         {
-            ((App)Application.Current).homePage.OnWindowSizeChanged(e.Size.Width);
-        }
+            WindowSize = e.Size;
+            OnSizeChange?.Invoke(s, e);
+        };
     }
 
     private void SetupMinimumWindowSize()
@@ -130,12 +134,12 @@ public sealed partial class MainWindow : Window
         string phpSessionId,
         string nameOfAcademy,
         string eventName,
-        HourSyncCore.Status status,
+        Status status,
         string username,
         string password
     )
     {
-        _requestViewer = new RequestViewer(
+        _requestViewer = new RequestManager(
             id,
             phpSessionId,
             nameOfAcademy,
@@ -148,9 +152,9 @@ public sealed partial class MainWindow : Window
     }
 
     // One dictionary is enough.
-    private Dictionary<string, RequestViewer> openedEditors = [];
+    private Dictionary<string, RequestPage> openedEditors = [];
 
-    public bool NowEditingViewer(string id, RequestViewer viewer)
+    public bool NowEditingViewer(string id, RequestPage viewer)
     {
         // If already editing this ID, don’t allow a second editor.
         if (openedEditors.TryGetValue(id, out var value))
@@ -162,7 +166,7 @@ public sealed partial class MainWindow : Window
         openedEditors[id] = viewer;
         return true;
     }
-    public void ClosedEditor(string id, RequestViewer viewer)
+    public void ClosedEditor(string id, RequestPage viewer)
     {
         FileMgr.Log("Closing window " + id);
         if (openedEditors.TryGetValue(id, out var existingViewer))
@@ -177,17 +181,19 @@ public sealed partial class MainWindow : Window
 
     public void FocusEditor(string id)
     {
-        try
-        {
-            if (openedEditors.TryGetValue(id, out RequestViewer viewer))
-            {
-                viewer.AppWindow.Show(false);
-                viewer.Activate();
-            }
-        }
-        catch (Exception)
-        {
-            FileMgr.LogError("Window does not exist");
-        }
+        //TODO: get parent from child and focus it
+
+        //try
+        //{
+        //    if (openedEditors.TryGetValue(id, out RequestPage viewer))
+        //    {
+        //        viewer.AppWindow.Show(false);
+        //        viewer.Activate();
+        //    }
+        //}
+        //catch (Exception)
+        //{
+        //    FileMgr.LogError("Window does not exist");
+        //}
     }
 }
