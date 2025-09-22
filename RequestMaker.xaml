@@ -13,7 +13,7 @@
             <ColumnDefinition Width="3.5*"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
-        <ScrollView Margin="32" HorizontalScrollBarVisibility="Hidden" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto">
+        <ScrollView x:Name="MainScroller" Margin="36" HorizontalScrollBarVisibility="Hidden" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto">
             <Grid x:Name="ContentGrid">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -26,10 +26,6 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="10*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
                 <TextBlock x:Name="pageTitle" Text="Request eHours" Margin="0, 0, 0, 5" Style="{StaticResource TitleTextBlockStyle}"/>
 
                 <StackPanel x:Name="DraftLoadedSuccessfully" Grid.Row="1" Margin="0, 0, 0 ,10" Visibility="Collapsed">

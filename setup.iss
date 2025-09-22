@@ -63,5 +63,6 @@ Name: "{autoprograms}\HourSync"; Filename: "{app}\HourSync.exe"
 Name: "{autodesktop}\HourSync"; Filename: "{app}\HourSync.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\HourSync.exe"; Description: "{cm:LaunchProgram,HourSync}"; Flags: postinstall nowait skipifsilent
-Filename: "{app}\HourSync.exe"; Flags: runhidden skipifdoesntexist; Check: WizardSilent
+Filename: "taskkill.exe"; Parameters: "/F /IM HourSync.exe"; Flags: runhidden; Check: WizardSilent
+Filename: "{app}\HourSync.exe"; Description: "{cm:LaunchProgram,HourSync}"; Flags: postinstall
+Filename: "{app}\HourSync.exe"; Flags: runhidden hidewizard; Check: WizardSilent

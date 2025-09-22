@@ -65,6 +65,8 @@ public sealed partial class Login : Page
         },
     };
 
+    private UISettings uiSettings;
+
     public Login()
     {
         try
@@ -240,11 +242,65 @@ public sealed partial class Login : Page
             {
                 return;
             }
+
+            ShowLoginProgressBarAsync();
+
+            var localSettings = ApplicationData.Current.LocalSettings;
+
+            // check if the lastRequest was less than 5 minutes from now
+            if (localSettings.Values.TryGetValue("lastRequest", out object storedDateObj) &&
+                DateTime.TryParse(storedDateObj.ToString(), out DateTime storedDate) &&
+                localSettings.Values.TryGetValue("loginResult", out object loginResultObj))
+            {
+                if ((DateTime.Now - storedDate) < TimeSpan.FromMinutes(5))
+                {
+                    FileMgr.Log("Session found, testing with HourSyncCore");
+
+                    // Deserialize JSON back to your LoginResult type
+                    var loginRes = Newtonsoft.Json.JsonConvert.DeserializeObject<LoginResult>(
+                        loginResultObj.ToString()
+                    );
+
+                    // Now you can use loginRes safely
+                    if (await HourSyncCore.IsSessionActive(loginRes.PhpSessionId))
+                    {
+                        FileMgr.Log("Session is active.");
+                        var getresp = await HourSyncCore.GetRequestsPage(loginRes.PhpSessionId);
+
+                        Frame.Navigate(
+                            typeof(Home),
+                            new object[]
+                            {
+                                loginRes,
+                                username,
+                                password,
+                                getresp
+                            },
+                            new DrillInNavigationTransitionInfo()
+                        );
+
+                        HideLoginProgressBar();
+
+                        FileMgr.Log("Running App.LoggedIn");
+                        ((App)Application.Current).LoggedIn(
+                            loginRes, username, password, getresp, true
+                        );
+                        return;
+                    }
+                }
+            }
+
+            FileMgr.Log("No active session, starting a new one.");
             LoginButton_Click(null, null);
+
         }
         else
         {
             FileMgr.Log("AutoLogin is disabled.");
+            if (await CheckForUpdateIfNeeded())
+            {
+                return;
+            }
         }
     }
 
@@ -441,8 +497,11 @@ public sealed partial class Login : Page
         PrimaryButtonText = null, // Ensure there's no default button
     };
 
+    private bool IsProgressBarActive = false;
     private async void ShowLoginProgressBarAsync()
     {
+        if (IsProgressBarActive) return;
+        IsProgressBarActive = true;
         // Initialize and configure the ContentDialog
         waitForLoginProgressBar = new()
         {
@@ -469,6 +528,17 @@ public sealed partial class Login : Page
         {
             await waitForLogin.ShowAsync();
         }
+
+        waitForLogin.Closed += (_, __) => IsProgressBarActive = false;
+    }
+
+    private void HideLoginProgressBar()
+    {
+        if (waitForLogin != null && IsProgressBarActive)
+        {
+            waitForLogin.Hide();
+            IsProgressBarActive = false;
+        }
     }
 
     private async Task PerformLogin()
@@ -477,6 +547,8 @@ public sealed partial class Login : Page
 
         try
         {
+            var localSettings = ApplicationData.Current.LocalSettings;
+
             FileMgr.Log("Attempting login via HourSyncCore");
             if (password.Length < 6)
             {
@@ -493,6 +565,10 @@ public sealed partial class Login : Page
                 return;
             }
 
+            // Replace the problematic code with the following to ensure the value being written is serializable
+            localSettings.Values["loginResult"] = Newtonsoft.Json.JsonConvert.SerializeObject(loginResult);
+            localSettings.Values["lastRequest"] = DateTime.Now.ToString("o"); // Use ISO 8601 format for serialization
+
             phpSessionId = loginResult.PhpSessionId;
             nameOfPerson = loginResult.StudentName ?? "";
             nameOfAcademy = loginResult.StudentAcademy ?? "";
@@ -507,7 +583,9 @@ public sealed partial class Login : Page
             CredMgr.SaveCreds(username, password);
 
             FileMgr.Log("Navigating to Home");
-            waitForLogin.Hide();
+
+            HideLoginProgressBar();
+
             Frame.Navigate(
                 typeof(Home),
                 new object[]
@@ -661,7 +739,7 @@ public sealed partial class Login : Page
                 catch (Exception ex)
                 {
                     Console.WriteLine($"An error occurred: {ex.Message}");
-                    waitForLogin.Hide();
+                    HideLoginProgressBar();
                 }
                 return true;
             }

@@ -65,12 +65,6 @@ public sealed partial class RequestMaker : Page
         NumericTextBox.LostFocus += (_, __) => UpdatePresence();
 
         ((App)Application.Current).m_window.SizeChanged += (_, e) => OnWindowSizeChanged(e.Size.Width);
-
-        var mainWindow = ((App)Application.Current).m_window as MainWindow;
-        if (mainWindow != null)
-        {
-            OnWindowSizeChanged(mainWindow.WindowSize.Width);
-        }
     }
 
 #pragma warning disable IDE1006 // Naming Styles
@@ -90,6 +84,7 @@ public sealed partial class RequestMaker : Page
         // Ensure CoreWebView2 is created
         await webView.EnsureCoreWebView2Async();
 
+        var mainWindow = ((App)Application.Current).m_window as MainWindow;
 
         // Load all settings
         var settings = FileMgr.LoadSettings();
@@ -100,8 +95,18 @@ public sealed partial class RequestMaker : Page
             {
                 webView.Visibility = Visibility.Collapsed;
                 webView.Close();
+
+                if (mainWindow != null)
+                {
+                    OnWindowSizeChanged(mainWindow.WindowSize.Width);
+                }
+
                 return;
             }
+        }
+        if (mainWindow != null)
+        {
+            OnWindowSizeChanged(mainWindow.WindowSize.Width);
         }
 
         isAiEnabled = true;
@@ -661,20 +666,39 @@ public sealed partial class RequestMaker : Page
     {
         //System.Diagnostics.Trace.WriteLine($"{windowWidth}");
         // Update the UI based on window width
-        if (windowWidth < 1300)
+        if (windowWidth < 1300 && windowWidth > 900)
         {
-            ContentGrid.ColumnDefinitions[0].Width = new GridLength(1, GridUnitType.Star);
-            ContentGrid.ColumnDefinitions[1].Width = new GridLength(0, GridUnitType.Star);
-
             MainGrid.ColumnDefinitions[0].Width = new GridLength(2.5, GridUnitType.Star);
+            MainScroller.Margin = new Thickness(36);
+            if (!isAiEnabled)
+            {
+                MainGrid.ColumnDefinitions[1].Width = new GridLength(0, GridUnitType.Star);
+            }
+
+            popOut.Visibility = Visibility.Visible;
+        }
+        else if (windowWidth < 900)
+        {
+            MainGrid.ColumnDefinitions[0].Width = new GridLength(2, GridUnitType.Star);
+            if (!isAiEnabled)
+            {
+                MainGrid.ColumnDefinitions[1].Width = new GridLength(0, GridUnitType.Star);
+                MainScroller.Margin = new Thickness(36);
+            }
+            else
+            {
+                MainScroller.Margin = new Thickness(36, 36, 20, 36);
+            }
+
             popOut.Visibility = Visibility.Visible;
         }
         else
         {
-            ContentGrid.ColumnDefinitions[0].Width = new GridLength(10, GridUnitType.Star);
-            ContentGrid.ColumnDefinitions[1].Width = new GridLength(1, GridUnitType.Star);
-
             MainGrid.ColumnDefinitions[0].Width = new GridLength(3.5, GridUnitType.Star);
+            if (!isAiEnabled)
+            {
+                MainGrid.ColumnDefinitions[1].Width = new GridLength(1, GridUnitType.Star);
+            }
             popOut.Visibility = Visibility.Collapsed;
         }
     }
