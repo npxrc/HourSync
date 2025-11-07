@@ -1,5 +1,5 @@
 # HourSync
-*This project is licensed under the Apache License 2.0. All code, including previous commits, is now licensed under the terms of the Apache License, Version 2.0.*
+_**This project is licensed under the HourSync Licence v1.0.0.** All code, including previous commits, is now licensed under the terms of the **HourSync Licence v1.0.0.** Please be sure to read it and understand what you're agreeing to._
 ### A simple way to submit eHours
 HourSync is a modern app to replace the Olathe School District's [Academy Endorsement Portal](https://academyendorsement.olatheschools.com).
 Their website is inconvenient, outdated, and not user-friendly. HourSync is a modern, concise, and user-friendly way to submit eHours.
