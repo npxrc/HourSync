@@ -11,7 +11,7 @@ namespace HourSync;
 public sealed partial class ImageViewer : Window
 {
     private readonly string _imageUrl;
-
+    private DialogService dialogManager = new();
     public ImageViewer(string imageUrl)
     {
         try
@@ -66,16 +66,17 @@ public sealed partial class ImageViewer : Window
                 FitImageToWindow();
             };
 
-            bitmapImage.ImageFailed += (s, e) =>
+            bitmapImage.ImageFailed += async (_, _) =>
             {
                 // Handle image loading failure
+                await dialogManager.ShowErrorDialog($"Unable to load the requested image. No info available.", false, Content.XamlRoot);
             };
 
             DisplayedImage.Source = bitmapImage;
         }
         catch (Exception ex)
         {
-            await new DialogService().ShowDialog("Error", $"Unable to load image: {ex.Message}", "OK", "", "", Content.XamlRoot);
+            await dialogManager.ShowErrorDialog($"Unable to load image: {ex.Message}", false, Content.XamlRoot);
         }
     }
 

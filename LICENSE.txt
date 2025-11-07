@@ -1,187 +1,65 @@
-﻿                               HourSync License
+HourSync Licence Terms
+IMPORTANT! READ CAREFULLY:
+THIS IS A LEGAL AGREEMENT. BY DOWNLOADING OR USING THE SOFTWARE, THE CUSTOMER AGREES TO THIS LICENCE OR THE MOST RECENT VERSION OF THE LICENCE, AND CONSENTS TO BE BOUND BY THE TERMS SET BELOW. IF YOU DO NOT UNDERSTAND THE TERMS BELOW, DO NOT USE THE SOFTWARE. IF YOU DO NOT AGREE TO THE TERMS BELOW, YOU ARE NOT PERMITTED TO USE THE SOFTWARE.
 
-                            Copyright 2025 HourSync
+Thank you for choosing to use HourSync or HourSyncCore Software! Please read the following terms before using the Software so you know what you are agreeing to.
 
-           Licensed under the Apache License, Version 2.0 (the "License");
-           you may not use this file except in compliance with the License.
-                    You may obtain a copy of the License at
+The terms of this Licence apply to:
+- any release of HourSync software, past or current,
+- any release of HourSync for Web software, past or current, and
+- any release of HourSyncCore software, past or current
 
-                  http://www.apache.org/licenses/LICENSE-2.0
+In the simplest language, this Licence:
+- allows You to learn from and use the Software, including its source code, if you attribute credit to HourSync and Neil Patrao
+- restricts use of the Software to students in the Olathe Public School District, USD 233.
+- restricts the resale of HourSync and HourSyncCore software
+- limits liability of the Developer, Neil Patrao, for misuse of the Software
+- allows the Developer, Neil Patrao, to update these terms at any time
 
-------------------------------------------------------------------------------
-                                Apache License
-                           Version 2.0, January 2004
-                        http://www.apache.org/licenses/
+1 - Parties:
+1.1: "Customer" or "You" refers to a student within a High School in the Olathe School District, who is also enrolled in a 21st Century Academy, OR an Instructor of a 21st Century Academy (see 2.3 and 2.4)
+1.2: The terms "the Developer", "npxrc", and "Neil Patrao" refer collectively to Neil Patrao, the individual who created and maintains the Software.
 
-   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+2 - Definitions:
+2.1: "Software" refers to:
+2.1.1: any release of HourSync software, past or current,
+2.1.2: any release of HourSync for Web software, past or current, and
+2.1.3: any release of HourSyncCore software, past or current
+2.2: "Olathe Schools", "Olathe School District", and "USD 233" refer collectively to the Olathe Public School District in Olathe, Kansas.
+2.3: "21st Century Academy" refers to an academy within the Olathe School District, which is offered at one of the five participating high schools. Learn more at: https://www.olatheschools.org/21stcenturyacademies and https://www.olatheschools.org/domain/3031.
+2.4: "Instructor" and "Instructors" refer to the teacher(s) of a 21st Century Academy
+2.5: "Virtual Machine" and "VM" refer to software which mimics an operating system or environment, such as Microsoft Windows.
+2.5.1: Examples of this software include, but are not limited to: VMWare Player/Workstation, VirtualBox, Parallels, and Hypervisor
+2.6: "Fork" and "Forks" refer to modified versions of the original Software from platforms like GitHub by using the Forking feature. Learn more at https://docs.github.com/articles/fork-a-repo.
+2.7: "Licence" refers to... this! The thing you"re reading, "The HourSync and Related Software Licence Agreement."
 
-   1. Definitions.
+3 - Licence Grant:
+Subject to the terms and conditions of this Agreement, the Developer, Neil Patrao, grants You a non-exclusive, revocable (upon breach), non-transferrable, and non-sublicensable Licence to do the following, solely for use within the Olathe School District and/or in connection with the operations of a 21st Century Academy (or as otherwise expressly permitted):
+(A) You May:
+i. Run, execute, and interact with the Software in object or executable form,
+ii. Install the Software on devices, excluding Virtual Machine devices.
+iii. Learn from and use the source code, provided you follow the terms set forth in Section 4
+(B) You may not:
+i. Sell, monetise, or subLicence the Software
+ii. Create forks of the Software in a way which makes it seem as if HourSync, or the Developer endorse it or created it (see 4.2)
 
-      "License" shall mean the terms and conditions for use, reproduction,
-      and distribution as defined by Sections 1 through 9 of this document.
+4 - Restrictions:
+4.1: Sale: The Software covered by this Licence may not be sold or resold at any time, including:
+4.1.1: forks,
+4.1.2: forks of forks, and
+4.1.3: other programs which rely on the Software"s features
+4.2: Forks and other programs which rely on or use the Software"s features must provide credit to HourSync and Neil Patrao. Learn more in the Brand Usage agreement at https://hoursync.net/legal/brand-usage
+4.3: Use the Software in a way which attempts to reverse engineer or interfere with anyone else's use of any HourSync platform (including the Software) or backend service, or the 21st Century Academy"s official portal
 
-      "Licensor" shall mean the copyright owner or entity authorized by
-      the copyright owner that is granting the License.
+5 - Limitation of Liability and Warranty:
+5.1: THE SOFTWARE GOVERNED BY THIS LICENCE IS PROVIDED ON AN "AS IS" BASIS AND "AS AVAILABLE" BASIS. THE USAGE OF THE SOFTWARE IS AT THE CUSTOMER"S OWN RISK. THE SOFTWARE PROVIDES THE ABILITY TO INTERFACE WITH AN ENDPOINT. THE CUSTOMER IS RESPONSIBLE FOR DETERMINING IF THE ENDPOINT OR THE SOFTWARE IS SECURE, AND THE CUSTOMER, NOT THE DEVELOPER, SHALL BE HELD LIABLE FOR ANY MISUSE OF THE SOFTWARE.
+5.2: THE DEVELOPER, NEIL PATRAO, DOES NOT REPRESENT OR MAKE ANY WARRANTY THAT THE SOFTWARE IS ACCURATE, MEETS THE CUSTOMER"S EXPECTATIONS, OR WILL WORK AT ANY TIME OR LOCATION.
+5.3: THE DEVELOPER, NEIL PATRAO, DISCLAIMS RESPONSIBILITY AND LIABILITY FOR THE BEHAVIOUR, USE OF, OR CONSEQUENCES OF ANY FORKED SOFTWARE. THE CUSTOMER IS RESPONSIBLE FOR ENSURING FORKED SOFTWARE COMPLIES WITH APPLICABLE LAWS, TERMS, OR OBLIGATIONS. UNDER NO CIRCUMSTANCES SHALL THE DEVELOPER, NEIL PATRAO, BE HELD RESPONSIBLE FOR SOFTWARE WHICH MODIFIES THE FUNCTIONALITY OF HOURSYNC OR HOURSYNCCORE SOFTWARE.
 
-      "Legal Entity" shall mean the union of the acting entity and all
-      other entities that control, are controlled by, or are under common
-      control with that entity. For the purposes of this definition,
-      "control" means (i) the power, direct or indirect, to cause the
-      direction or management of such entity, whether by contract or
-      otherwise, or (ii) ownership of fifty percent (50%) or more of the
-      outstanding shares, or (iii) beneficial ownership of such entity.
+6 - Updates
+6.1: HourSync software may be periodically updated to patch bugs or security vulnerabilities. By accepting this agreement, you agree for any Software to check for updates and prompt you to install them. 
+6.2: The Developer does not guarantee any updates or bug fixes.
 
-      "You" (or "Your") shall mean an individual or Legal Entity
-      exercising permissions granted by this License.
-
-      "Source" form shall mean the preferred form for making modifications,
-      including but not limited to software source code, documentation
-      source, and configuration files.
-
-      "Object" form shall mean any form resulting from mechanical
-      transformation or translation of a Source form, including but
-      not limited to compiled object code, generated documentation,
-      and conversions to other media types.
-
-      "Work" shall mean the work of authorship, whether in Source or
-      Object form, made available under the License, as indicated by a
-      copyright notice that is included in or attached to the work
-      (an example is provided in the Appendix below).
-
-      "Derivative Works" shall mean any work, whether in Source or Object
-      form, that is based on (or derived from) the Work and for which the
-      editorial revisions, annotations, elaborations, or other modifications
-      represent, as a whole, an original work of authorship. For the purposes
-      of this License, Derivative Works shall not include works that remain
-      separable from, or merely link (or bind by name) to the interfaces of,
-      the Work and Derivative Works thereof.
-
-      "Contribution" shall mean any work of authorship, including
-      the original version of the Work and any modifications or additions
-      to that Work or Derivative Works thereof, that is intentionally
-      submitted to Licensor for inclusion in the Work by the copyright owner
-      or by an individual or Legal Entity authorized to submit on behalf of
-      the copyright owner. For the purposes of this definition, "submitted"
-      means any form of electronic, verbal, or written communication sent
-      to the Licensor or its representatives, including but not limited to
-      communication on electronic mailing lists, source code control systems,
-      and issue tracking systems that are managed by, or on behalf of, the
-      Licensor for the purpose of discussing and improving the Work, but
-      excluding communication that is conspicuously marked or otherwise
-      designated in writing by the copyright owner as "Not a Contribution."
-
-      "Contributor" shall mean Licensor and any individual or Legal Entity
-      on behalf of whom a Contribution has been received by Licensor and
-      subsequently incorporated within the Work.
-
-   2. Grant of Copyright License. Subject to the terms and conditions of
-      this License, each Contributor hereby grants to You a perpetual,
-      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-      copyright license to reproduce, prepare Derivative Works of,
-      publicly display, publicly perform, sublicense, and distribute the
-      Work and such Derivative Works in Source or Object form.
-
-   3. Grant of Patent License. Subject to the terms and conditions of
-      this License, each Contributor hereby grants to You a perpetual,
-      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-      (except as stated in this section) patent license to make, have made,
-      use, offer to sell, sell, import, and otherwise transfer the Work,
-      where such license applies only to those patent claims licensable
-      by such Contributor that are necessarily infringed by their
-      Contribution(s) alone or by combination of their Contribution(s)
-      with the Work to which such Contribution(s) was submitted. If You
-      institute patent litigation against any entity (including a
-      cross-claim or counterclaim in a lawsuit) alleging that the Work
-      or a Contribution incorporated within the Work constitutes direct
-      or contributory patent infringement, then any patent licenses
-      granted to You under this License for that Work shall terminate
-      as of the date such litigation is filed.
-
-   4. Redistribution. You may reproduce and distribute copies of the
-      Work or Derivative Works thereof in any medium, with or without
-      modifications, and in Source or Object form, provided that You
-      meet the following conditions:
-
-      (a) You must give any other recipients of the Work or
-          Derivative Works a copy of this License; and
-
-      (b) You must cause any modified files to carry prominent notices
-          stating that You changed the files; and
-
-      (c) You must retain, in the Source form of any Derivative Works
-          that You distribute, all copyright, patent, trademark, and
-          attribution notices from the Source form of the Work,
-          excluding those notices that do not pertain to any part of
-          the Derivative Works; and
-
-      (d) If the Work includes a "NOTICE" text file as part of its
-          distribution, then any Derivative Works that You distribute must
-          include a readable copy of the attribution notices contained
-          within such NOTICE file, excluding those notices that do not
-          pertain to any part of the Derivative Works, in at least one
-          of the following places: within a NOTICE text file distributed
-          as part of the Derivative Works; within the Source form or
-          documentation, if provided along with the Derivative Works; or,
-          within a display generated by the Derivative Works, if and
-          wherever such third-party notices normally appear. The contents
-          of the NOTICE file are for informational purposes only and
-          do not modify the License. You may add Your own attribution
-          notices within Derivative Works that You distribute, alongside
-          or as an addendum to the NOTICE text from the Work, provided
-          that such additional attribution notices cannot be construed
-          as modifying the License.
-
-      You may add Your own copyright statement to Your modifications and
-      may provide additional or different license terms and conditions
-      for use, reproduction, or distribution of Your modifications, or
-      for any such Derivative Works as a whole, provided Your use,
-      reproduction, and distribution of the Work otherwise complies with
-      the conditions stated in this License.
-
-   5. Submission of Contributions. Unless You explicitly state otherwise,
-      any Contribution intentionally submitted for inclusion in the Work
-      by You to the Licensor shall be under the terms and conditions of
-      this License, without any additional terms or conditions.
-      Notwithstanding the above, nothing herein shall supersede or modify
-      the terms of any separate license agreement you may have executed
-      with Licensor regarding such Contributions.
-
-   6. Trademarks. This License does not grant permission to use the trade
-      names, trademarks, service marks, or product names of the Licensor,
-      except as required for reasonable and customary use in describing the
-      origin of the Work and reproducing the content of the NOTICE file.
-
-   7. Disclaimer of Warranty. Unless required by applicable law or
-      agreed to in writing, Licensor provides the Work (and each
-      Contributor provides its Contributions) on an "AS IS" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-      implied, including, without limitation, any warranties or conditions
-      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
-      PARTICULAR PURPOSE. You are solely responsible for determining the
-      appropriateness of using or redistributing the Work and assume any
-      risks associated with Your exercise of permissions under this License.
-
-   8. Limitation of Liability. In no event and under no legal theory,
-      whether in tort (including negligence), contract, or otherwise,
-      unless required by applicable law (such as deliberate and grossly
-      negligent acts) or agreed to in writing, shall any Contributor be
-      liable to You for damages, including any direct, indirect, special,
-      incidental, or consequential damages of any character arising as a
-      result of this License or out of the use or inability to use the
-      Work (including but not limited to damages for loss of goodwill,
-      work stoppage, computer failure or malfunction, or any and all
-      other commercial damages or losses), even if such Contributor
-      has been advised of the possibility of such damages.
-
-   9. Accepting Warranty or Additional Liability. While redistributing
-      the Work or Derivative Works thereof, You may choose to offer,
-      and charge a fee for, acceptance of support, warranty, indemnity,
-      or other liability obligations and/or rights consistent with this
-      License. However, in accepting such obligations, You may act only
-      on Your own behalf and on Your sole responsibility, not on behalf
-      of any other Contributor, and only if You agree to indemnify,
-      defend, and hold each Contributor harmless for any liability
-      incurred by, or claims asserted against, such Contributor by reason
-      of your accepting any such warranty or additional liability.
-
-   END OF TERMS AND CONDITIONS
+7 - General
+7.1: Force Majeure: Neither the Developer nor the Customer shall be in breach of the Licence or be liable to the other in the event of an act of God, natural disaster, war, terrorism, strike, government shutdown, public health emergency, or riot. 
+7.2: Khaby Lame Mechanism Clause: Neither the Developer nor the Customer shall be in breach of the Licence or be liable to the other if either party (or both) becomes eternally bound to the Khaby Lame Mechanism, forever hitting the back side of their palms against a surface, in a continuous and infinite loop.

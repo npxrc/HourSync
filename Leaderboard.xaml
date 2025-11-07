@@ -14,39 +14,41 @@
     </Page.Resources>
 
     <Grid Margin="36,40">
-        <StackPanel Orientation="Vertical" Spacing="10">
-            <!-- Title -->
-            <TextBlock Text="Leaderboard"
-                   Style="{ThemeResource TitleTextBlockStyle}"
-                   Margin="0,0,0,10"/>
+        <ScrollViewer>
+            <StackPanel Orientation="Vertical" Spacing="10">
+                <!-- Title -->
+                <TextBlock Text="Leaderboard"
+                           Style="{ThemeResource TitleTextBlockStyle}"
+                           Margin="0,0,0,10"/>
 
-            <!-- List of students -->
-            <StackPanel Orientation="Horizontal" Spacing="20" Margin="14,0,0,0">
-                <TextBlock Text="#"
-                       Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                <TextBlock Text="Name" 
-                   Style="{ThemeResource BodyStrongTextBlockStyle}" 
-                   Width="250"/>
-                <TextBlock Text="# of Hours" 
-                   Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                <!-- List of students -->
+                <StackPanel Orientation="Horizontal" Spacing="20" Margin="14,0,0,0">
+                    <TextBlock Text="#"
+                               Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                    <TextBlock Text="Name" 
+                               Style="{ThemeResource BodyStrongTextBlockStyle}" 
+                               Width="250"/>
+                    <TextBlock Text="# of Hours" 
+                               Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                </StackPanel>
+                <ListView ItemsSource="{x:Bind leaderboardData.StudentData, Mode=OneWay}" SelectionMode="Single">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="core:LeaderboardStudent">
+                            <StackPanel Orientation="Horizontal" Spacing="20">
+                                <TextBlock Text="{x:Bind Rank}"
+                                           Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                                <TextBlock Text="{x:Bind Name}" 
+                                           Style="{ThemeResource BodyTextBlockStyle}" 
+                                           Width="250"
+                                           Foreground="{x:Bind Name, Converter={StaticResource NameMatchConverter}}"/>
+                                <TextBlock Text="{x:Bind Hours}" 
+                                           Style="{ThemeResource BodyTextBlockStyle}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
             </StackPanel>
-            <ListView ItemsSource="{x:Bind leaderboardData.StudentData, Mode=OneWay}" SelectionMode="Single">
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="core:LeaderboardStudent">
-                        <StackPanel Orientation="Horizontal" Spacing="20">
-                            <TextBlock Text="{x:Bind Rank}"
-                                       Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                            <TextBlock Text="{x:Bind Name}" 
-                                   Style="{ThemeResource BodyTextBlockStyle}" 
-                                   Width="250"
-                                   Foreground="{x:Bind Name, Converter={StaticResource NameMatchConverter}}"/>
-                            <TextBlock Text="{x:Bind Hours}" 
-                                   Style="{ThemeResource BodyTextBlockStyle}"/>
-                        </StackPanel>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
-        </StackPanel>
+        </ScrollViewer>
 
         <!-- Spinner overlay -->
         <ProgressRing IsActive="{x:Bind IsLoading, Mode=OneWay}"

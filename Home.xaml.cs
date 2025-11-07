@@ -50,8 +50,11 @@ public sealed partial class Home : Page
         ((App)Application.Current).m_window.SizeChanged += (s, e) => { OnWindowSizeChanged(e.Size.Width); };
     }
 
-    protected override void OnNavigatedTo(NavigationEventArgs e)
+    protected async override void OnNavigatedTo(NavigationEventArgs e)
     {
+        var time = DateTime.Now;
+        FileMgr.Log("Ended at " + time.ToString());
+        FileMgr.Log("Elapsed time: " + (time - ((App)Application.Current).startTime).ToString());
         base.OnNavigatedTo(e);
         if (e.Parameter is object[] parameters)
         {
@@ -66,6 +69,7 @@ public sealed partial class Home : Page
                 if (getresp.Length < 1)
                 {
                     FileMgr.LogError("An error occurred with loading the eHours response.");
+                    await dialogManager.ShowErrorDialog("The eHour requests list is not in the expected format.", true, XamlRoot);
                 }
                 else
                 {
@@ -80,18 +84,14 @@ public sealed partial class Home : Page
             else
             {
                 // Handle the case where parameters are missing or incorrect
-                throw new ArgumentException(
-                    "Incorrect number of parameters passed to Home page. Parameters Length was "
-                        + parameters.Length
-                );
+                await dialogManager.ShowErrorDialog("Incorrect number of parameters passed to Home page. Parameters Length was "
+                        + parameters.Length, true, XamlRoot);
             }
         }
         else
         {
             // Handle the case where parameters are not in the expected format
-            throw new ArgumentException(
-                "Parameters passed to Home page are not in the expected format."
-            );
+            await dialogManager.ShowErrorDialog("Incorrect number of parameters passed to Home page. Parameter type was " + e.Parameter.GetType() + ".", true, XamlRoot);
         }
 
         ((App)Application.Current).UpdatePresence("home", $"Signed in as {loginResult.StudentName}");

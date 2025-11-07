@@ -106,9 +106,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="HtmlAgilityPack" Version="1.12.3" />
-		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4948" />
-		<PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.250907003" />
+		<PackageReference Include="hoursynccore" Version="1.3.1" />
+		<PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
+		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.6901" />
+		<PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.251003001" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<Manifest Include="$(ApplicationManifest)" />
 	</ItemGroup>
@@ -120,9 +121,6 @@
 	<ItemGroup>
 		<Reference Include="DiscordRPC">
 			<HintPath>DiscordRPC.dll</HintPath>
-		</Reference>
-		<Reference Include="HourSyncCoreLib">
-		  <HintPath>..\HourSyncCore\bin\publish\HourSyncCoreLib.dll</HintPath>
 		</Reference>
 	</ItemGroup>
 
@@ -290,8 +288,8 @@
 	</ItemGroup>
 
 	<PropertyGroup>
-		<Version>1.5.0</Version>
-		<AssemblyVersion>1.5.0.0</AssemblyVersion>
+		<Version>1.6.0</Version>
+		<AssemblyVersion>1.6.0.0</AssemblyVersion>
 	</PropertyGroup>
 
 	<Target Name="UpdateAppxManifestVersion" BeforeTargets="GenerateAppxPackage">

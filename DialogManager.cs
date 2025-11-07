@@ -1,4 +1,7 @@
-﻿using System;
+﻿#pragma warning disable IDE0079 // Remove unnecessary suppression
+#pragma warning disable CA1822 // This can NOT be marked static or everything is thrown off
+#pragma warning disable CA2211 // IsDialogOpen is used in Login.xaml.cs
+using System;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -37,12 +40,32 @@ public class DialogService
         };
 
         // Subscribe to the Closed event to reset the dialog flag
-        dialog.Closed += (_, __) =>
-        {
-            DialogManager.IsDialogOpen = false;
-        };
+        dialog.Closed += (_, __) => DialogManager.IsDialogOpen = false;
 
         // Show the dialog and return the result
         return await dialog.ShowAsync();
+    }
+
+    public async Task<bool> ShowErrorDialog(string content, bool shouldAppExit, XamlRoot xamlRoot)
+    {
+        FileMgr.LogError(content);
+        if (shouldAppExit)
+        {
+            if (content.EndsWith('.') || content.Trim().EndsWith('.')) // Checks if the sentence ends with a period
+            {
+                await ShowDialog("Error", content.Trim() + " The application will now close.", "Close", null, null, xamlRoot);
+            }
+            else
+            {
+                await ShowDialog("Error", content.Trim() + ". The application will now close.", "Close", null, null, xamlRoot);
+            }
+            Application.Current.Exit();
+            return false; // not sure why this is needed if the app is closing
+        }
+        else
+        {
+            await ShowDialog("Error", content.Trim(), "Okay", null, null, xamlRoot);
+            return true;
+        }
     }
 }

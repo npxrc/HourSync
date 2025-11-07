@@ -461,7 +461,7 @@ public sealed partial class RequestPage : Page
             eventBody.Text = initialRequestBody;
 
             EditCancelled?.Invoke(this, null);
-            MainWindow _mainWindow = (MainWindow)((App)Application.Current).m_window;
+            var _mainWindow = ((App)Application.Current).m_window;
             _mainWindow.ClosedEditor(id, this);
         }
     }
@@ -473,20 +473,18 @@ public sealed partial class RequestPage : Page
     }
 }
 
-public class RequestEditEventArgs : EventArgs
+public class RequestEditEventArgs(string requestId) : EventArgs
 {
     public string RequestId
     {
         get;
-    }
-    public RequestEditEventArgs(string requestId) => RequestId = requestId;
+    } = requestId;
 }
 
-public class OpenBrowserEventArgs : EventArgs
+public class OpenBrowserEventArgs(string sessID) : EventArgs
 {
     public string PhpSessionId
     {
         get;
-    }
-    public OpenBrowserEventArgs(string sessID) => PhpSessionId = sessID;
+    } = sessID;
 }

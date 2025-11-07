@@ -40,13 +40,14 @@ public sealed partial class Login : Page
 {
     private readonly string appDataFolder = "HourSync";
     private readonly string logFilePath;
+    private readonly DialogService dialogManager = new();
+    private readonly UISettings uiSettings;
+
     private string phpSessionId;
     private string nameOfPerson;
     private string nameOfAcademy;
     private string username;
     private string password;
-
-    private DialogService dialogManager = new();
 
     private static readonly CookieContainer _cookieContainer = new();
     private static readonly HttpClientHandler _handler = new()
@@ -65,14 +66,28 @@ public sealed partial class Login : Page
         },
     };
 
-    private UISettings uiSettings;
+    private ProgressBar waitForLoginProgressBar = new()
+    {
+        IsIndeterminate = true,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center,
+        Width = 200,
+        Height = 20,
+    };
+    private ContentDialog waitForLogin = new()
+    {
+        Title = "Loading",
+        CloseButtonText = null,
+        PrimaryButtonText = null,
+    };
+
+    private bool isProgressBarActive;
 
     public Login()
     {
         try
         {
-            bool isVM = VmChecker.IsVirtualMachine();
-            if (isVM)
+            if (VmChecker.IsVirtualMachine())
             {
                 return;
             }
@@ -81,14 +96,13 @@ public sealed partial class Login : Page
         {
             FileMgr.LogError(ex.Message);
         }
-        InitializeComponent();
-        this.DataContext = new LoginViewModel();
 
-        // Replace timer with event-based theme handling
-        var uiSettings = new UISettings();
+        InitializeComponent();
+        DataContext = new LoginViewModel();
+
+        uiSettings = new UISettings();
         uiSettings.ColorValuesChanged += OnSystemThemeChanged;
 
-        // Initial theme check
         ApplyTheme(IsDarkTheme());
 
         logFilePath = Path.Combine(
@@ -100,51 +114,34 @@ public sealed partial class Login : Page
         ((App)Application.Current).UpdatePresence("login", "");
 
         string exePath = Assembly.GetEntryAssembly().Location;
-
-        // Get the directory of the executable
         string exeDirectory = Path.GetDirectoryName(exePath);
-
-        System.Diagnostics.Trace.WriteLine("Executable is located in: " + exeDirectory);
+        Trace.WriteLine("Executable is located in: " + exeDirectory);
     }
 
-    private void OnSystemThemeChanged(UISettings _, object __)
+    private void OnSystemThemeChanged(UISettings sender, object args)
     {
-        // Use dispatcher to update UI thread
         DispatcherQueue.TryEnqueue(() => ApplyTheme(IsDarkTheme()));
     }
 
-    // Clean up event handlers when page is navigated away from
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
-        var uiSettings = new UISettings();
         uiSettings.ColorValuesChanged -= OnSystemThemeChanged;
-
         base.OnNavigatedFrom(e);
     }
 
     public static bool IsDarkTheme()
     {
-        var uiSettings = new UISettings();
-        var color = uiSettings.GetColorValue(UIColorType.Background);
-
-        // Simple heuristic to determine if the theme is dark
+        var settings = new UISettings();
+        var color = settings.GetColorValue(UIColorType.Background);
         return color.R < 128 && color.G < 128 && color.B < 128;
     }
 
     private void ApplyTheme(bool isDarkTheme)
     {
-        if (isDarkTheme)
-        {
-            loginBanner.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(
-                new Uri("ms-appx:///Assets/hoursync-dark-login-banner.png")
-            );
-        }
-        else
-        {
-            loginBanner.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(
-                new Uri("ms-appx:///Assets/hoursync-light-login-banner.png")
-            );
-        }
+        var uri = isDarkTheme
+            ? "ms-appx:///Assets/hoursync-dark-login-banner.png"
+            : "ms-appx:///Assets/hoursync-light-login-banner.png";
+        loginBanner.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(uri));
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -153,9 +150,16 @@ public sealed partial class Login : Page
         {
             if (VmChecker.IsVirtualMachine())
             {
-                Loaded += async (_, __) =>
+                Loaded += async (s, args) =>
                 {
-                    await dialogManager.ShowDialog("Virtual Machine Detected", "Please use legitimate hardware in order to use HourSync. If you believe this is a false detection, please email neil@hoursync.net.", "OK", "", "", XamlRoot);
+                    await dialogManager.ShowDialog(
+                        "Virtual Machine Detected",
+                        "Please use legitimate hardware in order to use HourSync. If you believe this is a false detection, please email neil@hoursync.net.",
+                        "OK",
+                        "",
+                        "",
+                        XamlRoot
+                    );
                     Application.Current.Exit();
                 };
                 return;
@@ -168,45 +172,34 @@ public sealed partial class Login : Page
 
         base.OnNavigatedTo(e);
 
-        bool isFirstTime = false;
-        if (e.Parameter.GetType() == typeof(bool))
+        bool isFirstTime = e.Parameter is bool param && param;
+        if (isFirstTime)
         {
-            isFirstTime = (bool)e.Parameter;
-            if (isFirstTime)
-            {
-                FileMgr.StartLogSession();
-            }
+            FileMgr.StartLogSession();
         }
 
-        (string UserNameFromVault, string PassFromVault) = CredMgr.GetCreds();
+        var (userNameFromVault, passFromVault) = CredMgr.GetCreds();
 
-        if (UserNameFromVault == null || PassFromVault == null)
+        if (string.IsNullOrEmpty(userNameFromVault) || string.IsNullOrEmpty(passFromVault))
         {
             FileMgr.Log("No credentials found in vault.");
-            try
+            if (isFirstTime)
             {
-                if (isFirstTime)
-                {
-                    Loaded += async (_, __) =>
-                        await HandleFirstTimeSetupAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                FileMgr.LogError(ex.Message);
+                Loaded += async (s, args) => await HandleFirstTimeSetupAsync();
             }
             return;
         }
-        if (PassFromVault.Length > 0)
-        {
 
-            FileMgr.Log($"Credentials successfully retrieved for user {UserNameFromVault}.");
-            UsernameTextBox.Text = UserNameFromVault;
-            PasswordBox.Password = PassFromVault;
+        if (!string.IsNullOrEmpty(passFromVault))
+        {
+            FileMgr.Log($"Credentials successfully retrieved for user {userNameFromVault}.");
+            UsernameTextBox.Text = userNameFromVault;
+            PasswordBox.Password = passFromVault;
+            username = userNameFromVault;
+            password = passFromVault;
             if (isFirstTime)
             {
-                Loaded += async (_, __) =>
-                    await HandleFirstTimeSetupAsync();
+                Loaded += async (s, args) => await HandleFirstTimeSetupAsync();
             }
         }
     }
@@ -220,7 +213,14 @@ public sealed partial class Login : Page
         {
             FileMgr.Log("Welcome to HourSync! Downloading current settings.");
 
-            var result = await dialogManager.ShowDialog("Welcome!", "Welcome to HourSync! This app requires the internet to initialize for the first time (and also to even log in!), so if you haven't connected, please do so now, or exit the app and try again later.\n\nThis app is meant to provide a centralized and easy to use experience to manage your eHours. Experience a modern design, an accessible interface, draft saving, and completely optional AI features.\n\nThe author of this app, Neil, wishes you enjoy this app and find it useful. Thanks!", "Cancel", "Download", "", XamlRoot);
+            var result = await dialogManager.ShowDialog(
+                "Welcome!",
+                "Welcome to HourSync! This app requires the internet to initialize for the first time (and also to even log in!), so if you haven't connected, please do so now, or exit the app and try again later.\n\nThis app is meant to provide a centralized and easy to use experience to manage your eHours. Experience a modern design, an accessible interface, draft saving, and completely optional AI features.\n\nThe author of this app, Neil, wishes you enjoy this app and find it useful. Thanks!",
+                "Cancel",
+                "Download",
+                "",
+                XamlRoot
+            );
             if (result == ContentDialogResult.Primary)
             {
                 FileMgr.Log("Downloading settings.json.");
@@ -235,7 +235,7 @@ public sealed partial class Login : Page
             }
         }
 
-        if (autoLoginEnabled.ToString().Equals("true", StringComparison.CurrentCultureIgnoreCase))
+        if (autoLoginEnabled.ToString().Equals("true", StringComparison.OrdinalIgnoreCase))
         {
             FileMgr.Log("AutoLogin is enabled. Logging in automatically.");
             if (await CheckForUpdateIfNeeded())
@@ -243,56 +243,40 @@ public sealed partial class Login : Page
                 return;
             }
 
-            ShowLoginProgressBarAsync();
+            ShowLoginProgressBar();
 
-            var localSettings = ApplicationData.Current.LocalSettings;
+            var localSettings = await GetLocalSettingsAsync();
 
-            // check if the lastRequest was less than 5 minutes from now
-            if (localSettings.Values.TryGetValue("lastRequest", out object storedDateObj) &&
-                DateTime.TryParse(storedDateObj.ToString(), out DateTime storedDate) &&
-                localSettings.Values.TryGetValue("loginResult", out object loginResultObj))
+            if (localSettings.Values.TryGetValue("lastRequest", out var storedDateObj) &&
+                DateTime.TryParse(storedDateObj.ToString(), out var storedDate) &&
+                localSettings.Values.TryGetValue("loginResult", out var loginResultObj) &&
+                (DateTime.Now - storedDate) < TimeSpan.FromMinutes(5))
             {
-                if ((DateTime.Now - storedDate) < TimeSpan.FromMinutes(5))
-                {
-                    FileMgr.Log("Session found, testing with HourSyncCore");
+                FileMgr.Log("Session found, testing with HourSyncCore");
 
-                    // Deserialize JSON back to your LoginResult type
-                    var loginRes = Newtonsoft.Json.JsonConvert.DeserializeObject<LoginResult>(
-                        loginResultObj.ToString()
+                var loginRes = Newtonsoft.Json.JsonConvert.DeserializeObject<LoginResult>(loginResultObj.ToString());
+
+                if (await HourSyncCore.IsSessionActive(loginRes.PhpSessionId))
+                {
+                    FileMgr.Log("Session is active.");
+                    var getresp = await HourSyncCore.GetRequestsPage(loginRes.PhpSessionId);
+
+                    Frame.Navigate(
+                        typeof(Home),
+                        new object[] { loginRes, username, password, getresp },
+                        new DrillInNavigationTransitionInfo()
                     );
 
-                    // Now you can use loginRes safely
-                    if (await HourSyncCore.IsSessionActive(loginRes.PhpSessionId))
-                    {
-                        FileMgr.Log("Session is active.");
-                        var getresp = await HourSyncCore.GetRequestsPage(loginRes.PhpSessionId);
+                    HideLoginProgressBar();
 
-                        Frame.Navigate(
-                            typeof(Home),
-                            new object[]
-                            {
-                                loginRes,
-                                username,
-                                password,
-                                getresp
-                            },
-                            new DrillInNavigationTransitionInfo()
-                        );
-
-                        HideLoginProgressBar();
-
-                        FileMgr.Log("Running App.LoggedIn");
-                        ((App)Application.Current).LoggedIn(
-                            loginRes, username, password, getresp, true
-                        );
-                        return;
-                    }
+                    FileMgr.Log("Running App.LoggedIn");
+                    ((App)Application.Current).LoggedIn(loginRes, username, password, getresp, true);
+                    return;
                 }
             }
 
             FileMgr.Log("No active session, starting a new one.");
-            LoginButton_Click(null, null);
-
+            await PerformLoginAsync();
         }
         else
         {
@@ -309,7 +293,7 @@ public sealed partial class Login : Page
         try
         {
             using var ping = new System.Net.NetworkInformation.Ping();
-            var reply = await ping.SendPingAsync("8.8.8.8", 3000); // 3-second timeout
+            var reply = await ping.SendPingAsync("8.8.8.8", 3000);
             return reply.Status == System.Net.NetworkInformation.IPStatus.Success;
         }
         catch (Exception ex)
@@ -319,11 +303,9 @@ public sealed partial class Login : Page
         }
     }
 
-
     private async Task DownloadSettings()
     {
-        ShowLoginProgressBarAsync();
-        // Check internet connectivity by pinging Google's public DNS
+        ShowLoginProgressBar();
         if (await IsInternetAvailableAsync())
         {
             try
@@ -332,7 +314,6 @@ public sealed partial class Login : Page
                 var settingsURL = Private.Settings();
                 var resp = await _client.GetAsync(settingsURL);
                 string json = await resp.Content.ReadAsStringAsync();
-                // Parse and write the settings JSON
                 var finalJson = FileMgr.ParseAndWriteSettingsJson(json);
                 FileMgr.WriteToFile("settings.json", finalJson);
                 waitForLoginProgressBar.IsIndeterminate = false;
@@ -353,202 +334,191 @@ public sealed partial class Login : Page
             waitForLogin.Content = waitForLoginProgressBar;
             waitForLogin.Title = "No Internet";
             waitForLogin.CloseButtonText = "OK";
-            waitForLogin.CloseButtonClick += (_, __) => ((App)Application.Current).m_window.Close();
+            waitForLogin.CloseButtonClick += (s, args) => ((App)Application.Current).m_window.Close();
         }
     }
 
-    private async void LoginButton_Click(object _, RoutedEventArgs __)
+    private async void LoginButton_Click(object sender, RoutedEventArgs e)
     {
-        FileMgr.Log("Login button clicked");
-        username = UsernameTextBox.Text;
-        password = PasswordBox.Password;
-
-        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        try
         {
-            await dialogManager.ShowDialog("Error", "Please enter both a username and password", "OK", "", "", XamlRoot);
-            return;
-        }
-        FileMgr.Log("Running PerformLogin()");
-        await PerformLogin();
-    }
+            FileMgr.Log("Login button clicked");
+            username = UsernameTextBox.Text;
+            password = PasswordBox.Password;
 
-    private async void ForgotPassword_Click(object _, RoutedEventArgs __)
-    {
-
-        TextBlock textBlock = new()
-        {
-            TextWrapping = TextWrapping.Wrap
-        };
-
-        textBlock.Inlines.Add(new Run
-        {
-            Text = "Working on a school computer? Press CTRL + Alt + Delete and click \"Change a Password.\" "
-        });
-        textBlock.Inlines.Add(new LineBreak());
-
-        textBlock.Inlines.Add(new Run { Text = "Otherwise, " });
-
-        Hyperlink hyperlink = new Hyperlink();
-        hyperlink.Inlines.Add(new Run { Text = "enter your username in the Microsoft signin screen" });
-
-        string loginHint = "";
-        if (UsernameRegex().IsMatch(UsernameTextBox.Text))
-        {
-            loginHint = $"&login_hint={UsernameTextBox.Text}@stu.olatheschools.org";
-        }
-        hyperlink.Click += async (_, __) => await Launcher.LaunchUriAsync(new Uri("https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=19db86c3-b2b9-44cc-b339-36da233a3be2&redirect_uri=https%3A%2F%2Fmysignins.microsoft.com&scope=openid+profile+email+offline_access&response_type=code&response_mode=fragment&code_challenge=9PI188Gb7y4H7AP9K0Sy4sYivPrB1h-r8EY62pWg-MM&code_challenge_method=S256&state=461c659f-7fe7-4fb5-a11b-0e87f8e46500" + loginHint));
-
-        textBlock.Inlines.Add(hyperlink);
-
-        textBlock.Inlines.Add(new Run { Text = " and click \"Forgot Password\"." });
-
-        var dialog = new ContentDialog
-        {
-            Title = "Forgot Password",
-            Content = textBlock,
-            PrimaryButtonText = "OK",
-            XamlRoot = XamlRoot
-        };
-
-        await dialog.ShowAsync();
-    }
-
-    private bool isShiftPressedInUsernameBox = false;
-
-    private async void UsernameTextBox_KeyDown(object _, KeyRoutedEventArgs e)
-    {
-        if (e.Key == VirtualKey.Enter)
-        {
-            PasswordBox.Focus(FocusState.Keyboard);
-            e.Handled = true; // Optional: to prevent further handling
-        }
-        else if (e.Key == VirtualKey.Shift)
-        {
-            isShiftPressedInUsernameBox = true;
-            e.Handled = true;
-        }
-        else if (e.Key == VirtualKey.Number2 && isShiftPressedInUsernameBox)
-        {
-            await new ContentDialog()
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
             {
-                Title = "Use your username",
-                Content =
-                    "Use the same login you use for the regular eHours portal! You don't have to use your Gmail username; in fact it actually won't work if you do.",
+                await dialogManager.ShowDialog(
+                    "Error",
+                    "Please enter both a username and password",
+                    "OK",
+                    "",
+                    "",
+                    XamlRoot
+                );
+                return;
+            }
+            FileMgr.Log("Running PerformLogin()");
+            await PerformLoginAsync();
+        }
+        catch (Exception ex)
+        {
+            FileMgr.LogError($"Error in LoginButton_Click: {ex.Message}");
+        }
+    }
+
+    private async void ForgotPassword_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var textBlock = new TextBlock { TextWrapping = TextWrapping.Wrap };
+
+            textBlock.Inlines.Add(new Run { Text = "Working on a school computer? Press CTRL + Alt + Delete and click \"Change a Password.\" " });
+            textBlock.Inlines.Add(new LineBreak());
+            textBlock.Inlines.Add(new Run { Text = "Otherwise, " });
+
+            var hyperlink = new Hyperlink();
+            hyperlink.Inlines.Add(new Run { Text = "enter your username in the Microsoft signin screen" });
+
+            string loginHint = "";
+            if (UsernameRegex().IsMatch(UsernameTextBox.Text))
+            {
+                loginHint = $"&login_hint={UsernameTextBox.Text}@stu.olatheschools.org";
+            }
+            hyperlink.Click += async (s, args) =>
+                await Launcher.LaunchUriAsync(new Uri(
+                    "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=19db86c3-b2b9-44cc-b339-36da233a3be2&redirect_uri=https%3A%2F%2Fmysignins.microsoft.com&scope=openid+profile+email+offline_access&response_type=code&response_mode=fragment&code_challenge=9PI188Gb7y4H7AP9K0Sy4sYivPrB1h-r8EY62pWg-MM&code_challenge_method=S256&state=461c659f-7fe7-4fb5-a11b-0e87f8e46500" + loginHint
+                ));
+
+            textBlock.Inlines.Add(hyperlink);
+            textBlock.Inlines.Add(new Run { Text = " and click \"Forgot Password\"." });
+
+            var dialog = new ContentDialog
+            {
+                Title = "Forgot Password",
+                Content = textBlock,
                 PrimaryButtonText = "OK",
                 XamlRoot = XamlRoot,
-            }.ShowAsync();
+            };
 
-            UsernameTextBox.Text = UsernameTextBox.Text[..^1];
-            PasswordBox.Focus(FocusState.Keyboard);
-            isShiftPressedInUsernameBox = false;
+            await dialog.ShowAsync();
+        }
+        catch (Exception ex)
+        {
+            FileMgr.LogError($"Error in ForgotPassword_Click: {ex.Message}");
         }
     }
 
-    private void UsernameTextBox_KeyUp(object _, KeyRoutedEventArgs e)
+    private bool isShiftPressedInUsernameBox;
+
+    private async void UsernameTextBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        try
+        {
+            if (e.Key == VirtualKey.Enter)
+            {
+                PasswordBox.Focus(FocusState.Keyboard);
+                e.Handled = true;
+            }
+            else if (e.Key == VirtualKey.Shift)
+            {
+                isShiftPressedInUsernameBox = true;
+                e.Handled = true;
+            }
+            else if (e.Key == VirtualKey.Number2 && isShiftPressedInUsernameBox)
+            {
+                await new ContentDialog()
+                {
+                    Title = "Use your username",
+                    Content = "Use the same login you use for the regular eHours portal! You don't have to use your Gmail username; in fact it actually won't work if you do.",
+                    PrimaryButtonText = "OK",
+                    XamlRoot = XamlRoot,
+                }.ShowAsync();
+
+                UsernameTextBox.Text = UsernameTextBox.Text[..^1];
+                PasswordBox.Focus(FocusState.Keyboard);
+                isShiftPressedInUsernameBox = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            FileMgr.LogError($"Error in UsernameTextBox_KeyDown: {ex.Message}");
+        }
+    }
+
+    private void UsernameTextBox_KeyUp(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key == VirtualKey.Shift)
         {
             isShiftPressedInUsernameBox = false;
             e.Handled = true;
         }
+    }
 
-        if (UsernameTextBox.Text.Length < 1)
+    private async void PasswordBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        try
         {
-            UsernameTextBox.BorderBrush = null;
-            UsernameTextBox.BorderThickness = new Thickness(0);
-            return;
+            if (e.Key == VirtualKey.Enter)
+            {
+                username = UsernameTextBox.Text;
+                password = PasswordBox.Password;
+                await PerformLoginAsync();
+                e.Handled = true;
+            }
         }
-
-        if (!UsernameRegex().IsMatch(UsernameTextBox.Text))
+        catch (Exception ex)
         {
-            // Handle invalid input, e.g., show a message or change the TextBox border color
-            UsernameTextBox.BorderThickness = new Thickness(2);
-            UsernameTextBox.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 200, 50, 30));
-        }
-        else
-        {
-            // Reset the border color if the input is valid
-            UsernameTextBox.BorderBrush = null;
-            UsernameTextBox.BorderThickness = new Thickness(0);
+            FileMgr.LogError($"Error in PasswordBox_KeyDown: {ex.Message}");
         }
     }
 
-    private void PasswordBox_KeyDown(object _, KeyRoutedEventArgs e)
+    private void ShowLoginProgressBar()
     {
-        if (e.Key == VirtualKey.Enter)
-        {
-            LoginButton_Click(null, null);
-            e.Handled = true; // Optional: to prevent further handling
-        }
-    }
+        if (isProgressBarActive) return;
+        isProgressBarActive = true;
 
-    private ProgressBar waitForLoginProgressBar = new()
-    {
-        IsIndeterminate = true,
-        HorizontalAlignment = HorizontalAlignment.Center,
-        VerticalAlignment = VerticalAlignment.Center,
-        Width = 200, // Set width as needed
-        Height = 20, // Set height as needed
-    };
-    private ContentDialog waitForLogin = new()
-    {
-        Title = "Loading",
-        CloseButtonText = null,
-        PrimaryButtonText = null, // Ensure there's no default button
-    };
-
-    private bool IsProgressBarActive = false;
-    private async void ShowLoginProgressBarAsync()
-    {
-        if (IsProgressBarActive) return;
-        IsProgressBarActive = true;
-        // Initialize and configure the ContentDialog
-        waitForLoginProgressBar = new()
+        waitForLoginProgressBar = new ProgressBar
         {
             IsIndeterminate = true,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-            Width = 200, // Set width as needed
-            Height = 20, // Set height as needed
+            Width = 200,
+            Height = 20,
         };
 
-        waitForLogin = new()
+        waitForLogin = new ContentDialog
         {
             Title = "Loading",
             CloseButtonText = null,
-            PrimaryButtonText = null, // Ensure there's no default button
+            PrimaryButtonText = null,
             Content = waitForLoginProgressBar,
-
-            // Ensure the ContentDialog is set to the correct XamlRoot
             XamlRoot = XamlRoot,
         };
 
-        // Show the ContentDialog asynchronously
         if (!DialogManager.IsDialogOpen)
         {
-            await waitForLogin.ShowAsync();
+            _ = waitForLogin.ShowAsync();
         }
 
-        waitForLogin.Closed += (_, __) => IsProgressBarActive = false;
+        waitForLogin.Closed += (s, args) => isProgressBarActive = false;
     }
 
     private void HideLoginProgressBar()
     {
-        if (waitForLogin != null && IsProgressBarActive)
+        if (waitForLogin != null && isProgressBarActive)
         {
             waitForLogin.Hide();
-            IsProgressBarActive = false;
+            isProgressBarActive = false;
         }
     }
 
-    private async Task PerformLogin()
+    private async Task PerformLoginAsync()
     {
-        ShowLoginProgressBarAsync();
+        ShowLoginProgressBar();
 
         try
         {
-            var localSettings = ApplicationData.Current.LocalSettings;
-
             FileMgr.Log("Attempting login via HourSyncCore");
             if (password.Length < 6)
             {
@@ -564,10 +534,6 @@ public sealed partial class Login : Page
                 ShowLoginError(loginResult.Error ?? "Login failed.");
                 return;
             }
-
-            // Replace the problematic code with the following to ensure the value being written is serializable
-            localSettings.Values["loginResult"] = Newtonsoft.Json.JsonConvert.SerializeObject(loginResult);
-            localSettings.Values["lastRequest"] = DateTime.Now.ToString("o"); // Use ISO 8601 format for serialization
 
             phpSessionId = loginResult.PhpSessionId;
             nameOfPerson = loginResult.StudentName ?? "";
@@ -588,20 +554,12 @@ public sealed partial class Login : Page
 
             Frame.Navigate(
                 typeof(Home),
-                new object[]
-                {
-                    loginResult,
-                    username,
-                    password,
-                    getresp
-                },
+                new object[] { loginResult, username, password, getresp },
                 new DrillInNavigationTransitionInfo()
             );
 
             FileMgr.Log("Running App.LoggedIn");
-            ((App)Application.Current).LoggedIn(
-                loginResult, username, password, getresp, true
-            );
+            ((App)Application.Current).LoggedIn(loginResult, username, password, getresp, true);
         }
         catch (Exception ex)
         {
@@ -618,31 +576,36 @@ public sealed partial class Login : Page
         waitForLogin.CloseButtonText = "OK";
     }
 
-    //check for update if it's been 24 hours since last check, mainly to prevent me, the developer, from calling the API a ton of times
     private async Task<bool> CheckForUpdateIfNeeded()
     {
-        var localSettings = ApplicationData.Current.LocalSettings;
-        string lastCheckKey = "LastUpdateCheck";
-
         DateTime now = DateTime.Now;
+        bool shouldCheck = false;
 
-        if (localSettings.Values.TryGetValue(lastCheckKey, out object storedDateObj) &&
-            DateTime.TryParse(storedDateObj.ToString(), out DateTime storedDate))
+        await RunOnUIThreadAsync(() =>
         {
-            if ((now - storedDate) < TimeSpan.FromDays(1))
+            var localSettings = ApplicationData.Current.LocalSettings;
+            const string lastCheckKey = "LastUpdateCheck";
+
+            if (localSettings.Values.TryGetValue(lastCheckKey, out var storedDateObj) &&
+                DateTime.TryParse(storedDateObj.ToString(), out var storedDate) &&
+                (now - storedDate) < TimeSpan.FromDays(1))
             {
-                // Last check was less than 24h ago, skip
-                return false;
+                shouldCheck = false;
             }
+            else
+            {
+                localSettings.Values[lastCheckKey] = now.ToString("o");
+                shouldCheck = true;
+            }
+        });
+
+        if (!shouldCheck)
+        {
+            return false;
         }
 
-        // Save current time
-        localSettings.Values[lastCheckKey] = now.ToString("o"); // "o" = round-trip ISO 8601
-
-        // Run the actual update check
         return await CheckForUpdate();
     }
-
 
     private async Task<bool> CheckForUpdate()
     {
@@ -660,10 +623,17 @@ public sealed partial class Login : Page
 
         if (result == "true")
         {
-            var clicked = await dialogManager.ShowDialog("New Update Available", "A newer version is available. Would you like to update?", "Later", "Update", "", XamlRoot);
+            var clicked = await dialogManager.ShowDialog(
+                "New Update Available",
+                "A newer version is available. Would you like to update?",
+                "Later",
+                "Update",
+                "",
+                XamlRoot
+            );
             if (clicked == ContentDialogResult.Primary)
             {
-                ShowLoginProgressBarAsync();
+                ShowLoginProgressBar();
 
                 try
                 {
@@ -671,7 +641,6 @@ public sealed partial class Login : Page
                     var settingsResp = await _client.GetAsync(settingsURL);
                     string settingsJson = await settingsResp.Content.ReadAsStringAsync();
 
-                    // Deserialize into Dictionary<string, SettingDefinition>
                     var downloadedSettings = FileMgr.ParseAndWriteSettingsJson(settingsJson);
 
                     if (downloadedSettings != null)
@@ -686,7 +655,6 @@ public sealed partial class Login : Page
                         {
                             FileMgr.Log("Failed to deserialize settings.");
                         }
-                        FileMgr.Log("Settings merged successfully.");
                     }
                     else
                     {
@@ -698,42 +666,28 @@ public sealed partial class Login : Page
                     FileMgr.LogError("Error when downloading settings: " + ex.Message);
                 }
 
-                // Get the directory where the app's executable is located
-                string appExeDirectory = Path.GetDirectoryName(
-                    Assembly.GetEntryAssembly().Location
-                );
+                string appExeDirectory = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
                 string parentDirectory = Directory.GetParent(appExeDirectory).FullName;
 
-                // Download the EXE file to the parent directory
                 var appURL = Private.AppURL();
                 var downloadUri = new Uri(appURL);
-
-                // Set the download file path to the parent directory
                 string downloadPath = Path.Combine(parentDirectory, "HourSync.exe");
 
                 try
                 {
-                    // Download the executable file
                     FileMgr.Log("Downloading.");
                     var fileBytes = await _client.GetByteArrayAsync(downloadUri);
                     await File.WriteAllBytesAsync(downloadPath, fileBytes);
 
-                    // Specify the extraction path for the 7zip self-extractor
-                    string extractPath = parentDirectory;
-
-                    // Run the 7zip self-extractor with the specified extraction path
-                    Process.Start(
-                        new ProcessStartInfo
-                        {
-                            FileName = downloadPath,
-                            Arguments = "/SILENT",
-                            UseShellExecute = true,
-                            CreateNoWindow = true,
-                        }
-                    );
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = downloadPath,
+                        Arguments = "/SILENT",
+                        UseShellExecute = true,
+                        CreateNoWindow = true,
+                    });
 
                     FileMgr.Log("Handing it off to Inno.");
-
                     Application.Current.Exit();
                 }
                 catch (Exception ex)
@@ -743,14 +697,17 @@ public sealed partial class Login : Page
                 }
                 return true;
             }
-            else
-            {
-                return false;
-            }
         }
         else if (result == "error")
         {
-            await dialogManager.ShowDialog("Update Check Error", "An error occurred while checking for updates.", "", "Okay", "", XamlRoot);
+            await dialogManager.ShowDialog(
+                "Update Check Error",
+                "An error occurred while checking for updates.",
+                "",
+                "Okay",
+                "",
+                XamlRoot
+            );
             return true;
         }
 
@@ -759,8 +716,56 @@ public sealed partial class Login : Page
 
     [GeneratedRegex(@"^\d{3}[a-zA-Z]{3}(0[1-9]|[12][0-9]|3[01])$")]
     private static partial Regex UsernameRegex();
+
+    private async Task<ApplicationDataContainer> GetLocalSettingsAsync()
+    {
+        // If we are already on the UI thread, return directly.
+        try
+        {
+            if (DispatcherQueue.HasThreadAccess)
+            {
+                return ApplicationData.Current.LocalSettings;
+            }
+        }
+        catch
+        {
+            // fall through to enqueue
+        }
+
+        var tcs = new TaskCompletionSource<ApplicationDataContainer>();
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            try
+            {
+                tcs.SetResult(ApplicationData.Current.LocalSettings);
+            }
+            catch (Exception ex)
+            {
+                tcs.SetException(ex);
+            }
+        });
+
+        return await tcs.Task;
+    }
+
+    private async Task RunOnUIThreadAsync(Action action)
+    {
+        var tcs = new TaskCompletionSource();
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            try
+            {
+                action();
+                tcs.SetResult();
+            }
+            catch (Exception ex)
+            {
+                tcs.SetException(ex);
+            }
+        });
+        await tcs.Task;
+    }
 }
-// ViewModel
 public class LoginViewModel : INotifyPropertyChanged
 {
     private string _username;
@@ -836,8 +841,8 @@ public class LoginViewModel : INotifyPropertyChanged
         }
     }
 
-    // INotifyPropertyChanged implementation
     public event PropertyChangedEventHandler PropertyChanged;
+
     protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

@@ -27,9 +27,9 @@ public sealed partial class BrowserView : Page
     protected async override void OnNavigatedTo(NavigationEventArgs e)
     {
 
-        if (e.Parameter.GetType() == typeof(string))
+        if (e.Parameter is string parameter)
         {
-            _phpSessionId = (string)e.Parameter;
+            _phpSessionId = parameter;
         }
         else
         {
@@ -62,6 +62,19 @@ public sealed partial class BrowserView : Page
 
         // Navigate to your start page
         Browser.Source = new Uri("https://academyendorsement.olatheschools.com/Student/studentEHours.php");
+        Browser.CoreWebView2.NavigationStarting += async (sender, args) =>
+        {
+            if (args.Uri.EndsWith("eHourDescription.php"))
+            {
+                await new ContentDialog()
+                {
+                    Title = "Request Description",
+                    Content = "Consider using the HourSync viewer for improved performance, ",
+                    PrimaryButtonText = "OK",
+                    XamlRoot = XamlRoot
+                }.ShowAsync();
+            }
+        };
         //Browser.Source = new Uri("https://google.com");
     }
     protected override void OnNavigatedFrom(NavigationEventArgs e)

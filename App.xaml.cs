@@ -18,6 +18,7 @@ using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 
 namespace HourSync;
+
 public partial class App : Application
 {
     private Frame rootFrame;
@@ -82,21 +83,21 @@ public partial class App : Application
     private string previousPageForNav = "null";
 
     public DiscordRpcClient client = new("1342974846090481766");
-    private DiscordRPC.Button[] buttons = [
-        new DiscordRPC.Button()
-        {
-            Label = "Download HourSync",
-            Url = "https://hoursync.net"
-        },
+    private DiscordRPC.Button[] buttons =
+    [
+        new DiscordRPC.Button() { Label = "Download HourSync", Url = "https://hoursync.net" },
         new DiscordRPC.Button()
         {
             Label = "View on GitHub",
-            Url = "https://github.com/npxrc/HourSync"
-        }
+            Url = "https://github.com/npxrc/HourSync",
+        },
     ];
 
-    protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    public DateTime startTime = DateTime.Now;
+
+    protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
+        FileMgr.Log("Started at " + startTime.ToString());
         bool isVM = VmChecker.IsVirtualMachine();
         if (isVM)
         {
@@ -116,9 +117,8 @@ public partial class App : Application
             FooterMenuItemsSource = NavigationViewModel.FooterItems,
             SelectedItem = NavigationViewModel.SelectedItem,
             IsSettingsVisible = false, // we’re handling Settings ourselves
-            Content = rootFrame
+            Content = rootFrame,
         };
-
 
         NavigationView.ItemInvoked += NavigationView_ItemInvoked;
 
@@ -126,7 +126,7 @@ public partial class App : Application
         TransitionCollection transitionCollection =
         [
             // Add a NavigationThemeTransition to the TransitionCollection
-            new NavigationThemeTransition()
+            new NavigationThemeTransition(),
         ];
 
         // Set the ContentTransitions property of the rootFrame to the created TransitionCollection
@@ -137,11 +137,13 @@ public partial class App : Application
 
         client.Initialize();
 
-        // Pass the isFirstTime parameter as true
         rootFrame.Navigate(typeof(Login), true);
     }
 
-    private void NavigationView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
+    private void NavigationView_ItemInvoked(
+        NavigationView sender,
+        NavigationViewItemInvokedEventArgs args
+    )
     {
         if (args.InvokedItemContainer is NavigationViewItem item)
         {
@@ -167,7 +169,7 @@ public partial class App : Application
 
                 effect = new SlideNavigationTransitionInfo()
                 {
-                    Effect = SlideNavigationTransitionEffect.FromBottom
+                    Effect = SlideNavigationTransitionEffect.FromBottom,
                 };
             }
             else
@@ -181,7 +183,7 @@ public partial class App : Application
                     // going right
                     effect = new SlideNavigationTransitionInfo()
                     {
-                        Effect = SlideNavigationTransitionEffect.FromRight
+                        Effect = SlideNavigationTransitionEffect.FromRight,
                     };
                 }
                 else
@@ -189,7 +191,7 @@ public partial class App : Application
                     // going left
                     effect = new SlideNavigationTransitionInfo()
                     {
-                        Effect = SlideNavigationTransitionEffect.FromLeft
+                        Effect = SlideNavigationTransitionEffect.FromLeft,
                     };
                 }
             }
@@ -204,7 +206,7 @@ public partial class App : Application
                 "create" => typeof(RequestMaker),
                 "leaderboard" => typeof(Leaderboard),
                 "settings" => typeof(Settings),
-                _ => null
+                _ => null,
             };
 
             if (targetType != null)
@@ -218,7 +220,13 @@ public partial class App : Application
         }
     }
 
-    public void LoggedIn(LoginResult loginResult, string username, string password, string getresp, bool navigate = true)
+    public void LoggedIn(
+        LoginResult loginResult,
+        string username,
+        string password,
+        string getresp,
+        bool navigate = true
+    )
     {
         LoginResult = loginResult;
         Username = username;
@@ -231,7 +239,12 @@ public partial class App : Application
         if (navigate)
         {
             NavigationViewModel.RefreshMenuItems(isLoggedIn: true);
-            rootFrame.Navigate(typeof(Home), new object[] { loginResult, username, password, getresp }, new DrillInNavigationTransitionInfo());
+            NavigationView.SelectedItem = NavigationViewModel.SelectedItem; // Added: Update NavigationView's SelectedItem to match the model
+            rootFrame.Navigate(
+                typeof(Home),
+                new object[] { loginResult, username, password, getresp },
+                new DrillInNavigationTransitionInfo()
+            );
         }
     }
 
@@ -250,6 +263,7 @@ public partial class App : Application
         Client = null;
 
         NavigationViewModel.RefreshMenuItems(isLoggedIn: false);
+        NavigationView.SelectedItem = NavigationViewModel.SelectedItem; // Added: Update NavigationView's SelectedItem to match the model
         rootFrame.Navigate(typeof(Login), false);
         currentPageForNav = "login";
     }
@@ -272,7 +286,11 @@ public partial class App : Application
     public void GoToHomeAfterDel(string getresp)
     {
         HomeResult = getresp;
-        rootFrame.Navigate(typeof(Home), new object[] { LoginResult, Username, Password, getresp }, new DrillInNavigationTransitionInfo());
+        rootFrame.Navigate(
+            typeof(Home),
+            new object[] { LoginResult, Username, Password, getresp },
+            new DrillInNavigationTransitionInfo()
+        );
     }
 
     public void UpdateHomeContent(string getresp)
@@ -302,33 +320,31 @@ public partial class App : Application
         if (details.Length > 0)
         {
             FileMgr.Log("setting presence");
-            client.SetPresence(new RichPresence()
-            {
-                Details = details,
-                State = state,
-                Assets = new Assets()
+            client.SetPresence(
+                new RichPresence()
                 {
-                    LargeImageKey = "logo",
-                    LargeImageText = "HourSync",
-                },
-                Buttons = buttons,
-                Type = ActivityType.Playing
-            });
-            System.Diagnostics.Trace.WriteLine($"Set presence to {state} with details \"{details}\"");
+                    Details = details,
+                    State = state,
+                    Assets = new Assets() { LargeImageKey = "logo", LargeImageText = "HourSync" },
+                    Buttons = buttons,
+                    Type = ActivityType.Playing,
+                }
+            );
+            System.Diagnostics.Trace.WriteLine(
+                $"Set presence to {state} with details \"{details}\""
+            );
         }
         else
         {
-            client.SetPresence(new RichPresence()
-            {
-                State = state,
-                Assets = new Assets()
+            client.SetPresence(
+                new RichPresence()
                 {
-                    LargeImageKey = "logo",
-                    LargeImageText = "HourSync",
-                },
-                Buttons = buttons,
-                Type = ActivityType.Playing
-            });
+                    State = state,
+                    Assets = new Assets() { LargeImageKey = "logo", LargeImageText = "HourSync" },
+                    Buttons = buttons,
+                    Type = ActivityType.Playing,
+                }
+            );
             System.Diagnostics.Trace.WriteLine("Set presence to default");
         }
     }

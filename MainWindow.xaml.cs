@@ -51,7 +51,13 @@ public sealed partial class MainWindow : Window
     private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, WNDPROC dwNewLong);
 
     [DllImport("user32.dll")]
-    private static extern IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+    private static extern IntPtr CallWindowProc(
+        IntPtr lpPrevWndFunc,
+        IntPtr hWnd,
+        uint Msg,
+        IntPtr wParam,
+        IntPtr lParam
+    );
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
@@ -68,8 +74,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
-        // Your existing initialization code
-        Microsoft.UI.Xaml.Media.MicaBackdrop micaBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop
+        var micaBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop
         {
             Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt,
         };
@@ -122,7 +127,11 @@ public sealed partial class MainWindow : Window
         // Restore original window procedure before closing
         if (_hwnd != IntPtr.Zero && _oldWndProc != IntPtr.Zero)
         {
-            SetWindowLongPtr(_hwnd, GWL_WNDPROC, new WNDPROC((h, m, w, l) => CallWindowProc(_oldWndProc, h, m, w, l)));
+            SetWindowLongPtr(
+                _hwnd,
+                GWL_WNDPROC,
+                new WNDPROC((h, m, w, l) => CallWindowProc(_oldWndProc, h, m, w, l))
+            );
         }
 
         _requestViewer?.Close();
@@ -156,7 +165,7 @@ public sealed partial class MainWindow : Window
 
     public bool NowEditingViewer(string id, RequestPage viewer)
     {
-        // If already editing this ID, don’t allow a second editor.
+        // If already editing this ID, donï¿½t allow a second editor.
         if (openedEditors.TryGetValue(id, out var value))
         {
             return value == viewer;
@@ -166,6 +175,7 @@ public sealed partial class MainWindow : Window
         openedEditors[id] = viewer;
         return true;
     }
+
     public void ClosedEditor(string id, RequestPage viewer)
     {
         FileMgr.Log("Closing window " + id);
