@@ -13,7 +13,7 @@
             <ColumnDefinition Width="3.5*"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
-        <ScrollView x:Name="MainScroller" Margin="36" HorizontalScrollBarVisibility="Hidden" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto">
+        <ScrollView x:Name="MainScroller" Margin="36" Padding="0,0,10,0" HorizontalScrollBarVisibility="Hidden" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Auto">
             <Grid x:Name="ContentGrid">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -26,113 +26,132 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <TextBlock x:Name="pageTitle" Text="Request eHours" Margin="0, 0, 0, 5" Style="{StaticResource TitleTextBlockStyle}"/>
+                <TextBlock x:Name="pageTitle" x:Uid="RequestMakerPageTitle" Text="Request eHours" Margin="0, 0, 0, 5" Style="{StaticResource TitleTextBlockStyle}"/>
 
                 <StackPanel x:Name="DraftLoadedSuccessfully" Grid.Row="1" Margin="0, 0, 0 ,10" Visibility="Collapsed">
-                    <InfoBar x:Name="DraftIsLoaded" IsOpen="True" Severity="Success" Title="Draft Loaded" Message="A previous draft has been loaded." Margin="0, 0, 0 ,5"/>
+                    <InfoBar x:Name="DraftIsLoaded" x:Uid="RequestMakerDraftLoadedInfo" IsOpen="True" Severity="Success" Title="Draft Loaded" Message="Your last draft was loaded." Margin="0, 0, 0 ,5"/>
                 </StackPanel>
                 <StackPanel x:Name="DraftDeletedSuccessfully" Grid.Row="1" Margin="0, 0, 0 ,10" Visibility="Collapsed">
-                    <InfoBar x:Name="DraftIsDeleted" IsOpen="True" Severity="Success" Title="Draft Deleted" Message="Your previous draft has been deleted." Margin="0, 0, 0 ,5"/>
+                    <InfoBar x:Name="DraftIsDeleted" x:Uid="RequestMakerDraftDeletedInfo" IsOpen="True" Severity="Success" Title="Draft Deleted" Message="Your previous draft has been deleted." Margin="0, 0, 0 ,5"/>
                 </StackPanel>
                 <StackPanel x:Name="DraftIsCorruptStack" Grid.Row="1" Margin="0, 0, 0 ,10" Visibility="Collapsed">
-                    <InfoBar x:Name="DraftIsCorrupt" IsOpen="True" Severity="Warning" Title="Draft Load Failure" Message="The draft which is saved to your %localappdata% folder is corrupt, outdated, or invalid, and was not loaded." Margin="0, 0, 0 ,5"/>
+                    <InfoBar x:Name="DraftIsCorrupt" x:Uid="RequestMakerDraftCorruptInfo" IsOpen="True" Severity="Warning" Title="Draft Load Failure" Message="The draft which is saved to your %localappdata% folder is corrupt, outdated, or invalid, and was not loaded." Margin="0, 0, 0 ,5"/>
                     <StackPanel Orientation="Horizontal">
-                        <Button x:Name="OpenDraft" Content="Open Draft" Click="OpenDraft_Click" Margin="0, 0, 5, 0"/>
-                        <Button x:Name="DeleteDraft" Content="Delete Draft" Click="Delete_Draft"/>
+                        <Button x:Name="OpenDraft" x:Uid="RequestMakerOpenDraftButton" Content="Open Draft" Click="OpenDraft_Click" Margin="0, 0, 5, 0"/>
+                        <Button x:Name="DeleteDraft" x:Uid="RequestMakerDeleteDraftButton" Content="Delete Draft" Click="Delete_Draft"/>
                     </StackPanel>
                 </StackPanel>
 
                 <StackPanel Orientation="Vertical" Grid.Row="2">
-                    <TextBlock Text="Enter your Event Title:" Margin="0,0,0,10"/>
-                    <TextBox x:Name="eventTitle" PlaceholderText="Event Title" Margin="0,0,0,10" MaxLength="75"/>
+                    <TextBlock x:Uid="RequestMakerEventTitleLabel" Text="Enter your Event Title:" Margin="0,0,0,10"/>
+                    <TextBox x:Name="eventTitle" x:Uid="RequestMakerEventTitleBox" PlaceholderText="Event Title" Margin="0,0,0,10" MaxLength="75"/>
                 </StackPanel>
                 <StackPanel Orientation="Vertical" Grid.Row="3">
-                    <TextBlock Text="Day of Event:" Margin="0,0,0,10"/>
+                    <TextBlock x:Uid="RequestMakerEventDayLabel" Text="Day of Event:" Margin="0,0,0,10"/>
                     <DatePicker x:Name="eventDate" Margin="0,0,0,10"/>
                 </StackPanel>
                 <StackPanel Orientation="Vertical" Grid.Row="4">
-                    <TextBlock Text="Requested Number of eHours:" Margin="0,0,0,5"/>
+                    <TextBlock x:Uid="RequestMakerRequestedHoursLabel" Text="Requested Number of eHours:" Margin="0,0,0,5"/>
                     <TextBox Name="NumericTextBox"
+                         x:Uid="RequestMakerRequestedHoursBox"
                          PlaceholderText="Requested # of eHours"
-                         TextChanging="NumericTextBox_TextChanging" Margin="0,0,0,10"/>
+                         TextChanging="NumericTextBox_TextChanging" LostFocus="NumericTextBox_LostFocus" Margin="0,0,0,10"/>
                 </StackPanel>
                 <StackPanel Orientation="Vertical" Grid.Row="5">
-                    <TextBlock Text="Enter your submission details:" Margin="0,0,0,10"/>
-                    <TextBox x:Name="eventBody" PlaceholderText="Event Details" TextWrapping="Wrap" AcceptsReturn="True" Height="200" Margin="0,0,0,5" ScrollViewer.VerticalScrollBarVisibility="Visible" ScrollViewer.IsScrollInertiaEnabled="True" Grid.Row="1"/>
+                    <TextBlock x:Uid="RequestMakerDetailsLabel" Text="Enter your submission details:" Margin="0,0,0,10"/>
+                    <TextBox x:Name="eventBody" x:Uid="RequestMakerDetailsBox" PlaceholderText="Event Details" TextWrapping="Wrap" AcceptsReturn="True" Height="200" Margin="0,0,0,5" ScrollViewer.VerticalScrollBarVisibility="Visible" ScrollViewer.IsScrollInertiaEnabled="True" Grid.Row="1" IsSpellCheckEnabled="True"/>
                 </StackPanel>
 
                 <Grid Grid.Row="6" Margin="0, 10, 0, 0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <Button Content="Submit" Grid.Column="0" Margin="0, 0, 5, 0" Background="{ThemeResource SystemControlHighlightAccentBrush}" Foreground="White" x:Name="SubmitButton" Click="SubmitButton_Click"/>
-                    <Button Content="Image Upload" Grid.Column="1" ToolTipService.ToolTip="Supports JPEG, and PNG. Have an HEIC image? Google 'HEIC to PNG converter'." Margin="0, 0, 5, 0" x:Name="ImageUpload" Click="ImageUpload_Click"/>
-                    <Button Content="Clear" Grid.Column="3" HorizontalAlignment="Right" Margin="0" Click="ClearButton_Click"/>
+                    <StackPanel Orientation="Horizontal" Grid.Column="0">
+                        <Button x:Uid="RequestMakerSubmitButton" Content="Submit" Margin="0, 0, 5, 0" Background="{ThemeResource SystemControlHighlightAccentBrush}" Foreground="White" x:Name="SubmitButton" Click="SubmitButton_Click"/>
+                        <Button x:Uid="RequestMakerImageUploadButton" Content="Image Upload" Margin="0, 0, 5, 0" x:Name="ImageUpload" Click="ImageUpload_Click"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Grid.Column="1"  HorizontalAlignment="Right">
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel x:Name="CheckBoxSavedToOnedrive" Margin="0,0,7,0" Padding="6">
+                            </StackPanel>
+                            <Button Margin="0, 0, 5, 0" x:Name="SaveToOneDrive" Click="SaveToOneDrive_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Image Source="ms-appx:///Assets/onedrive.ico" Width="16" Height="16" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="SaveToOneDriveText" x:Uid="RequestMakerSaveToOneDriveText" Text="Save to OneDrive" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                        <Button x:Uid="RequestMakerLoadDraftButton" Content="Load Draft..." Margin="0,0,5,0" x:Name="LoadADraft" Click="LoadDraft_Click"/>
+                        <Button x:Uid="RequestMakerClearButton" Content="Clear" Margin="0" Click="ClearButton_Click"/>
+                    </StackPanel>
                 </Grid>
 
-                <TextBlock x:Name="filesSelectedTextBlock" Grid.Row="7" Margin="0, 10, 0, 0" Text="No files selected."/>
+                <TextBlock x:Name="filesSelectedTextBlock" x:Uid="RequestMakerFilesSelectedText" Grid.Row="7" Margin="0, 10, 0, 0" Text="No files selected." TextWrapping="Wrap"/>
 
                 <!-- Image Preview Section -->
                 <StackPanel x:Name="ImagePreviewSection" Grid.Row="8" Margin="0, 10, 0, 0" Visibility="Collapsed">
-                    <TextBlock Text="Selected Images:" FontWeight="SemiBold" Margin="0, 0, 0, 10"/>
-                    <ListView x:Name="ImagePreviewList" 
-                              SelectionMode="None"
-                              ItemsSource="{x:Bind ImageDisplayItems, Mode=OneWay}">
-                        <ListView.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal"/>
-                            </ItemsPanelTemplate>
-                        </ListView.ItemsPanel>
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="local:ImageDisplayItem">
-                                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
-                                        CornerRadius="8"
-                                        Padding="8">
-                                    <Grid Width="120">
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
+                    <TextBlock x:Uid="RequestMakerSelectedImagesLabel" Text="Selected Images:" FontWeight="SemiBold" Margin="0, 0, 0, 10"/>
+                    <ScrollViewer HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Auto" Margin="-14,0,0,0">
+                        <ListView x:Name="ImagePreviewList" 
+                                  SelectionMode="None"
+                                  ItemsSource="{x:Bind ImageDisplayItems, Mode=OneWay}">
+                            <ListView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ListView.ItemsPanel>
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="local:ImageDisplayItem">
+                                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
+                                            CornerRadius="8"
+                                            Padding="10">
+                                        <Grid Width="120">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
 
-                                        <!-- Image Preview -->
-                                        <Border Grid.Row="0" 
-                                                CornerRadius="4" 
-                                                Height="80" 
-                                                Background="{ThemeResource SystemControlBackgroundBaseLowBrush}"
-                                                Margin="0, 0, 0, 8">
-                                            <Image Source="{x:Bind ImagePath}" 
-                                                   Stretch="UniformToFill"/>
-                                        </Border>
+                                            <!-- Image Preview -->
+                                            <Border Grid.Row="0" 
+                                                    CornerRadius="4" 
+                                                    Height="80" 
+                                                    Background="{ThemeResource SystemControlBackgroundBaseLowBrush}"
+                                                    Margin="0, 0, 0, 8">
+                                                <Image Source="{x:Bind ImagePath}" 
+                                                       Stretch="UniformToFill"
+                                                       Tapped="Image_Tapped"/>
+                                            </Border>
 
-                                        <!-- File Name and Remove Button -->
-                                        <Grid Grid.Row="1">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
+                                            <!-- File Name and Remove Button -->
+                                            <Grid Grid.Row="1">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
 
-                                            <TextBlock Grid.Column="0" 
-                                                       Text="{x:Bind FileName}" 
-                                                       FontSize="12" 
-                                                       TextTrimming="CharacterEllipsis"
-                                                       VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="0" 
+                                                           Text="{x:Bind FileName}" 
+                                                           FontSize="12" 
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"/>
 
-                                            <Button Grid.Column="1" 
-                                                    Content="✕" 
-                                                    FontSize="10"
-                                                    Background="Transparent"
-                                                    BorderThickness="0"
-                                                    ToolTipService.ToolTip="Remove image"
-                                                    Click="RemoveImage_Click"
-                                                    Tag="{x:Bind ImagePath}"/>
+                                                <Button Grid.Column="1" 
+                                                        Content="✕" 
+                                                        FontSize="10"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        ToolTipService.ToolTip="Remove image"
+                                                        x:Uid="RequestMakerRemoveImageButton"
+                                                        Click="RemoveImage_Click"
+                                                        Tag="{x:Bind ImagePath}"/>
+                                            </Grid>
                                         </Grid>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                                    </Border>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </ScrollViewer>
                 </StackPanel>
             </Grid>
         </ScrollView>
@@ -143,7 +162,7 @@
                 <RowDefinition Height="0.1*"/>
             </Grid.RowDefinitions>
             <WebView2 x:Name="webView" Source="https://www.chatgpt.com" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Grid.Row="1" />
-            <Button x:Name="popOut" Click="PopOutBrowser" Content="Pop out browser" Grid.Row="2" HorizontalAlignment="Center" Visibility="Collapsed"/>
+            <Button x:Name="popOut" x:Uid="RequestMakerPopOutButton" Click="PopOutBrowser" Content="Pop out browser" Grid.Row="2" HorizontalAlignment="Center" Visibility="Collapsed"/>
         </Grid>
     </Grid>
 </Page>

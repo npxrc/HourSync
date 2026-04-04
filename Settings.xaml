@@ -15,13 +15,29 @@
     <Grid Margin="36, 40">
         <StackPanel Orientation="Vertical">
             <TextBlock Text="Settings"
+                       x:Uid="SettingsTitle"
                        Style="{ThemeResource TitleTextBlockStyle}"
                        Margin="0,0,0,10"/>
 
             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <Button Content="Clear Log" Click="ClearLog"/>
-                <Button Content="See Machine Info" Margin="10,0,0,0" Click="GetMachineType"/>
-                <Button Content="About HourSync" Margin="10,0,0,0" Click="AboutHourSync"/>
+                <TextBlock x:Uid="SettingsLanguageLabel"
+                           Text="Language"
+                           VerticalAlignment="Center"
+                           Margin="0,0,10,0"/>
+                <ComboBox x:Name="LanguageSelector"
+                          Width="220"
+                          SelectionChanged="LanguageSelector_SelectionChanged"
+                          IsEnabled="False">
+                    <ComboBoxItem x:Uid="SettingsLanguageSystem" Content="System default" Tag="system"/>
+                    <ComboBoxItem x:Uid="SettingsLanguageEnglish" Content="English" Tag="en-US"/>
+                    <ComboBoxItem x:Uid="SettingsLanguageGerman" Content="Deutsch" Tag="de-DE"/>
+                </ComboBox>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <Button x:Uid="SettingsClearLogButton" Content="Clear Log" Click="ClearLog"/>
+                <Button x:Uid="SettingsMachineInfoButton" Content="See Machine Info" Margin="10,0,0,0" Click="GetMachineType"/>
+                <Button x:Uid="SettingsAboutButton" Content="About HourSync" Margin="10,0,0,0" Click="AboutHourSync"/>
             </StackPanel>
             <ListView x:Name="SettingsPanel"
                       ItemsSource="{x:Bind settings}">

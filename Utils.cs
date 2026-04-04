@@ -1,16 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Serialization;
 
+#nullable enable
 namespace HourSync;
 internal static class Utils
 {
     public static string IsNewerVersion(string fetchedVersion, string currentVersion)
     {
         // Handle empty or null version strings
-        if (string.IsNullOrWhiteSpace(fetchedVersion) || fetchedVersion.Split('.').Length != 3)
+        if (string.IsNullOrWhiteSpace(fetchedVersion) || string.IsNullOrWhiteSpace(currentVersion))
         {
             return "error";
         }
@@ -18,32 +20,28 @@ internal static class Utils
         var fetchedVersionParts = fetchedVersion.Split('.');
         var currentVersionParts = currentVersion.Split('.');
 
-        // Check if both version parts have exactly 3 elements (major, minor, patch)
-        if (fetchedVersionParts.Length != 3 || currentVersionParts.Length != 3)
+        // Ensure both versions have the same number of parts
+        if (fetchedVersionParts.Length != currentVersionParts.Length)
         {
             return "error";
         }
 
         // Loop through each version part
-        for (var i = 0; i < 3; i++)
+        for (var i = 0; i < fetchedVersionParts.Length; i++)
         {
-            try
-            {
-                var fetchedPart = int.Parse(fetchedVersionParts[i]);
-                var currentPart = int.Parse(currentVersionParts[i]);
-
-                if (fetchedPart > currentPart)
-                {
-                    return "true"; // Newer version
-                }
-                else if (fetchedPart < currentPart)
-                {
-                    return "false"; // Current version is newer or equal
-                }
-            }
-            catch (FormatException)
+            if (!int.TryParse(fetchedVersionParts[i], out var fetchedPart) ||
+                !int.TryParse(currentVersionParts[i], out var currentPart))
             {
                 return "error"; // Return error if there is a format issue in version parsing
+            }
+
+            if (fetchedPart > currentPart)
+            {
+                return "true"; // Newer version
+            }
+            else if (fetchedPart < currentPart)
+            {
+                return "false"; // Current version is newer or equal
             }
         }
 
@@ -95,7 +93,7 @@ internal static class Utils
                    .Replace("â€\"", "–")
                    .Replace("â€”", "—");
     }
-    public static Encoding GetEncodingFromCharset(string? charset)
+    public static Encoding GetEncodingFromCharset(string charset)
     {
         return charset switch
         {
@@ -105,6 +103,18 @@ internal static class Utils
         };
     }
 
+    public static string ToSafeFilename(string raw)
+    {
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var safe = new string(raw
+            .Select(c => invalidChars.Contains(c) ? '-' : c)
+            .ToArray());
+
+        safe = safe.ToLower().Trim();
+        safe = string.Join("-", safe.Split(['-'], StringSplitOptions.RemoveEmptyEntries));
+
+        return safe;
+    }
 }
 // Add this context class for source generation
 [JsonSourceGenerationOptions(WriteIndented = true)]

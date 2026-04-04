@@ -7,13 +7,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace HourSync;
 
-public static class FileMgr
+public static partial class FileMgr
 {
     private const string settingsFileName = "settings.json";
 
@@ -124,14 +125,25 @@ public static class FileMgr
     {
         try
         {
-            var localAppDataPath = Environment.GetFolderPath(
-                Environment.SpecialFolder.LocalApplicationData
-            );
-            var dataPath = Path.Combine(localAppDataPath, appDataFolder);
-            var filePath = Path.Combine(dataPath, filename);
+            if (DriveRegex().IsMatch(filename) || filename.StartsWith('%'))
+            {
+                var directory = Environment.ExpandEnvironmentVariables(Path.GetDirectoryName(filename));
+                Directory.CreateDirectory(directory);
 
-            Directory.CreateDirectory(dataPath);
-            File.WriteAllText(filePath, content);
+                var filePath = Path.Combine(directory, Path.GetFileName(filename));
+                File.WriteAllText(filePath, content);
+            }
+            else
+            {
+                var localAppDataPath = Environment.GetFolderPath(
+                    Environment.SpecialFolder.LocalApplicationData
+                );
+                var dataPath = Path.Combine(localAppDataPath, appDataFolder);
+                var filePath = Path.Combine(dataPath, filename);
+
+                Directory.CreateDirectory(dataPath);
+                File.WriteAllText(filePath, content);
+            }
         }
         catch (Exception ex)
         {
@@ -216,15 +228,11 @@ public static class FileMgr
         }
     }
 
-    // New method for merging downloaded settings with on-device settings
     public static void MergeSettings(Dictionary<string, SettingDefinition> downloadedSettings)
     {
-        // Load on-device settings
         var localSettings = LoadSettings();
-        // Build new merged dictionary
         var merged = new Dictionary<string, SettingDefinition>();
 
-        // For each downloaded setting...
         foreach (var kvp in downloadedSettings)
         {
             string key = kvp.Key;
@@ -232,41 +240,31 @@ public static class FileMgr
 
             if (localSettings.TryGetValue(key, out var localSetting))
             {
-                // If the setting type is "select", compare options.
                 if (downloadedSetting.Type == "select")
                 {
                     if (!AreOptionsEqual(downloadedSetting.Options, localSetting.Options))
                     {
-                        // Update options from downloaded
                         localSetting.Options = downloadedSetting.Options;
-                        // Ensure selected value is valid
                         if (localSetting.SelectedValue == null ||
                             !OptionExists(localSetting.SelectedValue, downloadedSetting.Options))
                         {
-                            // Set to downloaded default (first option) if available.
                             localSetting.SelectedValue = downloadedSetting.Options?.Count > 0
                                 ? downloadedSetting.Options[0]
                                 : null;
                         }
                     }
-                    // If options are the same (ignoring SelectedValue), no further changes.
                 }
-                // For non-select types, leave the on-device value intact.
                 merged[key] = localSetting;
             }
             else
             {
-                // Key missing locally: add downloaded setting.
                 merged[key] = downloadedSetting;
             }
         }
 
-        // Remove keys that are present on-device but not in downloaded settings
-        // (i.e. only keys in merged are written)
         SaveSettings(ConvertForSaving(merged));
     }
 
-    // Helper to compare options list (order and key/friendly name)
     private static bool AreOptionsEqual(List<Option> a, List<Option> b)
     {
         if (a == null && b == null)
@@ -294,7 +292,6 @@ public static class FileMgr
         return true;
     }
 
-    // Helper to verify if an option exists by key.
     private static bool OptionExists(Option option, List<Option> options)
     {
         if (option == null || options == null)
@@ -312,8 +309,6 @@ public static class FileMgr
         return false;
     }
 
-    // Helper method: convert Dictionary<string, SettingDefinition> into Dictionary<string, object>
-    // for saving.
     private static Dictionary<string, object> ConvertForSaving(Dictionary<string, SettingDefinition> dict)
     {
         var result = new Dictionary<string, object>();
@@ -412,4 +407,44 @@ public static class FileMgr
 
         return (string)System.Text.Json.JsonSerializer.Serialize(finalSettings, options);
     }
+
+    //Appsettings.json to replace Applicationdata.localsettings or whatever
+    //since that crashed the app
+
+    private const string appSettingsFileName = "appsettings.json";
+
+    public static void SaveAppSettings(Dictionary<string, object> appSettings)
+    {
+        try
+        {
+            var json = JsonConvert.SerializeObject(appSettings, Formatting.Indented);
+            WriteToFile(appSettingsFileName, json);
+        }
+        catch (Exception ex)
+        {
+            LogError($"Error saving app settings: {ex.Message}");
+        }
+    }
+
+    public static Dictionary<string, object> LoadAppSettings()
+    {
+        try
+        {
+            var json = ReadFromFile(appSettingsFileName);
+            if (string.IsNullOrEmpty(json))
+            {
+                return [];
+            }
+
+            return JsonConvert.DeserializeObject<Dictionary<string, object>>(json) ?? [];
+        }
+        catch (Exception ex)
+        {
+            LogError($"Error loading app settings: {ex.Message}");
+            return [];
+        }
+    }
+
+    [GeneratedRegex(@"^[A-Za-z]:\\")]
+    private static partial Regex DriveRegex();
 }

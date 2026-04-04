@@ -1,4 +1,5 @@
 using System;
+using HourSync.Services;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -10,8 +11,9 @@ namespace HourSync;
 
 public sealed partial class ImageViewer : Window
 {
-    private readonly string _imageUrl;
-    private DialogService dialogManager = new();
+    private readonly DialogService dialogManager = new();
+    private MetricsSyncManager metricsManager;
+    
     public ImageViewer(string imageUrl)
     {
         try
@@ -28,6 +30,13 @@ public sealed partial class ImageViewer : Window
             SetTitleBar(AppTitleBar);
 
             LoadImage(imageUrl);
+
+            // Track image view (stored locally)
+            if (Application.Current is App app && !string.IsNullOrEmpty(app.Username))
+            {
+                metricsManager = new MetricsSyncManager(app.Username);
+                metricsManager.TrackImageViewed();
+            }
 
             ImageScrollViewer.PointerWheelChanged += (sender, e) =>
             {

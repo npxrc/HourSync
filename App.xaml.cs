@@ -12,6 +12,7 @@ using System.Net;
 using System.Net.Http;
 using DiscordRPC;
 using HourSyncCoreLib;
+using HourSync.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -37,6 +38,7 @@ public partial class App : Application
         get; private set;
     }
     public MainWindow m_window;
+    private Services.MetricsSyncManager metricsManager;
 
     // Properties to hold parameters
     public LoginResult LoginResult
@@ -95,9 +97,24 @@ public partial class App : Application
 
     public DateTime startTime = DateTime.Now;
 
-    protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    public List<EHourRequest> Returned = [];
+    public List<EHourRequest> Pending = [];
+    public List<EHourRequest> Accepted = [];
+    public List<EHourRequest> Denied = [];
+
+    public void SetRequests(List<EHourRequest> Returned, List<EHourRequest> Pending, List<EHourRequest> Accepted, List<EHourRequest> Denied)
     {
-        FileMgr.Log("Started at " + startTime.ToString());
+        this.Returned = Returned;
+        this.Pending = Pending;
+        this.Accepted = Accepted;
+        this.Denied = Denied;
+    }
+
+    protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    {
+        LocalizationService.ApplySavedLanguage();
+
+        FileMgr.StartLogSession();
         bool isVM = VmChecker.IsVirtualMachine();
         if (isVM)
         {
@@ -116,20 +133,17 @@ public partial class App : Application
             MenuItemsSource = NavigationViewModel.MenuItems,
             FooterMenuItemsSource = NavigationViewModel.FooterItems,
             SelectedItem = NavigationViewModel.SelectedItem,
-            IsSettingsVisible = false, // we’re handling Settings ourselves
+            IsSettingsVisible = false,
             Content = rootFrame,
         };
 
         NavigationView.ItemInvoked += NavigationView_ItemInvoked;
 
-        // Create a new TransitionCollection
         TransitionCollection transitionCollection =
         [
-            // Add a NavigationThemeTransition to the TransitionCollection
             new NavigationThemeTransition(),
         ];
 
-        // Set the ContentTransitions property of the rootFrame to the created TransitionCollection
         rootFrame.ContentTransitions = transitionCollection;
 
         m_window.Content = NavigationView;
@@ -137,7 +151,20 @@ public partial class App : Application
 
         client.Initialize();
 
+        // Hook window closing to sync metrics
+        m_window.Closed += async (s, e) => await OnWindowClosed();
+
         rootFrame.Navigate(typeof(Login), true);
+    }
+
+    private async System.Threading.Tasks.Task OnWindowClosed()
+    {
+        if (metricsManager != null && !string.IsNullOrEmpty(Username))
+        {
+            int sessionSeconds = (int)(DateTime.Now - startTime).TotalSeconds;
+            metricsManager.TrackSessionTime(sessionSeconds);
+            await metricsManager.SyncMetricsOnCloseAsync();
+        }
     }
 
     private void NavigationView_ItemInvoked(
@@ -157,7 +184,7 @@ public partial class App : Application
             string targetPage = item.Tag.ToString();
 
             // simple page order: left-to-right layout
-            var pageOrder = new List<string> { "home", "create", "leaderboard" };
+            var pageOrder = new List<string> { "home", "create", "leaderboard", "resync" };
 
             if (targetPage == "settings")
             {
@@ -205,6 +232,7 @@ public partial class App : Application
                 "home" => typeof(Home),
                 "create" => typeof(RequestMaker),
                 "leaderboard" => typeof(Leaderboard),
+                "resync" => typeof(ReSync),
                 "settings" => typeof(Settings),
                 _ => null,
             };
@@ -220,7 +248,7 @@ public partial class App : Application
         }
     }
 
-    public void LoggedIn(
+    public async void LoggedIn(
         LoginResult loginResult,
         string username,
         string password,
@@ -236,10 +264,15 @@ public partial class App : Application
         NameOfAcademy = loginResult.StudentAcademy;
         HomeResult = getresp;
 
+        // Initialize metrics manager and track app open (stored locally)
+        metricsManager = new Services.MetricsSyncManager(username);
+        await metricsManager.LoadSyncSettingAsync();
+        metricsManager.TrackAppOpen();
+
         if (navigate)
         {
             NavigationViewModel.RefreshMenuItems(isLoggedIn: true);
-            NavigationView.SelectedItem = NavigationViewModel.SelectedItem; // Added: Update NavigationView's SelectedItem to match the model
+            NavigationView.SelectedItem = NavigationViewModel.SelectedItem;
             rootFrame.Navigate(
                 typeof(Home),
                 new object[] { loginResult, username, password, getresp },
@@ -312,6 +345,12 @@ public partial class App : Application
                 break;
             case "create":
                 state = "Submitting eHours";
+                break;
+            case "leaderboard":
+                state = "Viewing leaderboard";
+                break;
+            case "resync":
+                state = "Viewing ReSync";
                 break;
             case "settings":
                 state = "Changing Settings";

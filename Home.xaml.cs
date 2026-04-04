@@ -12,6 +12,9 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
 using HourSyncCoreLib;
 using HtmlAgilityPack;
 using Microsoft.UI.Xaml;
@@ -116,10 +119,12 @@ public sealed partial class Home : Page
         PopulateObservableCollection(DeniedRequests, parsed.Denied ?? []);
 
         // Keep master lists as regular Lists
-        AllReturned = (parsed.Returned ?? []).ToList();
-        AllPending = (parsed.Pending ?? []).ToList();
-        AllAccepted = (parsed.Accepted ?? []).ToList();
-        AllDenied = (parsed.Denied ?? []).ToList();
+        AllReturned = [.. (parsed.Returned ?? [])];
+        AllPending = [.. (parsed.Pending ?? [])];
+        AllAccepted = [.. (parsed.Accepted ?? [])];
+        AllDenied = [.. (parsed.Denied ?? [])];
+
+        ((App)Application.Current).SetRequests(AllReturned, AllPending, AllAccepted, AllDenied);
 
         CreateLayout();
 
@@ -309,7 +314,6 @@ public sealed partial class Home : Page
         Button clickedButton = (Button)sender;
         string value = (string)clickedButton.Tag;
 
-        // Find the request by value - now search in ObservableCollections
         var request = ReturnedRequests
             .Concat(PendingRequests)
             .Concat(AcceptedRequests)
@@ -325,6 +329,153 @@ public sealed partial class Home : Page
             username,
             password
         );
+    }
+    private static readonly CookieContainer cookieContainer = new();
+    private static readonly HttpClientHandler handler = new()
+    {
+        CookieContainer = cookieContainer,
+        AllowAutoRedirect = true,
+    };
+    private static readonly HttpClient client = new(handler)
+    {
+        DefaultRequestHeaders =
+        {
+            {
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            },
+        },
+    };
+    private void HandleRightClick(object sender, RoutedEventArgs e)
+    {
+        Button clickedButton = (Button)sender;
+        string value = (string)clickedButton.Tag;
+        var request = ReturnedRequests
+            .Concat(PendingRequests)
+            .Concat(AcceptedRequests)
+            .Concat(DeniedRequests)
+            .FirstOrDefault(r => r.Value == value);
+
+        // Create context menu
+        MenuFlyout contextMenu = new MenuFlyout();
+
+        MenuFlyoutItem openItem = new MenuFlyoutItem { Text = "Open Request" };
+        openItem.Click += (s, args) =>
+        {
+            _mainWindow = (MainWindow)((App)Application.Current).m_window;
+            _mainWindow.OpenRequestViewer(
+                value,
+                loginResult.PhpSessionId,
+                loginResult.StudentAcademy,
+                request.Description,
+                request.State,
+                username,
+                password
+            );
+        };
+
+        MenuFlyoutItem deleteRequest = new MenuFlyoutItem { Text = "Delete Request", IsEnabled = request.State == Status.Pending};
+        deleteRequest.Click += async(_, __) =>
+        {
+            if (request.State == Status.Pending) //redundant but just in case
+            {
+                ContentDialogResult res = await dialogManager.ShowDialog("Confirm Delete", $"Are you sure you would like to delete {request.Description.Split('\n')[0]}?", "No", "Yes", null, XamlRoot);
+                if (res == ContentDialogResult.Primary)
+                {
+                    try
+                    {
+                        ShowDeleteProgressBar();
+                        var values = new Dictionary<string, string> { { "del", request.Value } };
+
+                        var content = new FormUrlEncodedContent(values);
+
+                        Uri uri = new Uri("https://academyendorsement.olatheschools.com/");
+                        cookieContainer.Add(uri, new Cookie("PHPSESSID", loginResult.PhpSessionId));
+
+                        if (!client.DefaultRequestHeaders.Contains("User-Agent"))
+                        {
+                            client.DefaultRequestHeaders.Add(
+                                "User-Agent",
+                                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                            );
+                        }
+
+                        var response = await client.PostAsync(
+                            "https://academyendorsement.olatheschools.com/deleteRequest.php",
+                            content
+                        );
+                        var responseString = await response.Content.ReadAsStringAsync();
+
+                        if (!responseString.Contains("See your current eHours"))
+                        {
+                            waitForDelete.Hide();
+                            await dialogManager.ShowErrorDialog("You are not logged in. Please log in again.", false, XamlRoot);
+                        }
+
+                        FileMgr.WriteToFile("delreq.txt", responseString);
+                        waitForDeleteProgressBar.IsIndeterminate = false;
+                        waitForDeleteProgressBar.Value = 100;
+                        waitForDelete.Title = "Deleted Succesfully";
+                        waitForDelete.CloseButtonText = "Close";
+                        waitForDelete.CloseButtonClick += (_, __) => ((App)App.Current).GoToHomeAfterDel(responseString);
+                    }
+                    catch (Exception ex)
+                    {
+                        FileMgr.LogError(
+                            "Error while deleting request: " + ex.Message
+                        );
+                        waitForDeleteProgressBar.ShowError = true;
+                        waitForDelete.Title = "Error Deleting. Check the log for more info.";
+                        waitForDelete.CloseButtonText = "Close";
+                    }
+                }
+            }
+        };
+
+        contextMenu.Items.Add(openItem);
+            contextMenu.Items.Add(deleteRequest);
+
+        contextMenu.ShowAt(clickedButton);
+    }
+    private ProgressBar waitForDeleteProgressBar = new()
+    {
+        IsIndeterminate = true,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center,
+        Width = 200, // Set width as needed
+        Height = 20, // Set height as needed
+    };
+    private ContentDialog waitForDelete = new()
+    {
+        Title = "Deleting",
+        CloseButtonText = null,
+        PrimaryButtonText = null, // Ensure there's no default button
+    };
+    private async void ShowDeleteProgressBar(string title = "Deleting")
+    {
+        // Initialize and configure the ContentDialog
+        waitForDeleteProgressBar = new()
+        {
+            IsIndeterminate = true,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Width = 200, // Set width as needed
+            Height = 20, // Set height as needed
+        };
+
+        waitForDelete = new()
+        {
+            Title = title,
+            CloseButtonText = null,
+            PrimaryButtonText = null, // Ensure there's no default button
+            Content = waitForDeleteProgressBar,
+
+            // Ensure the ContentDialog is set to the correct XamlRoot
+            XamlRoot = XamlRoot,
+        };
+
+        // Show the ContentDialog asynchronously
+        await waitForDelete.ShowAsync();
     }
 
     private async void Logout_Click(object _, RoutedEventArgs __)
@@ -462,5 +613,44 @@ public sealed partial class Home : Page
             RequestsGrid.ColumnDefinitions[0].Width = new GridLength(2, GridUnitType.Star);
             RequestsGrid.ColumnDefinitions[1].Width = new GridLength(1, GridUnitType.Star);
         }
+    }
+
+
+    //year in review button
+
+    private void OpenReSync_Click(object _, RoutedEventArgs __)
+    {
+        Frame.Navigate(typeof(ReSync));
+    }
+
+    private async void ReloadHomeContent_Click(object _, RoutedEventArgs __)
+    {
+        // disable button to prevent double clicking
+        ReloadHomeButton.IsEnabled = false;
+
+        //use hoursynccore to refetch home page
+        var homerefetch = await HourSyncCore.GetRequestsPage(loginResult.PhpSessionId);
+        if (string.IsNullOrWhiteSpace(homerefetch))
+        {
+            await dialogManager.ShowErrorDialog("Failed to reload content. Please try again later.", false, XamlRoot);
+            return;
+        }
+        
+        HourSyncCore.ParseRequests(homerefetch);
+
+        // Update the getresp and doc with the new content
+        getresp = homerefetch;
+
+        // Clear existing data
+        ReturnedRequests.Clear();
+        PendingRequests.Clear();
+        AcceptedRequests.Clear();
+        DeniedRequests.Clear();
+
+        // call homeloaded
+        Home_Loaded(null, null);
+
+        //re-enable button
+        ReloadHomeButton.IsEnabled = true;
     }
 }

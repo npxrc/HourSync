@@ -20,6 +20,7 @@ using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using HourSyncCoreLib;
+using HourSync.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
@@ -28,8 +29,6 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using Newtonsoft.Json.Linq;
-using Windows.ApplicationModel;
-using Windows.Storage;
 using Windows.System;
 using Windows.UI;
 using Windows.UI.ViewManagement;
@@ -48,6 +47,8 @@ public sealed partial class Login : Page
     private string nameOfAcademy;
     private string username;
     private string password;
+
+    private MetricsSyncManager metricsManager;
 
     private static readonly CookieContainer _cookieContainer = new();
     private static readonly HttpClientHandler _handler = new()
@@ -150,7 +151,7 @@ public sealed partial class Login : Page
         {
             if (VmChecker.IsVirtualMachine())
             {
-                Loaded += async (s, args) =>
+                Loaded += async (_, _) =>
                 {
                     await dialogManager.ShowDialog(
                         "Virtual Machine Detected",
@@ -173,10 +174,6 @@ public sealed partial class Login : Page
         base.OnNavigatedTo(e);
 
         bool isFirstTime = e.Parameter is bool param && param;
-        if (isFirstTime)
-        {
-            FileMgr.StartLogSession();
-        }
 
         var (userNameFromVault, passFromVault) = CredMgr.GetCreds();
 
@@ -185,7 +182,7 @@ public sealed partial class Login : Page
             FileMgr.Log("No credentials found in vault.");
             if (isFirstTime)
             {
-                Loaded += async (s, args) => await HandleFirstTimeSetupAsync();
+                Loaded += async (_, _) => await HandleFirstTimeSetupAsync();
             }
             return;
         }
@@ -199,7 +196,7 @@ public sealed partial class Login : Page
             password = passFromVault;
             if (isFirstTime)
             {
-                Loaded += async (s, args) => await HandleFirstTimeSetupAsync();
+                Loaded += async (_, _) => await HandleFirstTimeSetupAsync();
             }
         }
     }
@@ -245,11 +242,11 @@ public sealed partial class Login : Page
 
             ShowLoginProgressBar();
 
-            var localSettings = await GetLocalSettingsAsync();
+            var appSettings = FileMgr.LoadAppSettings();
 
-            if (localSettings.Values.TryGetValue("lastRequest", out var storedDateObj) &&
+            if (appSettings.TryGetValue("lastRequest", out var storedDateObj) &&
                 DateTime.TryParse(storedDateObj.ToString(), out var storedDate) &&
-                localSettings.Values.TryGetValue("loginResult", out var loginResultObj) &&
+                appSettings.TryGetValue("loginResult", out var loginResultObj) &&
                 (DateTime.Now - storedDate) < TimeSpan.FromMinutes(5))
             {
                 FileMgr.Log("Session found, testing with HourSyncCore");
@@ -268,6 +265,10 @@ public sealed partial class Login : Page
                     );
 
                     HideLoginProgressBar();
+
+                    // Track auto-login (stored locally)
+                    metricsManager = new MetricsSyncManager(username);
+                    metricsManager.TrackAutoLogin();
 
                     FileMgr.Log("Running App.LoggedIn");
                     ((App)Application.Current).LoggedIn(loginRes, username, password, getresp, true);
@@ -334,11 +335,11 @@ public sealed partial class Login : Page
             waitForLogin.Content = waitForLoginProgressBar;
             waitForLogin.Title = "No Internet";
             waitForLogin.CloseButtonText = "OK";
-            waitForLogin.CloseButtonClick += (s, args) => ((App)Application.Current).m_window.Close();
+            waitForLogin.CloseButtonClick += (_, _) => ((App)Application.Current).m_window.Close();
         }
     }
 
-    private async void LoginButton_Click(object sender, RoutedEventArgs e)
+    private async void LoginButton_Click(object _, RoutedEventArgs __)
     {
         try
         {
@@ -367,7 +368,7 @@ public sealed partial class Login : Page
         }
     }
 
-    private async void ForgotPassword_Click(object sender, RoutedEventArgs e)
+    private async void ForgotPassword_Click(object _, RoutedEventArgs __)
     {
         try
         {
@@ -385,7 +386,7 @@ public sealed partial class Login : Page
             {
                 loginHint = $"&login_hint={UsernameTextBox.Text}@stu.olatheschools.org";
             }
-            hyperlink.Click += async (s, args) =>
+            hyperlink.Click += async (_, _) =>
                 await Launcher.LaunchUriAsync(new Uri(
                     "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=19db86c3-b2b9-44cc-b339-36da233a3be2&redirect_uri=https%3A%2F%2Fmysignins.microsoft.com&scope=openid+profile+email+offline_access&response_type=code&response_mode=fragment&code_challenge=9PI188Gb7y4H7AP9K0Sy4sYivPrB1h-r8EY62pWg-MM&code_challenge_method=S256&state=461c659f-7fe7-4fb5-a11b-0e87f8e46500" + loginHint
                 ));
@@ -411,7 +412,7 @@ public sealed partial class Login : Page
 
     private bool isShiftPressedInUsernameBox;
 
-    private async void UsernameTextBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    private async void UsernameTextBox_KeyDown(object _, KeyRoutedEventArgs e)
     {
         try
         {
@@ -446,7 +447,7 @@ public sealed partial class Login : Page
         }
     }
 
-    private void UsernameTextBox_KeyUp(object sender, KeyRoutedEventArgs e)
+    private void UsernameTextBox_KeyUp(object _, KeyRoutedEventArgs e)
     {
         if (e.Key == VirtualKey.Shift)
         {
@@ -455,7 +456,7 @@ public sealed partial class Login : Page
         }
     }
 
-    private async void PasswordBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    private async void PasswordBox_KeyDown(object _, KeyRoutedEventArgs e)
     {
         try
         {
@@ -501,7 +502,7 @@ public sealed partial class Login : Page
             _ = waitForLogin.ShowAsync();
         }
 
-        waitForLogin.Closed += (s, args) => isProgressBarActive = false;
+        waitForLogin.Closed += (_, _) => isProgressBarActive = false;
     }
 
     private void HideLoginProgressBar()
@@ -581,43 +582,60 @@ public sealed partial class Login : Page
         DateTime now = DateTime.Now;
         bool shouldCheck = false;
 
-        await RunOnUIThreadAsync(() =>
+        try
         {
-            var localSettings = ApplicationData.Current.LocalSettings;
-            const string lastCheckKey = "LastUpdateCheck";
+            FileMgr.Log("Getting last update check date");
+            var appSettings = FileMgr.LoadAppSettings();
 
-            if (localSettings.Values.TryGetValue(lastCheckKey, out var storedDateObj) &&
-                DateTime.TryParse(storedDateObj.ToString(), out var storedDate) &&
+            if (appSettings.TryGetValue("LastUpdateCheck", out var storedDateObj) &&
+                DateTimeOffset.TryParse(storedDateObj.ToString(), out var storedDate) &&
                 (now - storedDate) < TimeSpan.FromDays(1))
             {
                 shouldCheck = false;
+                FileMgr.Log("Should not check");
             }
             else
             {
-                localSettings.Values[lastCheckKey] = now.ToString("o");
+                appSettings["LastUpdateCheck"] = now.ToString("o");
+                FileMgr.SaveAppSettings(appSettings);
                 shouldCheck = true;
+                FileMgr.Log("SHOULD check");
             }
-        });
+        }
+        catch (Exception ex)
+        {
+            FileMgr.LogError($"Error accessing app settings: {ex.Message}");
+            // Default to checking for update if there's an error
+            shouldCheck = true;
+        }
 
         if (!shouldCheck)
         {
+            FileMgr.Log("Returning false because it should not check");
             return false;
         }
 
+        FileMgr.Log("Returning true because last check was >24 hours ago");
         return await CheckForUpdate();
     }
 
     private async Task<bool> CheckForUpdate()
     {
+        FileMgr.Log("Getting latest version");
         string versionURL = Private.Version();
         var resp = await _client.GetAsync(versionURL);
         string json = await resp.Content.ReadAsStringAsync();
+        FileMgr.Log("Got");
 
+        FileMgr.Log("parsing");
         var obj = JObject.Parse(json);
         string latestVersion = (string)obj["fields"]?["version"]?["stringValue"];
+        FileMgr.Log("Done parsing, latest version is " + latestVersion);
 
-        var package = Package.Current.Id.Version;
-        var versionString = $"{package.Major}.{package.Minor}.{package.Revision}";
+        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        FileMgr.Log("Assembly version: " + version);
+        var versionString = $"{version.Major}.{version.Minor}.{version.Revision}";
+        FileMgr.Log("Version string: " + versionString);
 
         string result = Utils.IsNewerVersion(latestVersion, versionString);
 
@@ -700,14 +718,16 @@ public sealed partial class Login : Page
         }
         else if (result == "error")
         {
+            FileMgr.LogError("Version comparison failed. Please check the version strings.");
             await dialogManager.ShowDialog(
                 "Update Check Error",
-                "An error occurred while checking for updates.",
+                "An error occurred while checking for updates. Please try again later.",
                 "",
                 "Okay",
                 "",
                 XamlRoot
             );
+            HideLoginProgressBar();
             return true;
         }
 
@@ -717,56 +737,8 @@ public sealed partial class Login : Page
     [GeneratedRegex(@"^\d{3}[a-zA-Z]{3}(0[1-9]|[12][0-9]|3[01])$")]
     private static partial Regex UsernameRegex();
 
-    private async Task<ApplicationDataContainer> GetLocalSettingsAsync()
-    {
-        // If we are already on the UI thread, return directly.
-        try
-        {
-            if (DispatcherQueue.HasThreadAccess)
-            {
-                return ApplicationData.Current.LocalSettings;
-            }
-        }
-        catch
-        {
-            // fall through to enqueue
-        }
-
-        var tcs = new TaskCompletionSource<ApplicationDataContainer>();
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            try
-            {
-                tcs.SetResult(ApplicationData.Current.LocalSettings);
-            }
-            catch (Exception ex)
-            {
-                tcs.SetException(ex);
-            }
-        });
-
-        return await tcs.Task;
-    }
-
-    private async Task RunOnUIThreadAsync(Action action)
-    {
-        var tcs = new TaskCompletionSource();
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            try
-            {
-                action();
-                tcs.SetResult();
-            }
-            catch (Exception ex)
-            {
-                tcs.SetException(ex);
-            }
-        });
-        await tcs.Task;
-    }
 }
-public class LoginViewModel : INotifyPropertyChanged
+public partial class LoginViewModel : INotifyPropertyChanged
 {
     private string _username;
     private bool _hasValidationError;
@@ -823,8 +795,7 @@ public class LoginViewModel : INotifyPropertyChanged
             return;
         }
 
-        const string pattern = @"^\d{3}[a-zA-Z]{3}(0[1-9]|[12][0-9]|3[01])$";
-        HasValidationError = !Regex.IsMatch(Username, pattern);
+        HasValidationError = !UsernameRegex().IsMatch(Username);
     }
 
     private void UpdateBorderAppearance()
@@ -847,4 +818,7 @@ public class LoginViewModel : INotifyPropertyChanged
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
+
+    [GeneratedRegex(@"^\d{3}[a-zA-Z]{3}(0[1-9]|[12][0-9]|3[01])$")]
+    private static partial Regex UsernameRegex();
 }

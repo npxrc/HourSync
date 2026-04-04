@@ -16,8 +16,6 @@ using Microsoft.UI.Xaml.Navigation;
 namespace HourSync;
 public sealed partial class RequestPage : Page
 {
-    private bool isEditing = false;
-
     private string id;
     private string phpSessionId;
     private string eventName;
@@ -66,7 +64,7 @@ public sealed partial class RequestPage : Page
 
         if (e.Parameter.GetType() == typeof(RequestContext))
         {
-            RequestContext ctx = (RequestContext)e.Parameter;
+            var ctx = (RequestContext)e.Parameter;
             id = ctx.Id;
             phpSessionId = ctx.PhpSessionId;
             nameOfAcademy = ctx.AcademyName;
@@ -88,6 +86,7 @@ public sealed partial class RequestPage : Page
     {
         FileMgr.Log("Getting request via HourSyncCore");
         FetchedEHourRequest response = await HourSyncCore.GetRequest(phpSessionId, id, true);
+        doc.LoadHtml(response.Html);
 
         if (response.Success && response.LoggedIn)
         {
@@ -166,6 +165,7 @@ public sealed partial class RequestPage : Page
         var loginResult = await HourSyncCore.Login(username, password);
         if (string.IsNullOrEmpty(loginResult.Error) || !string.IsNullOrEmpty(phpSessionId))
         {
+            phpSessionId = loginResult.PhpSessionId;
             var homeResult = await HourSyncCore.GetRequestsPage(loginResult.PhpSessionId);
             ((App)Application.Current).LoggedIn(loginResult, username, password, homeResult, false);
             return true;
@@ -275,11 +275,11 @@ public sealed partial class RequestPage : Page
                 XamlRoot = RootGrid.XamlRoot,
             };
 #pragma warning disable RCS1118 // Mark local variable as const
-            ContentDialogResult result = ContentDialogResult.None;
+            ContentDialogResult result = ContentDialogResult.Primary;
 #pragma warning restore RCS1118 // Mark local variable as const
             if (!bypassDelReqDialog)
             {
-                await dialog.ShowAsync();
+                result = await dialog.ShowAsync();
             }
             if (bypassDelReqDialog || result == ContentDialogResult.Primary)
             {
@@ -307,7 +307,7 @@ public sealed partial class RequestPage : Page
                     );
                     var responseString = await response.Content.ReadAsStringAsync();
 
-                    if (responseString.Contains("See your current eHours"))
+                    if (!responseString.Contains("See your current eHours"))
                     {
                         var loggedIn = await LogInAgain();
                         if (loggedIn)
@@ -372,7 +372,6 @@ public sealed partial class RequestPage : Page
         bool res = _mainWindow.NowEditingViewer(id, this);
         if (res)
         {
-            isEditing = true;
             EditEnabled.Visibility = Visibility.Visible;
             eventBody.IsReadOnly = false;
             eventBody.Focus(FocusState.Keyboard);

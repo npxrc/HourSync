@@ -54,25 +54,25 @@ public partial class NavigationViewModel : INotifyPropertyChanged
         [
             new()
             {
-                Content = "Login",
+                Content = LocalizationService.GetString("Nav.Login"),
                 Tag = "login",
                 Icon = new SymbolIcon(Symbol.Contact),
             },
             new()
             {
-                Content = "Home",
+                Content = LocalizationService.GetString("Nav.Home"),
                 Tag = "home",
                 Icon = new SymbolIcon(Symbol.Home)
             },
             new()
             {
-                Content = "Create Submission",
+                Content = LocalizationService.GetString("Nav.Create"),
                 Tag = "create",
                 Icon = new SymbolIcon(Symbol.NewWindow),
             },
             new()
             {
-                Content = "Leaderboard",
+                Content = LocalizationService.GetString("Nav.Leaderboard"),
                 Tag = "leaderboard",
                 Icon = new SymbolIcon(Symbol.OutlineStar),
             }
@@ -80,9 +80,15 @@ public partial class NavigationViewModel : INotifyPropertyChanged
 
         FooterItems =
         [
+            new(){
+                Content = LocalizationService.GetString("Nav.Resync"),
+                Tag="resync",
+                Icon= new SymbolIcon(Symbol.Calendar),
+                IsEnabled = false
+            },
             new()
             {
-                Content = "Settings",
+                Content = LocalizationService.GetString("Nav.Settings"),
                 Tag = "settings",
                 Icon = new SymbolIcon(Symbol.Setting)
             }
@@ -110,6 +116,9 @@ public partial class NavigationViewModel : INotifyPropertyChanged
                     break;
                 case "leaderboard":
                     item.IsEnabled = isLoggedIn;
+                    break;
+                case "resync":
+                    item.IsEnabled = false;
                     break;
                 case "settings":
                     item.IsEnabled = true;

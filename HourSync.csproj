@@ -106,10 +106,12 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="hoursynccore" Version="1.3.1" />
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+		<PackageReference Include="hoursynccore" Version="1.3.2" />
 		<PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
-		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.6901" />
-		<PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.251003001" />
+		<PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.11.1" />
+		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.1721" />
+		<PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260317003" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<Manifest Include="$(ApplicationManifest)" />
 	</ItemGroup>
@@ -139,6 +141,9 @@
 		</Content>
 		<Content Update="Assets\logo.ico">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+		<Content Update="Assets\onedrive.ico">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</Content>
 	</ItemGroup>
 
@@ -274,6 +279,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<Compile Remove="Ignore\**" />
+		<EmbeddedResource Remove="Ignore\**" />
+		<None Remove="Ignore\**" />
+		<Page Remove="Ignore\**" />
 		<PRIResource Remove="TemplateEngineHost\**" />
 	</ItemGroup>
 
@@ -281,15 +290,66 @@
 		<Page Update="BrowserView.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</Page>
+		<None Update="highlight-html\black.woff">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="highlight-html\black.woff2">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="highlight-html\bold.woff">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="highlight-html\bold.woff2">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="highlight-html\fluid-gradient.js">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="highlight-html\font.css">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="highlight-html\heavy.woff">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="highlight-html\heavy.woff2">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="highlight-html\highlight.html">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="highlight-html\index.html">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="highlight-html\logo.png">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="highlight-html\sfpro.woff">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="highlight-html\sfpro.woff2">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="highlight-html\three.module.js">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
 		<None Update="linker.xml" CopyToOutputDirectory="PreserveNewest" />
+		<None Update="Strings\de-DE\Resources.resw">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Strings\en-US\Resources.resw">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<Page Update="ReSync.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</Page>
 		<Page Update="RequestPage.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</Page>
 	</ItemGroup>
 
 	<PropertyGroup>
-		<Version>1.6.0</Version>
-		<AssemblyVersion>1.6.0.0</AssemblyVersion>
+		<Version>1.8.0</Version>
+		<AssemblyVersion>1.8.0.0</AssemblyVersion>
 	</PropertyGroup>
 
 	<Target Name="UpdateAppxManifestVersion" BeforeTargets="GenerateAppxPackage">

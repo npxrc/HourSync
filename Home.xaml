@@ -38,6 +38,10 @@
                         </MenuFlyout>
                     </DropDownButton.Flyout>
                 </DropDownButton>
+
+                <Button x:Name="OpenReSyncButton" IsEnabled="False" Content="View ReSync" Click="OpenReSync_Click" ToolTipService.ToolTip="Open ReSync" Margin="0, 0, 10, 0"/>
+
+                <Button x:Name="ReloadHomeButton" Content="Reload" Click="ReloadHomeContent_Click" ToolTipService.ToolTip="Fetches the home content again."/>
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" Margin="0 10">
@@ -71,7 +75,8 @@
                                     HorizontalContentAlignment="Left"
                                     Height="80"
                                     Margin="0,0,0,10"
-                                    Click="RequestButton_Click">
+                                    Click="RequestButton_Click"
+                                    RightTapped="HandleRightClick">
                                     <Button.Content>
                                         <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap">
                                             <Run Text="{x:Bind Description}"/>
@@ -100,7 +105,8 @@
                                     HorizontalContentAlignment="Left"
                                     Height="80"
                                     Margin="0,0,0,10"
-                                    Click="RequestButton_Click">
+                                    Click="RequestButton_Click"
+                                    RightTapped="HandleRightClick">
                                     <Button.Content>
                                         <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap">
                                             <Run Text="{x:Bind Description}"/>
@@ -129,7 +135,8 @@
                                     HorizontalContentAlignment="Left"
                                     Height="80"
                                     Margin="0,0,0,10"
-                                    Click="RequestButton_Click">
+                                    Click="RequestButton_Click"
+                                    RightTapped="HandleRightClick">
                                     <Button.Content>
                                         <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap">
                                             <Run Text="{x:Bind Description}"/>
@@ -158,7 +165,8 @@
                                     HorizontalContentAlignment="Left"
                                     Height="80"
                                     Margin="0,0,0,10"
-                                    Click="RequestButton_Click">
+                                    Click="RequestButton_Click"
+                                    RightTapped="HandleRightClick">
                                     <Button.Content>
                                         <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap">
                                             <Run Text="{x:Bind Description}"/>

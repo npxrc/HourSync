@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
@@ -17,22 +18,82 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
-using Windows.ApplicationModel;
-using Windows.Foundation;
 using Windows.UI.Text;
 
 namespace HourSync;
 public sealed partial class Settings : Page
 {
     private Dictionary<string, SettingDefinition> settingsCache = FileMgr.LoadSettings();
+    private bool isLanguageSelectorReady;
 
     public Settings()
     {
         InitializeComponent();
         InitializeSettings();
+        InitializeLanguageSelector();
     }
 
     private List<SettingDefinition> settings = [];
+
+    private void InitializeLanguageSelector()
+    {
+        var savedLanguage = LocalizationService.GetSavedLanguage();
+
+        foreach (var item in LanguageSelector.Items)
+        {
+            if (item is ComboBoxItem comboBoxItem && comboBoxItem.Tag is string tag)
+            {
+                if (string.Equals(tag, savedLanguage, StringComparison.OrdinalIgnoreCase))
+                {
+                    LanguageSelector.SelectedItem = comboBoxItem;
+                    break;
+                }
+            }
+        }
+
+        if (LanguageSelector.SelectedItem == null && LanguageSelector.Items.Count > 0)
+        {
+            LanguageSelector.SelectedIndex = 0;
+        }
+
+        isLanguageSelectorReady = true;
+    }
+
+    private async void LanguageSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!isLanguageSelectorReady)
+        {
+            return;
+        }
+
+        if (LanguageSelector.SelectedItem is not ComboBoxItem selectedItem || selectedItem.Tag is not string selectedLanguage)
+        {
+            return;
+        }
+
+        var existingLanguage = LocalizationService.GetSavedLanguage();
+        if (string.Equals(existingLanguage, selectedLanguage, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        LocalizationService.SetLanguagePreference(selectedLanguage);
+
+        var restartDialog = new ContentDialog
+        {
+            Title = LocalizationService.GetString("Language.RestartDialog.Title"),
+            Content = LocalizationService.GetString("Language.RestartDialog.Content"),
+            PrimaryButtonText = LocalizationService.GetString("Language.RestartDialog.Primary"),
+            CloseButtonText = LocalizationService.GetString("Language.RestartDialog.Close"),
+            XamlRoot = XamlRoot,
+        };
+
+        var result = await restartDialog.ShowAsync();
+        if (result == ContentDialogResult.Primary)
+        {
+            Application.Current.Exit();
+        }
+    }
 
     private void InitializeSettings()
     {
@@ -273,7 +334,6 @@ public sealed partial class Settings : Page
         PrimaryButtonText = null, // Ensure there's no default button
     };
 
-    bool isLoadingBarOpen = false;
     private async void ShowLoadingProgressBarAsync()
     {
         // Initialize and configure the ContentDialog
@@ -298,9 +358,7 @@ public sealed partial class Settings : Page
         };
 
         // Show the ContentDialog asynchronously
-        isLoadingBarOpen = true;
         await waitForInfo.ShowAsync();
-        waitForInfo.Closing += (_, __) => isLoadingBarOpen = false;
     }
 
     private async void GetMachineType(object _, RoutedEventArgs __)
@@ -315,13 +373,23 @@ public sealed partial class Settings : Page
 
     private async void AboutHourSync(object _, RoutedEventArgs __)
     {
+        FileMgr.Log("Getting app directory");
         var notesPath = Path.Combine(AppContext.BaseDirectory, "releaseNotes.json");
         var notesJson = File.ReadAllText(notesPath);
 
+        FileMgr.Log("Notes path: " + notesPath);
         var releaseNotes = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(notesJson);
+        FileMgr.Log("Done serializing release notes");
+        if (releaseNotes == null)
+        {
+            FileMgr.Log("Release notes are null");
+            return;
+        }
 
-        var package = Package.Current.Id.Version;
-        var versionString = $"{package.Major}.{package.Minor}.{package.Revision}";
+        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        FileMgr.Log("Assembly version: " + version.ToString());
+        var versionString = $"{version.Major}.{version.Minor}.{version.Revision}";
+        FileMgr.Log("Version string: " + versionString);
 
         var richText = new RichTextBlock();
 
@@ -362,27 +430,43 @@ public sealed partial class Settings : Page
             richText.Blocks.Add(para);
         }
 
-        var stack = new StackPanel();
-        stack.Children.Add(new TextBlock
+        var container = new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            MaxHeight = 800
+        };
+
+        var grid = new Grid()
+        {
+            Padding = new Thickness(0, 0, 20, 0)
+        };
+
+        // Define rows for the grid
+        grid.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(1, GridUnitType.Auto) });
+        grid.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(1, GridUnitType.Star) });
+
+        // Add title to the first row
+        var titleTextBlock = new TextBlock
         {
             Text = "Release Notes",
             FontSize = 25,
             FontWeight = new FontWeight(600),
             Margin = new Thickness(0, 0, 0, 10)
-        });
-        MainWindow mainWindow = ((App)Application.Current).m_window;
+        };
+        Grid.SetRow(titleTextBlock, 0);
+        grid.Children.Add(titleTextBlock);
 
-        Size windowSize = mainWindow.WindowSize;
-        stack.Children.Add(new ScrollViewer
-        {
-            Content = richText,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Visible,
-            MaxHeight = (0.8 * windowSize.Height)
-        });
+        // Add release notes to the second row
+        Grid.SetRow(richText, 1);
+        grid.Children.Add(richText);
 
+        container.Content = grid;
+
+        FileMgr.Log("Showing dialog");
         var dialog = new ContentDialog
         {
-            Content = stack,
+            Content = container,
             CloseButtonText = "OK",
             XamlRoot = XamlRoot
         };

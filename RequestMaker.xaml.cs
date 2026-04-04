@@ -1,4 +1,4 @@
-#pragma warning disable IDE0079 // Remove unnecessary suppression
+ï»¿#pragma warning disable IDE0079 // Remove unnecessary suppression
 #pragma warning disable IDE0007 // Use implicit type
 #pragma warning disable IDE0044 // Add readonly modifier
 #pragma warning disable IDE0052 // Remove unread private members
@@ -15,12 +15,14 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using HourSyncCoreLib;
+using ImageMagick; // Add this using directive for Magick.NET
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Navigation;
-using Newtonsoft.Json;
 using Windows.Storage;
 using Windows.Storage.Pickers;
+using Windows.System;
 using WinRT.Interop;
 
 namespace HourSync;
@@ -55,6 +57,10 @@ public sealed partial class RequestMaker : Page
     public ObservableCollection<ImageDisplayItem> ImageDisplayItems { get; } = [];
 
     private bool isAiEnabled = false;
+
+    private ProgressBar conversionProgressBar;
+    private ContentDialog conversionDialog;
+    private bool isConversionActive = false;
 
     public RequestMaker()
     {
@@ -141,10 +147,7 @@ public sealed partial class RequestMaker : Page
                 }
                 else
                 {
-                    // Unknown key — let you handle it
                     FileMgr.Log($"Unrecognized AI companion key: {selectedValue.Key}");
-                    // Handle unrecognized key here
-
                 }
             }
         }
@@ -215,10 +218,10 @@ public sealed partial class RequestMaker : Page
         Loaded += OnPageLoaded;
     }
 
-    private async void OnPageLoaded(object _, RoutedEventArgs __)
+    private void OnPageLoaded(object _, RoutedEventArgs __)
     {
         Loaded -= OnPageLoaded;
-        bool res = await LoadDraft();
+        bool res = AutoLoadDraft();
         if (res)
         {
             SaveDraft();
@@ -247,23 +250,51 @@ public sealed partial class RequestMaker : Page
         openPicker.FileTypeFilter.Add(".jpg");
         openPicker.FileTypeFilter.Add(".jpeg");
         openPicker.FileTypeFilter.Add(".png");
+        openPicker.FileTypeFilter.Add(".heic");
 
         // Open the picker and get the files
         var files = await openPicker.PickMultipleFilesAsync();
 
         if (files.Count > 0)
         {
+            var heicFiles = new List<StorageFile>();
             foreach (StorageFile file in files)
             {
-                selectedImages.Add(file.Path);
-
-                // Add to display collection
-                var displayItem = new ImageDisplayItem
+                if (string.Equals(Path.GetExtension(file.Name), ".heic", StringComparison.OrdinalIgnoreCase))
                 {
-                    ImagePath = file.Path,
-                    FileName = file.Name
-                };
-                ImageDisplayItems.Add(displayItem);
+                    heicFiles.Add(file);
+                }
+                else
+                {
+                    selectedImages.Add(file.Path);
+
+                    // Add to display collection
+                    var displayItem = new ImageDisplayItem
+                    {
+                        ImagePath = file.Path,
+                        FileName = file.Name
+                    };
+                    ImageDisplayItems.Add(displayItem);
+                }
+            }
+
+            // Prompt for HEIC conversion if any exist
+            if (heicFiles.Count > 0)
+            {
+                string fileList = string.Join("\n", heicFiles.Select(f => f.Name));
+                ContentDialogResult result = await dialogManager.ShowDialog(
+                    "Convert HEIC Files",
+                    $"Some files could not be added without converting them. Would you like to convert them to PNG?\n\n{fileList}",
+                    "No",
+                    "Yes",
+                    "",
+                    XamlRoot
+                );
+
+                if (result == ContentDialogResult.Primary) // Yes
+                {
+                    await ConvertHeicFiles(heicFiles);
+                }
             }
 
             UpdateImageUI();
@@ -288,6 +319,22 @@ public sealed partial class RequestMaker : Page
             SaveDraft(); // Save draft when images are removed
         }
     }
+    private async void Image_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+    {
+        if (sender is Image image && image.DataContext is ImageDisplayItem item)
+        {
+            try
+            {
+                var file = await StorageFile.GetFileFromPathAsync(item.ImagePath);
+                await Launcher.LaunchFileAsync(file);
+            }
+            catch (Exception ex)
+            {
+                await dialogManager.ShowDialog("Error", $"Failed to open image: {ex.Message}", "OK", "", "", XamlRoot);
+            }
+        }
+    }
+
     private void UpdateImageUI()
     {
         if (selectedImages.Count > 0)
@@ -327,7 +374,7 @@ public sealed partial class RequestMaker : Page
             // Remove invalid characters from the event title
             string cleanedText = new string([.. rawText.Where(c => !invalidChars.Contains(c))]);
 
-            SaveDraft("drafts/" + cleanedText);
+            SaveDraft("drafts/" + cleanedText + ".json");
 
             eventTitle.Text = "";
             eventDate.SelectedDate = null;
@@ -355,7 +402,7 @@ public sealed partial class RequestMaker : Page
             UpdateImageUI();
 
             FileMgr.DeleteFile("draft.json");
-            await LoadDraft();
+            AutoLoadDraft();
         }
     }
 
@@ -497,13 +544,27 @@ public sealed partial class RequestMaker : Page
             {
                 Headers =
                 {
-                    ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg"),
+                    ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(GetImageMimeType(imagePath)),
                 },
             };
-            content.Add(imageContent, "img[]", Path.GetFileName(imagePath));
+            content.Add(imageContent, "files[]", Path.GetFileName(imagePath));
         }
 
         return content;
+    }
+
+    private static string GetImageMimeType(string filePath)
+    {
+        var extension = Path.GetExtension(filePath).ToLowerInvariant();
+        return extension switch
+        {
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".heic" => "image/heic",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            _ => "image/jpeg" // Default fallback
+        };
     }
 
     //Log in again
@@ -524,97 +585,6 @@ public sealed partial class RequestMaker : Page
     }
 
     //Drafts
-    private async void SaveDraft(string filename = "draft")
-    {
-        try
-        {
-            Draft draft = new Draft
-            {
-                Title = eventTitle.Text,
-                Date = eventDate.Date,
-                Hours = (string)NumericTextBox.Text,
-                Description = eventBody.Text,
-                ImagePaths = [.. selectedImages],
-            };
-
-            var localAppDataPath = Environment.GetFolderPath(
-                Environment.SpecialFolder.LocalApplicationData
-            );
-            var dataPath = Path.Combine(localAppDataPath, "HourSync");
-            Directory.CreateDirectory(Path.Combine(dataPath, "drafts"));
-            string fileNameCleaned = filename.Replace(".json", "");
-            var draftFilePath = Path.Combine(dataPath, $"{fileNameCleaned}.json");
-
-            var json = JsonConvert.SerializeObject(draft, Newtonsoft.Json.Formatting.Indented);
-            File.WriteAllText(draftFilePath, json);
-        }
-        catch (Exception)
-        {
-            await dialogManager.ShowDialog("Save Error", "An error occurred when saving your draft. It may be a good idea to also save your request elsewhere.");
-        }
-    }
-
-    private async Task<bool> LoadDraft()
-    {
-        try
-        {
-            var localAppDataPath = Environment.GetFolderPath(
-                Environment.SpecialFolder.LocalApplicationData
-            );
-            var dataPath = Path.Combine(localAppDataPath, "HourSync");
-            var draftFilePath = Path.Combine(dataPath, "draft.json");
-
-            if (File.Exists(draftFilePath))
-            {
-                if (FileMgr.ReadFromFile("draft.json").Length <= 92)
-                {
-                    DraftLoadedSuccessfully.Visibility = Visibility.Collapsed;
-                    DraftIsCorruptStack.Visibility = Visibility.Visible;
-                    DraftIsCorrupt.CloseButtonClick += OnDraftIsCorruptClose;
-                    return false;
-                }
-                var json = File.ReadAllText(draftFilePath);
-                var draft = JsonConvert.DeserializeObject<Draft>(json);
-
-                eventTitle.Text = draft.Title;
-                eventDate.SelectedDate = draft.Date;
-                NumericTextBox.Text = draft.Hours;
-                eventBody.Text = draft.Description;
-                selectedImages = [.. draft.ImagePaths];
-
-                // Update display collection
-                ImageDisplayItems.Clear();
-                foreach (var imagePath in selectedImages)
-                {
-                    var displayItem = new ImageDisplayItem
-                    {
-                        ImagePath = imagePath,
-                        FileName = Path.GetFileName(imagePath)
-                    };
-                    ImageDisplayItems.Add(displayItem);
-                }
-
-                UpdateImageUI();
-                DraftLoadedSuccessfully.Visibility = Visibility.Visible;
-                UpdatePresence();
-                return true;
-            }
-            return false;
-        }
-        catch (Exception)
-        {
-            DraftLoadedSuccessfully.Visibility = Visibility.Collapsed;
-            await dialogManager.ShowDialog("Load Draft Error", "An error occurred when loading a previous draft.", "OK", "", "", XamlRoot);
-            FileMgr.DeleteFile("draft.json");
-            return false;
-        }
-    }
-
-    private void OnDraftIsCorruptClose(InfoBar sender, object args)
-    {
-        DraftIsCorruptStack.Visibility = Visibility.Collapsed;
-    }
-
     private void KeyUp_SaveDraft(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e) =>
         SaveDraft();
 
@@ -654,7 +624,7 @@ public sealed partial class RequestMaker : Page
             FileMgr.DeleteFile("draft.json");
             DraftIsCorruptStack.Visibility = Visibility.Collapsed;
             DraftDeletedSuccessfully.Visibility = Visibility.Visible;
-            _ = LoadDraft();
+            _ = AutoLoadDraft();
         }
         else if (result == ContentDialogResult.Secondary)
         {
@@ -662,6 +632,73 @@ public sealed partial class RequestMaker : Page
         }
     }
 
+    private void SaveDraft(string filename = "")
+    {
+        if (filename?.Length == 0)
+        {
+            filename = eventTitle.Text.ToLower();
+            filename = filename.Replace(" ", "-");
+            filename = Utils.ToSafeFilename(filename);
+            filename += ".json";
+        }
+
+        DraftManager.SaveDraft(
+            eventTitle.Text,
+            eventDate.SelectedDate ?? DateTimeOffset.Now,
+            NumericTextBox.Text,
+            eventBody.Text,
+            selectedImages,
+            "drafts/" + filename
+        );
+
+        FileMgr.WriteToFile("lastDraft.txt", "drafts/" + filename);
+    }
+
+    private bool AutoLoadDraft()
+    {
+        DraftResult result;
+        string lastDraft = FileMgr.ReadFromFile("lastDraft.txt");
+        if (lastDraft == null)
+        {
+            result = DraftManager.LoadDraft();
+        }
+        else
+        {
+            result = DraftManager.LoadDraft(lastDraft);
+        }
+        if (result.Status == DraftLoadStatus.Loaded)
+        {
+            var draft = result.Draft;
+            eventTitle.Text = draft.Title;
+            eventDate.SelectedDate = draft.Date;
+            NumericTextBox.Text = draft.Hours;
+            eventBody.Text = draft.Description;
+            selectedImages = [.. draft.ImagePaths];
+
+            // Update display collection
+            ImageDisplayItems.Clear();
+            foreach (var imagePath in selectedImages)
+            {
+                var displayItem = new ImageDisplayItem
+                {
+                    ImagePath = imagePath,
+                    FileName = Path.GetFileName(imagePath)
+                };
+                ImageDisplayItems.Add(displayItem);
+            }
+
+            UpdateImageUI();
+            DraftLoadedSuccessfully.Visibility = Visibility.Visible;
+            UpdatePresence();
+            return true;
+        }
+        else if (result.Status == DraftLoadStatus.Corrupt)
+        {
+            DraftIsCorruptStack.Visibility = Visibility.Visible;
+            return false;
+        }
+        return false;
+    }
     private void OnWindowSizeChanged(double windowWidth)
     {
         //System.Diagnostics.Trace.WriteLine($"{windowWidth}");
@@ -705,7 +742,7 @@ public sealed partial class RequestMaker : Page
 
     private Window browserWindow;
 
-    private void PopOutBrowser(object sender, RoutedEventArgs e)
+    private void PopOutBrowser(object _, RoutedEventArgs __)
     {
         // First, remove the webview from its current parent
         if (webView.Parent is Panel currentParent)
@@ -755,6 +792,213 @@ public sealed partial class RequestMaker : Page
         }
         browserWindow = null;
     }
+
+    private async Task ConvertHeicFiles(List<StorageFile> heicFiles)
+    {
+        if (isConversionActive) return;
+        isConversionActive = true;
+
+        conversionProgressBar = new ProgressBar
+        {
+            IsIndeterminate = false,
+            Maximum = heicFiles.Count,
+            Value = 0,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Width = 300,
+            Height = 20,
+        };
+
+        conversionDialog = new ContentDialog
+        {
+            Title = "Converting",
+            CloseButtonText = null,
+            PrimaryButtonText = null,
+            Content = conversionProgressBar,
+            XamlRoot = XamlRoot,
+        };
+
+        for (int i = 0; i < heicFiles.Count; i++)
+        {
+            var file = heicFiles[i];
+            string outputPath = Path.Combine(
+                Path.GetDirectoryName(file.Path),
+                Path.GetFileNameWithoutExtension(file.Path) + ".HourSync.png"
+            );
+
+            try
+            {
+                using (var image = new MagickImage(file.Path))
+                {
+                    image.Write(outputPath, MagickFormat.Png);
+                }
+
+                selectedImages.Add(outputPath);
+                var displayItem = new ImageDisplayItem
+                {
+                    ImagePath = outputPath,
+                    FileName = Path.GetFileName(outputPath)
+                };
+                ImageDisplayItems.Add(displayItem);
+            }
+            catch (Exception ex)
+            {
+
+                await dialogManager.ShowDialog(
+                    "Conversion Error",
+                    $"Failed to convert {file.Name}: {ex.Message}",
+                    "OK",
+                    "",
+                    "",
+                    XamlRoot
+                );
+            }
+
+            conversionProgressBar.Value = i + 1;
+        }
+
+        conversionDialog.Hide();
+        isConversionActive = false;
+
+        UpdateImageUI();
+        SaveDraft();
+    }
+
+    private void SaveToOneDrive_Click(object _, RoutedEventArgs __)
+    {
+        // todo save to onedrive
+        var filename = eventTitle.Text.ToLower();
+        filename = filename.Replace(" ", "-");
+        filename = Utils.ToSafeFilename(filename);
+        SaveDraft($"%onedrive%/HourSync/{filename}.json");
+        SaveToOneDriveText.Text = "Saved!";
+
+        SymbolIcon check = new SymbolIcon(Symbol.Accept);
+        CheckBoxSavedToOnedrive.Children.Add(check);
+
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(2000);
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                SaveToOneDriveText.Text = "Save to OneDrive";
+                CheckBoxSavedToOnedrive.Children.Remove(check);
+            });
+        });
+    }
+
+    private void LoadDraft_Click(object sender, RoutedEventArgs _)
+    {
+        MenuFlyout contextMenu = new()
+        {
+            Placement = FlyoutPlacementMode.BottomEdgeAlignedLeft,
+            OverlayInputPassThroughElement = sender as UIElement
+        };
+
+        var recents = DraftManager.GetRecentDrafts();
+
+        var recentsSubMenu = new MenuFlyoutSubItem
+        {
+            Text = $"Recent Drafts ({recents.Count})",
+            IsEnabled = recents.Count > 0
+        };
+
+        foreach (var draft in recents.Take(10))
+        {
+            var item = new MenuFlyoutItem { Text = DraftManager.LoadDraft(draft).Draft.Title };
+            item.Click += (_, _) => LoadDraft(draft);
+            recentsSubMenu.Items.Add(item);
+        }
+
+        var other = new MenuFlyoutItem { Text = "Other" };
+        other.Click += async (_, _) =>
+        {
+            var picker = new FileOpenPicker
+            {
+                ViewMode = PickerViewMode.Thumbnail,
+                SuggestedStartLocation = PickerLocationId.DocumentsLibrary
+            };
+
+            var app = (App)Application.Current;
+
+
+            var hwnd = WindowNative.GetWindowHandle(app.m_window);
+
+
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+
+            picker.FileTypeFilter.Add(".json");
+            var file = await picker.PickSingleFileAsync();
+            if (file != null)
+            {
+                LoadDraft(file.Path);
+            }
+        };
+
+        contextMenu.Items.Add(recentsSubMenu);
+        contextMenu.Items.Add(other);
+        contextMenu.ShowAt(sender as FrameworkElement);
+    }
+    private async void LoadDraft(string draftPath)
+    {
+        var draft = DraftManager.LoadDraft(draftPath).Draft;
+
+        eventTitle.Text = draft.Title;
+        eventDate.SelectedDate = draft.Date;
+        NumericTextBox.Text = draft.Hours;
+        eventBody.Text = draft.Description;
+        selectedImages = [.. draft.ImagePaths];
+
+        // Update display collection
+        ImageDisplayItems.Clear();
+
+        List<string> notAvailableImages = [];
+        List<string> availableImages = [];
+        foreach (var imagePath in selectedImages)
+        {
+            string resolvedPath = imagePath;
+            if (imagePath.StartsWith('%'))
+            {
+                resolvedPath = Environment.ExpandEnvironmentVariables(imagePath);
+            }
+            if (!Path.IsPathRooted(resolvedPath))
+            {
+                string draftDir = Path.GetDirectoryName(draftPath);
+                resolvedPath = Path.GetFullPath(Path.Combine(draftDir, resolvedPath));
+            }
+            if (!File.Exists(resolvedPath))
+            {
+                notAvailableImages.Add(imagePath);
+                continue;
+            }
+            availableImages.Add(resolvedPath);
+            var displayItem = new ImageDisplayItem
+            {
+                ImagePath = resolvedPath,
+                FileName = Path.GetFileName(resolvedPath)
+            };
+            ImageDisplayItems.Add(displayItem);
+        }
+        selectedImages = availableImages;
+        if (notAvailableImages.Count > 0)
+        {
+            await dialogManager.ShowDialog("Unavailable Images", $"The following images are not available because they do not exist on this device:\n{string.Join("\n - ", notAvailableImages)}", "OK", "", "", XamlRoot);
+        }
+
+        UpdateImageUI();
+        SaveDraft();
+    }
+
+    private async void NumericTextBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (int.TryParse(NumericTextBox.Text, out int value))
+        {
+            if (value > 99.75)
+            {
+                await dialogManager.ShowDialog("Requests more than 100 eHours", "Submitting requests more than 100 eHours is not officially supported. HourSync will attempt to make multiple requests to fulfill the entire " + NumericTextBox.Text + " eHours.\r\n\r\nMake sure to obtain permission to submit your request for more than 100 eHours from your " + loginResult.StudentAcademy + " teacher before submitting.", "Cancel", "I understand", "", XamlRoot);
+            }
+        }
+    }
 }
 
 public class ImageDisplayItem
@@ -767,25 +1011,4 @@ public class ImageDisplayItem
     {
         get; set;
     }
-}
-
-public class Draft
-{
-    public string Title
-    {
-        get; set;
-    }
-    public DateTimeOffset? Date
-    {
-        get; set;
-    }
-    public string Hours
-    {
-        get; set;
-    }
-    public string Description
-    {
-        get; set;
-    }
-    public List<string> ImagePaths { get; set; } = [];
 }
