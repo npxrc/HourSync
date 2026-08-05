@@ -377,3 +377,6 @@ Private.cs
 # But the crawl folder just shows me what's missing from the official site so I can add those functionalities to HourSync
 /crawl
 /Ignore
+/.dotnet-home/.dotnet
+/.github
+/resynctodos.txt
