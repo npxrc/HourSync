@@ -15,7 +15,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using HourSyncCoreLib;
-using ImageMagick; // Add this using directive for Magick.NET
+using ImageMagick;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -24,6 +24,7 @@ using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.System;
 using WinRT.Interop;
+using System.Globalization;
 
 namespace HourSync;
 
@@ -283,22 +284,24 @@ public sealed partial class RequestMaker : Page
             {
                 string fileList = string.Join("\n", heicFiles.Select(f => f.Name));
                 ContentDialogResult result = await dialogManager.ShowDialog(
-                    "Convert HEIC Files",
-                    $"Some files could not be added without converting them. Would you like to convert them to PNG?\n\n{fileList}",
-                    "No",
-                    "Yes",
+                    LSGS("HEICTitle"),
+                    LocalizationService.PrepareStatement("HEICConvertContent", fileList),
+                    LSGS("No"),
+                    LSGS("Yes"),
                     "",
                     XamlRoot
                 );
 
                 if (result == ContentDialogResult.Primary) // Yes
                 {
+                    ShowSubmissionProgressBar();
                     await ConvertHeicFiles(heicFiles);
                 }
             }
 
             UpdateImageUI();
             SaveDraft(); // Save draft when images are added
+            HideSubmissionProgressBar();
         }
     }
     private void RemoveImage_Click(object sender, RoutedEventArgs __)
@@ -339,32 +342,25 @@ public sealed partial class RequestMaker : Page
     {
         if (selectedImages.Count > 0)
         {
-            var stringOfFileNames = $"Selected Files: {string.Join(", ", selectedImages.Select(Path.GetFileName))}";
+            var stringOfFileNames = $"{LSGS("SelectedFiles")}: {string.Join(", ", selectedImages.Select(Path.GetFileName))}";
             filesSelectedTextBlock.Text = stringOfFileNames;
             ImagePreviewSection.Visibility = Visibility.Visible;
         }
         else
         {
-            filesSelectedTextBlock.Text = "No files selected.";
+            filesSelectedTextBlock.Text = LSGS("RequestMakerFilesSelectedText.Text");
             ImagePreviewSection.Visibility = Visibility.Collapsed;
         }
     }
 
     private async void SubmitButton_Click(object _, RoutedEventArgs __)
     {
-        ContentDialogResult result = await dialogManager.ShowDialog("Confirm", "Ready to submit? Click 'Submit' to proceed.", "Cancel", "Submit", "", XamlRoot);
+        ContentDialogResult result = await dialogManager.ShowDialog(LSGS("GenericConfirmTitle"), LSGS("RequestMakerReadySubmit"), LSGS("RequestPageCancelBtn.Content"), LSGS("RequestMakerSubmitButton.Content"), "", XamlRoot);
 
         // Handle the result
         if (result == ContentDialogResult.Primary)
         {
             // User clicked Yes
-            await PostRequestAsync(
-                eventTitle.Text,
-                eventDate.Date.ToString(),
-                NumericTextBox.Text,
-                eventBody.Text
-            );
-
             // Get the raw event title text
             string rawText = eventTitle.Text;
 
@@ -375,6 +371,13 @@ public sealed partial class RequestMaker : Page
             string cleanedText = new string([.. rawText.Where(c => !invalidChars.Contains(c))]);
 
             SaveDraft("drafts/" + cleanedText + ".json");
+
+            await MakeRequestAsync(
+                eventTitle.Text,
+                eventDate.Date.ToString(),
+                NumericTextBox.Text,
+                eventBody.Text
+            );
 
             eventTitle.Text = "";
             eventDate.SelectedDate = null;
@@ -429,78 +432,437 @@ public sealed partial class RequestMaker : Page
         }
     }
 
-    //POST request
-    private async Task PostRequestAsync(string title, string date, string hours, string desc)
+    private ProgressBar submissionProgressBar;
+    private ContentDialog submissionDialog;
+    private bool isSubmissionActive = false;
+
+    private void ShowSubmissionProgressBar()
     {
-        SubmitButton.IsEnabled = false;
-        try
+        if (isSubmissionActive)
+            return;
+
+        isSubmissionActive = true;
+
+        submissionProgressBar = new ProgressBar
         {
-            string formattedDate = DateTime.Parse(date).ToString("yyyy-MM-dd");
-            var content = CreateMultipartFormDataContent(title, formattedDate, hours, desc);
+            IsIndeterminate = true,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Width = 200,
+            Height = 20
+        };
 
-            Uri uri = new("https://academyendorsement.olatheschools.com/");
-            _cookieContainer.Add(uri, new Cookie("PHPSESSID", loginResult.PhpSessionId));
+        submissionDialog = new ContentDialog
+        {
+            Title = LSGS("GenericLoadingText"),
+            CloseButtonText = null,
+            PrimaryButtonText = null,
+            Content = submissionProgressBar,
+            XamlRoot = XamlRoot
+        };
 
-            FileMgr.Log(loginResult.PhpSessionId);
+        if (!DialogManager.IsDialogOpen)
+        {
+            _ = submissionDialog.ShowAsync();
+        }
 
-            if (!_client.DefaultRequestHeaders.Contains("User-Agent"))
-            {
-                _client.DefaultRequestHeaders.Add(
-                    "User-Agent",
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-                );
-            }
+        submissionDialog.Closed += (_, _) => isSubmissionActive = false;
+    }
 
-            var response = await _client.PostAsync(
-                "https://academyendorsement.olatheschools.com/Student/makeRequest.php",
-                content
+    private void HideSubmissionProgressBar()
+    {
+        if (submissionDialog != null && isSubmissionActive)
+        {
+            submissionDialog.Hide();
+            isSubmissionActive = false;
+        }
+    }
+
+    private string PushRequestResult = "";
+    /// <summary>
+    /// Pushes the request to the server. If the response indicates that the session has expired or is invalid, it will attempt to log in again and retry the request. It will retry up to 3 times before returning an error.
+    /// </summary>
+    /// <param name="title">The title of the request</param>
+    /// <param name="date">The date of the request</param>
+    /// <param name="hours">The number of hours requested</param>
+    /// <param name="desc">The description of the request</param>
+    /// <returns>1 when the request is successful, -1 when too many login attempts are made, -2 when the credentials are invalid</returns>
+    private async Task<int> PushRequestAsync(string title, string date, string hours, string desc, bool includeImages)
+    {
+        string formattedDate = DateTime.Parse(date).ToString("yyyy-MM-dd");
+        var content = CreateMultipartFormDataContent(title, formattedDate, hours, desc, includeImages);
+
+        Uri uri = new("https://academyendorsement.olatheschools.com/");
+        _cookieContainer.Add(uri, new Cookie("PHPSESSID", loginResult.PhpSessionId));
+
+        FileMgr.Log(loginResult.PhpSessionId);
+
+        if (!_client.DefaultRequestHeaders.Contains("User-Agent"))
+        {
+            _client.DefaultRequestHeaders.Add(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
             );
-            var responseString = await response.Content.ReadAsStringAsync();
+        }
 
-            if (responseString.Contains("See your current eHours"))
+        var response = await _client.PostAsync(
+            "https://academyendorsement.olatheschools.com/Student/makeRequest.php",
+            content
+        );
+        var responseString = await response.Content.ReadAsStringAsync();
+
+        if (responseString.Contains("See your current eHours"))
+        {
+            PushRequestResult = responseString;
+            return 1;
+        }
+        else
+        {
+            FileMgr.Log("Null response, logging in again.");
+            if (logInAgainAttempts >= 3)
             {
-                await dialogManager.ShowDialog("Success", $"{title} was just submitted for {hours} eHours", "OK", "", "", XamlRoot);
-
-                UpdateUIAfterSubmission();
-
-                FileMgr.DeleteFile("draft.json");
-                ((App)Application.Current).UpdateHomeContent(responseString);
-                Frame.Navigate(
-                    typeof(Home),
-                    new object[]
-                    {
-                        loginResult,
-                        username,
-                        password,
-                        responseString
-                    }
-                );
+                FileMgr.LogError("Too many log in attempts reached, check the code.");
+                return -1;
+            }
+            bool isLoggedInAgain = await LogInAgain();
+            logInAgainAttempts++;
+            if (isLoggedInAgain)
+            {
+                return await PushRequestAsync(title, date, hours, desc, includeImages);
             }
             else
             {
-                FileMgr.Log("Null, logging in again.");
-                if (logInAgainAttempts >= 3)
+                return -2;
+            }
+        }
+    }
+
+    public enum TitleStyle
+    {
+        Number,
+        Part,
+        Brackets,
+        Fraction
+    }
+
+    public enum SplitStyle
+    {
+        Evenly,
+        Fill,
+        MaxLimit
+    }
+
+    public enum ImageMode
+    {
+        FirstOnly,
+        All
+    }
+
+    public class MultiRequestSettings
+    {
+        public string ExampleTitle = "My Request";
+        public double ExampleHours = 250;
+        public string ExampleBody = "This is an example description for the request. It can be quite long and detailed, providing all necessary information about the request being made.";
+        public TitleStyle TitleStyle
+        {
+            get; set;
+        } = TitleStyle.Number;
+        public bool AppendTitleToDescription
+        {
+            get; set;
+        } = false;
+
+        public SplitStyle SplitStyle
+        {
+            get; set;
+        } = SplitStyle.Fill;
+        public double MaxHoursPerRequest
+        {
+            get; set;
+        } = 99.75;
+
+        public ImageMode ImageMode
+        {
+            get; set;
+        } = ImageMode.FirstOnly;
+    }
+    public class GeneratedRequest
+    {
+        public string Title
+        {
+            get; set;
+        }
+
+        public string Body
+        {
+            get; set;
+        }
+
+        public double Hours
+        {
+            get; set;
+        }
+
+        public bool IncludeImages
+        {
+            get; set;
+        }
+    }
+    /// <summary>
+    /// Splits a total number of hours into discrete chunks based on a maximum limit and split strategy.
+    /// </summary>
+    /// <param name="totalHours">The total hours to distribute.</param>
+    /// <param name="splitStyle">The strategy used to split the hours (Evenly, Fill, or MaxLimit).</param>
+    /// <param name="customMaxHours">The custom limit when using SplitStyle.MaxLimit.</param>
+    /// <returns>A list of rounded hour amounts that sum up exactly to totalHours.</returns>
+    public static List<double> CalculateHourSplits(
+        double totalHours,
+        SplitStyle splitStyle,
+        double customMaxHours = 99.75
+    )
+    {
+        List<double> splits = new();
+
+        if (totalHours <= 0)
+        {
+            return splits;
+        }
+
+        const double HardLimit = 99.75;
+
+        // Determine the active cap for calculations
+        double activeLimit = splitStyle == SplitStyle.MaxLimit
+            ? Math.Min(customMaxHours, HardLimit)
+            : HardLimit;
+
+        int totalRequests = (int)Math.Ceiling(totalHours / activeLimit);
+        double allocatedHours = 0;
+
+        for (int i = 0; i < totalRequests; i++)
+        {
+            double reqHours;
+
+            // Final chunk absorbs any rounding differences to ensure total exactness
+            if (i == totalRequests - 1)
+            {
+                reqHours = Math.Round(totalHours - allocatedHours, 2, MidpointRounding.AwayFromZero);
+            }
+            else if (splitStyle == SplitStyle.Evenly)
+            {
+                reqHours = Math.Round(totalHours / totalRequests, 2, MidpointRounding.AwayFromZero);
+            }
+            else
+            {
+                reqHours = Math.Round(Math.Min(activeLimit, totalHours - allocatedHours), 2, MidpointRounding.AwayFromZero);
+            }
+
+            splits.Add(reqHours);
+            allocatedHours += reqHours;
+        }
+
+        return splits;
+    }
+    public static List<GeneratedRequest> GenerateRequests(
+        string title,
+        string body,
+        double totalHours,
+        MultiRequestSettings settings
+    )
+    {
+        List<GeneratedRequest> toReturn = new();
+
+        // Calculate the splits using the helper method
+        List<double> hourSplits = CalculateHourSplits(
+            totalHours,
+            settings.SplitStyle,
+            settings.MaxHoursPerRequest
+        );
+
+        int totalRequests = hourSplits.Count;
+
+        for (int i = 0; i < totalRequests; i++)
+        {
+            string reqTitle = title;
+            switch (settings.TitleStyle)
+            {
+                case TitleStyle.Number:
+                    reqTitle = $"{title} - {i + 1}";
+                    break;
+                case TitleStyle.Part:
+                    reqTitle = $"{title} - Part {i + 1}";
+                    break;
+                case TitleStyle.Brackets:
+                    reqTitle = $"{title} [{i + 1}]";
+                    break;
+                case TitleStyle.Fraction:
+                    reqTitle = $"{title} - {i + 1}/{totalRequests}";
+                    break;
+            }
+
+            string reqBody = body;
+            if (settings.AppendTitleToDescription)
+            {
+                reqBody = $"{reqTitle}\n\n{body}";
+            }
+
+            toReturn.Add(new GeneratedRequest
+            {
+                Title = reqTitle,
+                Body = reqBody,
+                Hours = hourSplits[i],
+                IncludeImages = settings.ImageMode == ImageMode.All || (settings.ImageMode == ImageMode.FirstOnly && i == 0)
+            });
+        }
+
+        return toReturn;
+    }
+
+    //POST request
+    private MultiRequestControl mrw = null;
+    private ContentDialog mrwDialog = null;
+    private async Task MakeRequestAsync(string title, string date, string hours, string desc)
+    {
+        SubmitButton.IsEnabled = false;
+
+        try
+        {
+            if (!double.TryParse(hours, NumberStyles.Float, CultureInfo.InvariantCulture, out double totalHours))
+            {
+                totalHours = double.Parse(hours);
+            }
+
+            if (totalHours > 99.75)
+            {
+                var submitMoreResponse = await dialogManager.ShowDialog("Submitting more than 99.75 eHours", "Submitting requests more than 99.75 eHours is not officially supported. HourSync will attempt to make multiple requests to fulfill the entire " + hours + " eHours.\r\n\r\nMake sure to obtain permission to submit your request for more than 99.75 eHours from your " + loginResult.StudentAcademy + " teacher before submitting.\r\n\r\nClick cancel to stop.", "", "OK", "Cancel", XamlRoot);
+                if (submitMoreResponse == ContentDialogResult.Primary)
                 {
-                    FileMgr.LogError("Too many log in attempts reached, check the code.");
-                    throw new Exception("Too many log in attempts reached, check the code.");
+                    mrw = new(title, totalHours, desc, RequestsGenerated);
+                    mrwDialog = new()
+                    {
+                        Content = mrw,
+                        XamlRoot = XamlRoot
+                    };
+                    await mrwDialog.ShowAsync();
+
+                    async void RequestsGenerated()
+                    {
+                        mrwDialog.Hide();
+                        if (mrw.GeneratedRequests.Count == 0)
+                        {
+                            return;
+                        }
+
+                        bool allsuccessful = true;
+                        ShowSubmissionProgressBar();
+                        foreach (var req in mrw.GeneratedRequests)
+                        {
+                            int res = await PushRequestAsync(req.Title, date, $"{req.Hours}", desc, req.IncludeImages);
+                            if (res != 1)
+                            {
+                                HideSubmissionProgressBar();
+                                if (res == -1)
+                                {
+                                    // Too many login attempts
+                                    await dialogManager.ShowErrorDialog("Too many login attempts. Please try again later.", false, XamlRoot);
+                                    allsuccessful = false;
+                                    return;
+                                }
+                                else if (res == -2)
+                                {
+                                    // Invalid credentials
+                                    await dialogManager.ShowDialog("Incorrect Credentials", $"Your credentials for the user {username} are incorrect. Your progress has been saved. Please log in again.", "OK", "", "", XamlRoot);
+                                    Frame.Navigate(
+                                        typeof(Login),
+                                        new object[]
+                                        {
+                                            false
+                                        }
+                                    );
+                                    allsuccessful = false;
+                                    return;
+                                }
+                            }
+                            logInAgainAttempts = 0; // Reset login attempts after a successful request
+                        }
+                        if (allsuccessful)
+                        {
+                            await dialogManager.ShowDialog("Success", $"{title} was fully submitted across multiple requests.", "OK", "", "", XamlRoot);
+
+                            FileMgr.DeleteFile("draft.json");
+                            ((App)Application.Current).UpdateHomeContent(PushRequestResult);
+                            Frame.Navigate(typeof(Home), new object[] { loginResult, username, password, PushRequestResult });
+                        }
+                    }
                 }
-                bool isLoggedInAgain = await LogInAgain();
-                logInAgainAttempts++;
-                if (isLoggedInAgain)
+            }
+            else
+            {
+                try
                 {
-                    await PostRequestAsync(title, date, hours, desc);
+                    ShowSubmissionProgressBar();
+                    int result = await PushRequestAsync(title, date, hours, desc, true);
+                    HideSubmissionProgressBar();
+                    if (result == 1)
+                    {
+                        // Request submitted successfully
+                        await dialogManager.ShowDialog("Success", $"{title} was just submitted for {hours} eHours", "OK", "", "", XamlRoot);
+                        UpdateUIAfterSubmission();
+
+                        FileMgr.DeleteFile("draft.json");
+                        ((App)Application.Current).UpdateHomeContent(PushRequestResult);
+                        Frame.Navigate(
+                            typeof(Home),
+                            new object[]
+                            {
+                                loginResult,
+                                username,
+                                password,
+                                PushRequestResult
+                            }
+                        );
+                    }
+                    else if (result == -1)
+                    {
+                        // Too many login attempts
+                        await dialogManager.ShowErrorDialog("Too many login attempts. Please try again later.", false, XamlRoot);
+                    }
+                    else if (result == -2)
+                    {
+                        // Invalid credentials
+                        await dialogManager.ShowDialog("Incorrect Credentials", $"Your credentials for the user {username} are incorrect. Your progress has been saved. Please log in again.", "OK", "", "", XamlRoot);
+                        Frame.Navigate(
+                            typeof(Login),
+                            new object[]
+                            {
+                                false
+                            }
+                        );
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    await dialogManager.ShowDialog("Incorrect Credentials", $"Your credentials for the user {username} are incorrect. Please log in again.", "OK", "", "", XamlRoot);
-                    SubmitButton.IsEnabled = true;
+                    FileMgr.LogError(ex.Message);
+                    await dialogManager.ShowDialog("Error", $"An error occurred when submitting {title}.", "OK", "", "", XamlRoot);
                 }
             }
         }
         catch (Exception ex)
         {
             FileMgr.LogError(ex.Message);
-            await dialogManager.ShowDialog("Error", $"An error occurred when submitting {title}.", "OK", "", "", XamlRoot);
+            HideSubmissionProgressBar();
+            try
+            {
+                await dialogManager.ShowErrorDialog($"An error occurred when submitting {title}.", false, XamlRoot);
+            }
+            catch (Exception ex2)
+            {
+                FileMgr.LogError(ex2.Message);
+            }
+        }
+        finally
+        {
+            HideSubmissionProgressBar();
+            SubmitButton.IsEnabled = true;
         }
     }
 
@@ -527,7 +889,8 @@ public sealed partial class RequestMaker : Page
         string title,
         string formattedDate,
         string hours,
-        string desc
+        string desc,
+        bool includeImages = true
     )
     {
         var content = new MultipartFormDataContent
@@ -537,17 +900,19 @@ public sealed partial class RequestMaker : Page
             { new StringContent(hours), "hours" },
             { new StringContent(desc), "description" },
         };
-
-        foreach (var imagePath in selectedImages)
+        if (includeImages)
         {
-            var imageContent = new ByteArrayContent(File.ReadAllBytes(imagePath))
+            foreach (var imagePath in selectedImages)
             {
-                Headers =
+                var imageContent = new ByteArrayContent(File.ReadAllBytes(imagePath))
+                {
+                    Headers =
                 {
                     ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(GetImageMimeType(imagePath)),
                 },
-            };
-            content.Add(imageContent, "files[]", Path.GetFileName(imagePath));
+                };
+                content.Add(imageContent, "files[]", Path.GetFileName(imagePath));
+            }
         }
 
         return content;
@@ -989,14 +1354,204 @@ public sealed partial class RequestMaker : Page
         SaveDraft();
     }
 
-    private async void NumericTextBox_LostFocus(object sender, RoutedEventArgs e)
+    private async void NumericTextBox_LostFocus(object _, RoutedEventArgs __)
     {
-        if (int.TryParse(NumericTextBox.Text, out int value))
+        if (double.TryParse(NumericTextBox.Text, out double value))
         {
             if (value > 99.75)
             {
                 await dialogManager.ShowDialog("Requests more than 100 eHours", "Submitting requests more than 100 eHours is not officially supported. HourSync will attempt to make multiple requests to fulfill the entire " + NumericTextBox.Text + " eHours.\r\n\r\nMake sure to obtain permission to submit your request for more than 100 eHours from your " + loginResult.StudentAcademy + " teacher before submitting.", "Cancel", "I understand", "", XamlRoot);
             }
+        }
+    }
+
+    private async void TripCalculator(object sender, RoutedEventArgs e)
+    {
+        var title = LSGS("TripCalculatorTitle");
+        var body = new StackPanel();
+
+        //two date selectors, a check to include start or end date in calculation, an input for sleeping time, and an optional input for how many hours a day the user was on the trip.
+
+        var dateSelectorPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 10) };
+        var startDatePicker = new CalendarDatePicker { Header = LSGS("RequestMakerStartDateHeader"), Margin = new Thickness(0, 0, 10, 0) };
+        var endDatePicker = new CalendarDatePicker { Header = LSGS("RequestMakerEndDateHeader") };
+        if (eventDate.SelectedDate != null)
+        {
+            FileMgr.Log("Selected Date is NOT null");
+            startDatePicker.Date = eventDate.SelectedDate;
+            DateTimeOffset endDate = (DateTimeOffset)eventDate.SelectedDate;
+            //add 5 days to the end date for the default value
+            endDate = endDate.AddDays(5);
+            endDatePicker.Date = endDate;
+        }
+        dateSelectorPanel.Children.Add(startDatePicker);
+        dateSelectorPanel.Children.Add(endDatePicker);
+        body.Children.Add(dateSelectorPanel);
+
+        var includeContainer = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0, 0, 0, 10) };
+        var includeBoxes = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 10) };
+        var includeStartCheckBox = new CheckBox { Content = LSGS("RequestMakerIncludeStartDate"), Margin = new Thickness(0, 0, 10, 0) };
+        var includeEndCheckBox = new CheckBox { Content = LSGS("RequestMakerIncludeEndDate") };
+        var includeExplanation = new TextBlock { Text = LSGS("RequestMakerIncludesExplanation"), TextWrapping=TextWrapping.WrapWholeWords };
+        includeBoxes.Children.Add(includeStartCheckBox);
+        includeBoxes.Children.Add(includeEndCheckBox);
+
+        includeContainer.Children.Add(includeBoxes);
+        includeContainer.Children.Add(includeExplanation);
+        body.Children.Add(includeContainer);
+
+        var sleepingTimeInput = new TextBox { Header = LSGS("RequestMakerSleepingTimeHeader"), PlaceholderText = $"{LSGS("GenericEgText")}, 8", Text = "8", Margin = new Thickness(0, 0, 0, 10) };
+        body.Children.Add(sleepingTimeInput);
+
+        var dailyHoursInput = new TextBox { Header = LSGS("RequestMakerDailyHoursHeader"), PlaceholderText = $"{LSGS("GenericEgText")}, 8", Margin = new Thickness(0, 0, 0, 10) };
+        body.Children.Add(dailyHoursInput);
+
+        var previewCalcResult = new TextBlock { Text = $"{LSGS("RequestMakerTotalHours")}: 0", Margin = new Thickness(0, 10, 0, 0) };
+        body.Children.Add(previewCalcResult);
+
+        var calculationResult = 0.0;
+        String parseDayAsTh(int day)
+        {
+            if (LSGS("LocalizationDoesStNdRdTh") == "0")
+            {
+                return LSGS("LocalizationDoesntDoStNdRdThExtension") == "NONE"
+                    ? day.ToString()
+                    : $"{day}{LSGS("LocalizationDoesntDoStNdRdThExtension")}";
+            }
+
+            if (day < 0 || day > 31)
+            {
+                return "";
+            }
+
+            var dayArray = day.ToString().Split("");
+            int[] sts = [1, 21, 31];
+            int[] nds = [2, 22];
+            int[] rds = [3, 23];
+            return sts.Contains(day) ? $"{day}st" : nds.Contains(day) ? $"{day}nd" : rds.Contains(day) ? $"{day}rd" : $"{day}th";
+        }
+        void UpdatePreview()
+        {
+            if (startDatePicker.Date.HasValue && endDatePicker.Date.HasValue)
+            {
+                var startDate = startDatePicker.Date.Value.DateTime;
+                var endDate = endDatePicker.Date.Value.DateTime;
+                if (endDate < startDate)
+                {
+                    previewCalcResult.Text = LSGS("RequestMakerEDBeforeSD");
+                    return;
+                }
+                int totalDays = (endDate - startDate).Days + 1; // +1 to include the start date
+                FileMgr.Log("Between the start and end date is " + totalDays);
+                bool includeStartDate = includeStartCheckBox.IsChecked == true ? true : false;
+                bool includeEndDate = includeEndCheckBox.IsChecked == true ? true : false;
+                string includeStartDateText = "";
+                string includeEndDateText = "";
+                if (!includeStartDate)
+                {
+                    FileMgr.Log("Subtracting a day because we're NOT including the start date");
+                    totalDays--;
+                }
+                else
+                {
+                    FileMgr.Log("Including the start date");
+                    if (includeEndDate)
+                    {
+                        includeStartDateText = LocalizationService.PrepareStatement("RequestMakerISDTBoth", parseDayAsTh(startDate.Day));
+                    }
+                    else
+                    {
+                        includeStartDateText = LocalizationService.PrepareStatement("RequestMakerISDTOnly", parseDayAsTh(startDate.Day));
+                    }
+                }
+                if (!includeEndDate)
+                {
+                    FileMgr.Log("Subtracting a day because we're NOT including the end date");
+                    totalDays--;
+                }
+                else
+                {
+                    FileMgr.Log("Including the end date");
+                    if (includeStartDate)
+                    {
+                        includeEndDateText = LocalizationService.PrepareStatement("RequestMakerIEDTBoth", parseDayAsTh(endDate.Day));
+                    }
+                    else
+                    {
+                        includeEndDateText = LocalizationService.PrepareStatement("RequestMakerIEDTOnly", parseDayAsTh(endDate.Day));
+                    }
+                }
+                double sleepingHours = 0;
+                double dailyHours = 0;
+                if (sleepingTimeInput.IsEnabled)
+                {
+                    double.TryParse(sleepingTimeInput.Text, out sleepingHours);
+                }
+                else
+                {
+                    double.TryParse(dailyHoursInput.Text, out dailyHours);
+                }
+                FileMgr.Log("Sleeping for " + sleepingHours + " hours");
+                if (dailyHoursInput.Text.Trim() == "") dailyHours = 24;
+                FileMgr.Log("Daily Hours: " + dailyHours + " hours");
+                double totalHours = totalDays * (dailyHours - sleepingHours);
+                FileMgr.Log("In total awake for " + totalDays + "*" + (dailyHours - sleepingHours) + " hours a day, equals " + totalHours);
+                previewCalcResult.Text = $"{LSGS("RequestMakerTotalHours")}: {totalHours} {includeStartDateText}{includeEndDateText}";
+                calculationResult = totalHours;
+            }
+            else
+            {
+                previewCalcResult.Text = $"{LSGS("RequestMakerTotalHours")}: 0";
+            }
+        }
+        startDatePicker.DateChanged += (_, _) => UpdatePreview();
+        endDatePicker.DateChanged += (_, _) => UpdatePreview();
+        includeStartCheckBox.Checked += (_, _) => UpdatePreview();
+        includeStartCheckBox.Unchecked += (_, _) => UpdatePreview();
+        includeEndCheckBox.Checked += (_, _) => UpdatePreview();
+        includeEndCheckBox.Unchecked += (_, _) => UpdatePreview();
+        sleepingTimeInput.TextChanged += (_, _) =>
+        {
+            if (sleepingTimeInput.Text != "")
+            {
+                dailyHoursInput.IsEnabled = false;
+            }
+            else
+            {
+                dailyHoursInput.IsEnabled = true;
+            }
+            UpdatePreview();
+        };
+        dailyHoursInput.TextChanged += (_, _) =>
+        {
+            if (dailyHoursInput.Text != "")
+            {
+                sleepingTimeInput.IsEnabled = false;
+            }
+            else
+            {
+                sleepingTimeInput.IsEnabled = true;
+            }
+            UpdatePreview();
+        };
+
+        var result = await dialogManager.ShowDialog(title, body, "Cancel", "Use Result", "", XamlRoot);
+        if (result == ContentDialogResult.Primary)
+        {
+            NumericTextBox.Text = calculationResult.ToString(CultureInfo.InvariantCulture);
+        }
+    }
+
+    private string LSGS(string query)
+    {
+        try
+        {
+            return LocalizationService.GetString(query);
+        }
+        catch (Exception ex)
+        {
+            FileMgr.LogError("Exception in LSGS with query " + query + ": " + ex.Message);
+            return query;
         }
     }
 }

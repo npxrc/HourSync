@@ -1,4 +1,12 @@
 {
+	"1.9.0": [
+		"The app actually starts now",
+		"The app is localized into English and German now",
+		"Localization works and is no longer a bunch of string names instead of their content",
+		"Similar requests based on title and date submitted are grouped together on the home page",
+		"Added a Trip Calculator button to the Request Maker page to easily calculate the number of eHours you should submit for a trip or event",
+    "Request Maker helps you split larger requests (>99.75 eHours) into smaller requests to avoid the 100 eHour limit"
+	],
 	"1.8.0": [
 		"New draft manager and save to OneDrive allows you to save drafts to cloud storage and load drafts. Ability to create a new draft (as in starting a new file) has not been added yet, but workaround is to start typing a new title which will create a new draft.",
 		"New AppSettings file for future use. This is more like an AppData file, so the app can store data like last update check and more.",

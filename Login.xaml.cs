@@ -83,12 +83,13 @@ public sealed partial class Login : Page
     };
 
     private bool isProgressBarActive;
+    private bool isVm = VmChecker.IsVirtualMachine();
 
     public Login()
     {
         try
         {
-            if (VmChecker.IsVirtualMachine())
+            if (isVm)
             {
                 return;
             }
@@ -149,18 +150,24 @@ public sealed partial class Login : Page
     {
         try
         {
-            if (VmChecker.IsVirtualMachine())
+            if (isVm)
             {
                 Loaded += async (_, _) =>
                 {
-                    await dialogManager.ShowDialog(
+                    try
+                    {
+                        await dialogManager.ShowDialog(
                         "Virtual Machine Detected",
-                        "Please use legitimate hardware in order to use HourSync. If you believe this is a false detection, please email neil@hoursync.net.",
-                        "OK",
+                        "HourSync is not designed to be used on virtual machines as they can be used to bypass security measures. As a result, HourSync disallows the use of virtual machines in order to protect user security and the district potal. Please use legitimate hardware in order to use HourSync. If you believe this is a false detection, please email neil@hoursync.net.",
+                        LocalizationService.GetString("OK"),
                         "",
                         "",
                         XamlRoot
                     );
+                    } catch( Exception ex ) {
+                        FileMgr.LogError(ex.Message);
+                        Application.Current.Exit();
+                    }
                     Application.Current.Exit();
                 };
                 return;
@@ -208,30 +215,19 @@ public sealed partial class Login : Page
 
         if (autoLoginEnabled.ToString() == "NOSETTINGSFILE")
         {
-            FileMgr.Log("Welcome to HourSync! Downloading current settings.");
+            FileMgr.Log("Welcome to HourSync! Intial setup in progress.");
 
-            var result = await dialogManager.ShowDialog(
+            await dialogManager.ShowDialog(
                 "Welcome!",
-                "Welcome to HourSync! This app requires the internet to initialize for the first time (and also to even log in!), so if you haven't connected, please do so now, or exit the app and try again later.\n\nThis app is meant to provide a centralized and easy to use experience to manage your eHours. Experience a modern design, an accessible interface, draft saving, and completely optional AI features.\n\nThe author of this app, Neil, wishes you enjoy this app and find it useful. Thanks!",
-                "Cancel",
-                "Download",
+                "Welcome to HourSync!\r\n\r\nHourSync provides a centralized and easy-to-use interface to manage your eHours. Experience a modern and accessible interface that puts the focus on logging your eHours. Never worry again about losing an eHour submission with Draft Saving and a Save to OneDrive feature. And never write the same submission twice with automatic request splitting for things like trips that are worth more than 100 hours.\r\n\r\nThe developer of this app, Neil, wishes you enjoy HourSync and find it useful. Thanks!",
+                "",
+                "Continue",
                 "",
                 XamlRoot
             );
-            if (result == ContentDialogResult.Primary)
-            {
-                FileMgr.Log("Downloading settings.json.");
-                await DownloadSettings();
-            }
-            else
-            {
-                FileMgr.Log("User canceled the download of settings.json.");
-                FileMgr.Log("Exiting.");
-                App.Current.Exit();
-                return;
-            }
+            FileMgr.WriteToFile("settings.json", "{}");
         }
-
+        FileMgr.Log(autoLoginEnabled.ToString());
         if (autoLoginEnabled.ToString().Equals("true", StringComparison.OrdinalIgnoreCase))
         {
             FileMgr.Log("AutoLogin is enabled. Logging in automatically.");
@@ -301,41 +297,6 @@ public sealed partial class Login : Page
         {
             FileMgr.Log($"Ping failed: {ex.Message}");
             return false;
-        }
-    }
-
-    private async Task DownloadSettings()
-    {
-        ShowLoginProgressBar();
-        if (await IsInternetAvailableAsync())
-        {
-            try
-            {
-                FileMgr.Log("Internet connection is available. Downloading settings.json from Firestore.");
-                var settingsURL = Private.Settings();
-                var resp = await _client.GetAsync(settingsURL);
-                string json = await resp.Content.ReadAsStringAsync();
-                var finalJson = FileMgr.ParseAndWriteSettingsJson(json);
-                FileMgr.WriteToFile("settings.json", finalJson);
-                waitForLoginProgressBar.IsIndeterminate = false;
-                waitForLoginProgressBar.Value = 100;
-                waitForLogin.Content = waitForLoginProgressBar;
-                waitForLogin.Title = "Download Complete";
-                waitForLogin.CloseButtonText = "OK";
-            }
-            catch (Exception ex)
-            {
-                FileMgr.LogError("Error when downloading settings: " + ex.Message);
-            }
-        }
-        else
-        {
-            FileMgr.Log("Internet connection is not available. Cannot download settings.json.");
-            waitForLoginProgressBar.ShowError = true;
-            waitForLogin.Content = waitForLoginProgressBar;
-            waitForLogin.Title = "No Internet";
-            waitForLogin.CloseButtonText = "OK";
-            waitForLogin.CloseButtonClick += (_, _) => ((App)Application.Current).m_window.Close();
         }
     }
 
@@ -430,9 +391,9 @@ public sealed partial class Login : Page
             {
                 await new ContentDialog()
                 {
-                    Title = "Use your username",
-                    Content = "Use the same login you use for the regular eHours portal! You don't have to use your Gmail username; in fact it actually won't work if you do.",
-                    PrimaryButtonText = "OK",
+                    Title = LocalizationService.GetString("UseYourUsernameTitle"),
+                    Content = LocalizationService.GetString("UseYourUsernameContent"),
+                    PrimaryButtonText = LocalizationService.GetString("GenericOKText"),
                     XamlRoot = XamlRoot,
                 }.ShowAsync();
 
@@ -490,7 +451,7 @@ public sealed partial class Login : Page
 
         waitForLogin = new ContentDialog
         {
-            Title = "Loading",
+            Title = LocalizationService.GetString("GenericLoadingText"),
             CloseButtonText = null,
             PrimaryButtonText = null,
             Content = waitForLoginProgressBar,
@@ -523,7 +484,7 @@ public sealed partial class Login : Page
             FileMgr.Log("Attempting login via HourSyncCore");
             if (password.Length < 6)
             {
-                ShowLoginError("Password length is too short");
+                ShowLoginError(LocalizationService.GetString("PassTooShort"));
                 return;
             }
             var loginResult = await HourSyncCore.Login(username, password);
@@ -580,8 +541,7 @@ public sealed partial class Login : Page
     private async Task<bool> CheckForUpdateIfNeeded()
     {
         DateTime now = DateTime.Now;
-        bool shouldCheck = false;
-
+        bool shouldCheck;
         try
         {
             FileMgr.Log("Getting last update check date");
@@ -592,14 +552,12 @@ public sealed partial class Login : Page
                 (now - storedDate) < TimeSpan.FromDays(1))
             {
                 shouldCheck = false;
-                FileMgr.Log("Should not check");
             }
             else
             {
                 appSettings["LastUpdateCheck"] = now.ToString("o");
                 FileMgr.SaveAppSettings(appSettings);
                 shouldCheck = true;
-                FileMgr.Log("SHOULD check");
             }
         }
         catch (Exception ex)
@@ -611,11 +569,9 @@ public sealed partial class Login : Page
 
         if (!shouldCheck)
         {
-            FileMgr.Log("Returning false because it should not check");
             return false;
         }
 
-        FileMgr.Log("Returning true because last check was >24 hours ago");
         return await CheckForUpdate();
     }
 
@@ -642,10 +598,10 @@ public sealed partial class Login : Page
         if (result == "true")
         {
             var clicked = await dialogManager.ShowDialog(
-                "New Update Available",
-                "A newer version is available. Would you like to update?",
-                "Later",
-                "Update",
+                LocalizationService.GetString("NewUpdateAvailableTitle"),
+                LocalizationService.GetString("NewUpdateAvailableContent"),
+                LocalizationService.GetString("LaterText"),
+                LocalizationService.GetString("UpdateText"),
                 "",
                 XamlRoot
             );

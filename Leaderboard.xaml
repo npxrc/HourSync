@@ -17,7 +17,7 @@
         <ScrollViewer>
             <StackPanel Orientation="Vertical" Spacing="10">
                 <!-- Title -->
-                <TextBlock Text="Leaderboard"
+                <TextBlock x:Uid="LeaderboardTitle"
                            Style="{ThemeResource TitleTextBlockStyle}"
                            Margin="0,0,0,10"/>
 
@@ -25,10 +25,10 @@
                 <StackPanel Orientation="Horizontal" Spacing="20" Margin="14,0,0,0">
                     <TextBlock Text="#"
                                Style="{ThemeResource BodyStrongTextBlockStyle}"/>
-                    <TextBlock Text="Name" 
+                    <TextBlock x:Uid="LeaderboardNameHeader"
                                Style="{ThemeResource BodyStrongTextBlockStyle}" 
                                Width="250"/>
-                    <TextBlock Text="# of Hours" 
+                    <TextBlock x:Uid="LeaderboardHoursHeader"
                                Style="{ThemeResource BodyStrongTextBlockStyle}"/>
                 </StackPanel>
                 <ListView ItemsSource="{x:Bind leaderboardData.StudentData, Mode=OneWay}" SelectionMode="Single">

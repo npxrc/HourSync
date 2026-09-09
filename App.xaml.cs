@@ -3,7 +3,7 @@
 #pragma warning disable IDE0044 // Add readonly modifier
 #pragma warning disable IDE0051 // Remove unused private members
 #pragma warning disable IDE0052 // Remove unread private members
-#pragma warning disable IDE1006 // this aint an english class i'm not capitalising anything
+#pragma warning disable IDE1006
 #pragma warning disable 0649 // it is actually assigned to!
 #pragma warning disable 0169 // it is actually assigned to!
 using System;
@@ -12,11 +12,12 @@ using System.Net;
 using System.Net.Http;
 using DiscordRPC;
 using HourSyncCoreLib;
-using HourSync.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.ApplicationModel.Activation;
+using Microsoft.Windows.AppLifecycle;
 
 namespace HourSync;
 
@@ -102,12 +103,84 @@ public partial class App : Application
     public List<EHourRequest> Accepted = [];
     public List<EHourRequest> Denied = [];
 
+    public App()
+    {
+        AppInstance.GetCurrent().Activated += OnActivated;
+        this.InitializeComponent();
+
+        this.UnhandledException += App_UnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+        System.Threading.Tasks.TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
+    }
+
+    private void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
+    {
+        FileMgr.LogError($"Critical UI Exception:\r\n{e.Exception}");
+
+        e.Handled = true;
+
+        Environment.FailFast(
+            "Unhandled WinUI exception",
+            e.Exception
+        );
+    }
+
+    private void CurrentDomain_UnhandledException(object sender, System.UnhandledExceptionEventArgs e)
+    {
+        if (e.ExceptionObject is Exception ex)
+        {
+            FileMgr.LogError($"Critical Domain Exception:\r\n{ex}");
+        }
+
+        Environment.FailFast(
+            "Unhandled domain exception",
+            e.ExceptionObject as Exception
+        );
+    }
+
+    private void TaskScheduler_UnobservedTaskException(
+        object sender,
+        System.Threading.Tasks.UnobservedTaskExceptionEventArgs e)
+    {
+        FileMgr.LogError($"Unobserved Task Exception:\r\n{e.Exception}");
+
+        e.SetObserved();
+
+        Environment.FailFast(
+            "Unobserved task exception",
+            e.Exception
+        );
+    }
+
     public void SetRequests(List<EHourRequest> Returned, List<EHourRequest> Pending, List<EHourRequest> Accepted, List<EHourRequest> Denied)
     {
         this.Returned = Returned;
         this.Pending = Pending;
         this.Accepted = Accepted;
         this.Denied = Denied;
+    }
+
+    private void OnActivated(object sender, AppActivationArguments args)
+    {
+        FileMgr.Log("App activated with arguments: " + args.Kind.ToString());
+        if (args.Kind == ExtendedActivationKind.Protocol)
+        {
+            var protocolArgs = (IProtocolActivatedEventArgs)args.Data;
+            var incomingUri = protocolArgs.Uri.AbsoluteUri;
+
+            // Ensure window exists
+            if (m_window == null)
+            {
+                m_window = new MainWindow();
+                m_window.Activate();
+            }
+            else
+            {
+                m_window.Activate();
+            }
+
+            FileMgr.Log(incomingUri);
+        }
     }
 
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)

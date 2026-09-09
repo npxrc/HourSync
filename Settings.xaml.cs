@@ -19,12 +19,17 @@ using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI.Text;
+using System.Runtime.InteropServices.WindowsRuntime;
+using Microsoft.Windows.AppLifecycle;
+using Windows.ApplicationModel.Core;
 
 namespace HourSync;
 public sealed partial class Settings : Page
 {
     private Dictionary<string, SettingDefinition> settingsCache = FileMgr.LoadSettings();
     private bool isLanguageSelectorReady;
+
+    private string settingsOptions = "{\r\n  \"aiCompanion\": {\r\n    \"Key\": \"aiCompanion\",\r\n    \"Title\": \"AI Companion\",\r\n    \"Description\": \"The AI companion which you want to use. Only works if AI features are enabled.\",\r\n    \"Type\": \"select\",\r\n    \"IsEnabled\": true,\r\n    \"DefaultValue\": true,\r\n    \"Options\": [\r\n      {\r\n        \"FriendlyName\": \"ChatGPT\",\r\n        \"Key\": \"chatgpt\"\r\n      },\r\n      {\r\n        \"FriendlyName\": \"Google Gemini\",\r\n        \"Key\": \"gemini\"\r\n      },\r\n      {\r\n        \"FriendlyName\": \"Claude\",\r\n        \"Key\": \"claude\"\r\n      },\r\n      {\r\n        \"FriendlyName\": \"DeepSeek\",\r\n        \"Key\": \"deepseek\"\r\n      },\r\n      {\r\n        \"FriendlyName\": \"Microsoft Copilot\",\r\n        \"Key\": \"copilot\"\r\n      },\r\n      {\r\n        \"FriendlyName\": \"Duck AI\",\r\n        \"Key\": \"duck\"\r\n      },\r\n      {\r\n        \"FriendlyName\": \"Perplexity\",\r\n        \"Key\": \"perplexity\"\r\n      },\r\n      {\r\n        \"FriendlyName\": \"Grok\",\r\n        \"Key\": \"grok\"\r\n      }\r\n    ],\r\n    \"SelectedValue\": {\r\n      \"FriendlyName\": \"ChatGPT\",\r\n      \"Key\": \"chatgpt\"\r\n    }\r\n  },\r\n  \"endorsementSelection\": {\r\n    \"Key\": \"endorsementSelection\",\r\n    \"Title\": \"Endorsement Level Selection\",\r\n    \"Description\": \"Select whether you want to endorse, endorse with honours, or high honours.\",\r\n    \"Type\": \"select\",\r\n    \"IsEnabled\": true,\r\n    \"DefaultValue\": true,\r\n    \"Options\": [\r\n      {\r\n        \"FriendlyName\": \"200\",\r\n        \"Key\": \"two\"\r\n      },\r\n      {\r\n        \"FriendlyName\": \"300\",\r\n        \"Key\": \"three\"\r\n      },\r\n      {\r\n        \"FriendlyName\": \"400\",\r\n        \"Key\": \"four\"\r\n      }\r\n    ],\r\n    \"SelectedValue\": {\r\n      \"FriendlyName\": \"200\",\r\n      \"Key\": \"two\"\r\n    }\r\n  },\r\n  \"sortBy\": {\r\n    \"Key\": \"sortBy\",\r\n    \"Title\": \"Sort Order\",\r\n    \"Description\": \"The default way that the app sorts requests. If unset, defaults to last used.\",\r\n    \"Type\": \"select\",\r\n    \"IsEnabled\": true,\r\n    \"DefaultValue\": true,\r\n    \"Options\": [\r\n      {\r\n        \"FriendlyName\": \"Date (Old to New)\",\r\n        \"Key\": \"date-old\"\r\n      },\r\n      {\r\n        \"FriendlyName\": \"Date (New to Old)\",\r\n        \"Key\": \"date-new\"\r\n      },\r\n      {\r\n        \"FriendlyName\": \"Name (A to Z)\",\r\n        \"Key\": \"name-a\"\r\n      },\r\n      {\r\n        \"FriendlyName\": \"Name (Z to A)\",\r\n        \"Key\": \"name-z\"\r\n      },\r\n      {\r\n        \"FriendlyName\": \"Hours (Low to High)\",\r\n        \"Key\": \"hours-low\"\r\n      },\r\n      {\r\n        \"FriendlyName\": \"Hours (High to Low)\",\r\n        \"Key\": \"hours-high\"\r\n      }\r\n    ],\r\n    \"SelectedValue\": {\r\n      \"FriendlyName\": \"Date (Old to New)\",\r\n      \"Key\": \"date-old\"\r\n    }\r\n  },\r\n  \"aiEnabled\": {\r\n    \"Key\": \"aiEnabled\",\r\n    \"Title\": \"AI Companion\",\r\n    \"Description\": \"Enables an AI companion window in the submission creator\",\r\n    \"Type\": \"bool\",\r\n    \"IsEnabled\": true,\r\n    \"DefaultValue\": false,\r\n    \"Options\": null,\r\n    \"SelectedValue\": null\r\n  },\r\n  \"autologin\": {\r\n    \"Key\": \"autologin\",\r\n    \"Title\": \"Auto Login\",\r\n    \"Description\": \"Automatically logs you into the app\",\r\n    \"Type\": \"bool\",\r\n    \"IsEnabled\": true,\r\n    \"DefaultValue\": true,\r\n    \"Options\": null,\r\n    \"SelectedValue\": null\r\n  }\r\n}";
 
     public Settings()
     {
@@ -91,7 +96,14 @@ public sealed partial class Settings : Page
         var result = await restartDialog.ShowAsync();
         if (result == ContentDialogResult.Primary)
         {
-            Application.Current.Exit();
+            AppRestartFailureReason restartError = AppInstance.Restart("");
+            if (restartError != AppRestartFailureReason.RestartPending) { return; }
+            if (restartDialog.Visibility == Visibility.Visible)
+            {
+                restartDialog.Hide();
+                DialogService dialogmgr = new DialogService();
+                await dialogmgr.ShowErrorDialog(LocalizationService.GetString("GenericErrorMessage"), true, XamlRoot);
+            }
         }
     }
 
@@ -99,22 +111,9 @@ public sealed partial class Settings : Page
     {
         try
         {
-            var localAppDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var dataPath = Path.Combine(localAppDataPath, "HourSync");
-            var settingsPath = Path.Combine(dataPath, "settings.json");
 
-            if (File.Exists(settingsPath))
-            {
-                var json = File.ReadAllText(settingsPath);
-                // Use the generated type info
-                var settingsDictionary = JsonSerializer.Deserialize(json, SettingsJsonContext.Default.DictionaryStringSettingDefinition);
-                settings = [.. settingsDictionary.Values];
-            }
-            else
-            {
-                settings = [];
-            }
-
+            var settingsDictionary = JsonSerializer.Deserialize(settingsOptions, SettingsJsonContext.Default.DictionaryStringSettingDefinition);
+            settings = [.. settingsDictionary.Values];
             SettingsPanel.ItemsSource = settings;
         }
         catch (Exception ex)
@@ -132,6 +131,7 @@ public sealed partial class Settings : Page
             var setting = settings.Find(s => s.Key == key);
             if (setting != null)
             {
+                FileMgr.Log("Saving value for " + setting.Key);
                 if (value is bool boolValue)
                 {
                     setting.IsEnabled = boolValue;
@@ -245,11 +245,11 @@ public sealed partial class Settings : Page
     {
         var confirm = new ContentDialog
         {
-            Title = "Confirm",
-            Content = "Click \"Clear\" to confirm you would like to clear the log. These help for diagnostic purposes and are stored in your AppData folder.",
-            PrimaryButtonText = "Clear",
-            SecondaryButtonText = "Open Log",
-            CloseButtonText = "Cancel",
+            Title = LocalizationService.GetString("ClearLogTitleText"),
+            Content = LocalizationService.GetString("ClearLogContentText"),
+            PrimaryButtonText = LocalizationService.GetString("ClearLogPrimaryText"),
+            SecondaryButtonText = LocalizationService.GetString("ClearLogSecondaryText"),
+            CloseButtonText = LocalizationService.GetString("GenericCancelText"),
             XamlRoot = XamlRoot
         };
 
@@ -302,10 +302,9 @@ public sealed partial class Settings : Page
             {
                 var dialog = new ContentDialog
                 {
-                    Title = "Open Draft Error",
-                    Content =
-                        "An error occurred when opening the log. Take your laptop to tech at this point brochacho.",
-                    PrimaryButtonText = "OK",
+                    Title = LocalizationService.GetString("OpenLogErrorTitle"),
+                    Content = LocalizationService.GetString("OpenLogErrorContent"),
+                    PrimaryButtonText = LocalizationService.GetString("GenericOKText"),
                     XamlRoot = XamlRoot,
                 };
                 await dialog.ShowAsync();
@@ -329,7 +328,7 @@ public sealed partial class Settings : Page
     };
     private ContentDialog waitForInfo = new()
     {
-        Title = "Loading",
+        Title = LocalizationService.GetString("GenericLoadingText"),
         CloseButtonText = null,
         PrimaryButtonText = null, // Ensure there's no default button
     };
@@ -348,9 +347,9 @@ public sealed partial class Settings : Page
 
         waitForInfo = new()
         {
-            Title = "Loading",
+            Title = LocalizationService.GetString("GenericLoadingText"),
             PrimaryButtonText = null,
-            CloseButtonText = "Cancel",
+            CloseButtonText = LocalizationService.GetString("GenericCancelText"),
             Content = waitProgressBar,
 
             // Ensure the ContentDialog is set to the correct XamlRoot
@@ -366,9 +365,9 @@ public sealed partial class Settings : Page
         ShowLoadingProgressBarAsync();
         string info = await VmChecker.GetMachineType();
         info = info.Trim();
-        waitForInfo.Title = "Device Information";
+        waitForInfo.Title = LocalizationService.GetString("SettingsDeviceInfoPopupTitle");
         waitForInfo.Content = info;
-        waitForInfo.CloseButtonText = "OK";
+        waitForInfo.CloseButtonText = LocalizationService.GetString("GenericOKText");
     }
 
     private async void AboutHourSync(object _, RoutedEventArgs __)
@@ -396,7 +395,7 @@ public sealed partial class Settings : Page
         if (releaseNotes.TryGetValue(versionString, out var currentNotes))
         {
             var currentHeading = new Paragraph { Margin = new Thickness(0, 0, 0, 10) };
-            currentHeading.Inlines.Add(new Run { Text = $"What's new in {versionString}", FontWeight = new FontWeight(550), FontSize = 18 });
+            currentHeading.Inlines.Add(new Run { Text = LocalizationService.PrepareStatement("WhatsNewInVersionText", versionString), FontWeight = new FontWeight(550), FontSize = 18 });
             richText.Blocks.Add(currentHeading);
 
             var currentParagraph = new Paragraph();
@@ -409,7 +408,7 @@ public sealed partial class Settings : Page
         else
         {
             var missing = new Paragraph();
-            missing.Inlines.Add(new Run { Text = $"No release notes found for {versionString}" });
+            missing.Inlines.Add(new Run { Text = $"{LocalizationService.PrepareStatement("NoNotesFoundText", versionString)}." });
             richText.Blocks.Add(missing);
         }
 
@@ -419,7 +418,7 @@ public sealed partial class Settings : Page
             if (kvp.Key == versionString) continue; // Skip current
 
             var heading = new Paragraph { Margin = new Thickness(0, 10, 0, 5) };
-            heading.Inlines.Add(new Run { Text = $"Version {kvp.Key}", FontWeight = new FontWeight(550), FontSize = 16 });
+            heading.Inlines.Add(new Run { Text = LocalizationService.PrepareStatement("GenericVersionString", kvp.Key), FontWeight = new FontWeight(550), FontSize = 16 });
             richText.Blocks.Add(heading);
 
             var para = new Paragraph();
@@ -449,7 +448,7 @@ public sealed partial class Settings : Page
         // Add title to the first row
         var titleTextBlock = new TextBlock
         {
-            Text = "Release Notes",
+            Text = LocalizationService.GetString("SettingsReleaseNotesTitle"),
             FontSize = 25,
             FontWeight = new FontWeight(600),
             Margin = new Thickness(0, 0, 0, 10)

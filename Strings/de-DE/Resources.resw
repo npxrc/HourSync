@@ -1,0 +1,783 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Nav.Login" xml:space="preserve">
+    <value>Anmeldung</value>
+  </data>
+  <data name="Nav.Home" xml:space="preserve">
+    <value>Startseite</value>
+  </data>
+  <data name="Nav.Create" xml:space="preserve">
+    <value>Anfrage erstellen</value>
+  </data>
+  <data name="Nav.Leaderboard" xml:space="preserve">
+    <value>Bestenliste</value>
+  </data>
+  <data name="LeaderboardTitle.Text" xml:space="preserve">
+    <value>Bestenliste</value>
+  </data>
+  <data name="Nav.Resync" xml:space="preserve">
+    <value>Jahresrückblick</value>
+  </data>
+  <data name="Nav.Settings" xml:space="preserve">
+    <value>Einstellungen</value>
+  </data>
+  <data name="Language.RestartDialog.Title" xml:space="preserve">
+    <value>Neustart erforderlich</value>
+  </data>
+  <data name="Language.RestartDialog.Content" xml:space="preserve">
+    <value>Sprachänderungen werden nach einem Neustart von HourSync angewendet.</value>
+  </data>
+  <data name="Language.RestartDialog.Primary" xml:space="preserve">
+    <value>Jetzt neu starten</value>
+  </data>
+  <data name="Language.RestartDialog.Close" xml:space="preserve">
+    <value>Später</value>
+  </data>
+  <data name="SettingsTitle.Text" xml:space="preserve">
+    <value>Einstellungen</value>
+  </data>
+  <data name="SettingsLanguageLabel.Text" xml:space="preserve">
+    <value>Sprache</value>
+  </data>
+  <data name="SettingsLanguageSystem.Content" xml:space="preserve">
+    <value>Systemstandard</value>
+  </data>
+  <data name="SettingsLanguageEnglish.Content" xml:space="preserve">
+    <value>Englisch</value>
+  </data>
+  <data name="SettingsLanguageGerman.Content" xml:space="preserve">
+    <value>Deutsch</value>
+  </data>
+  <data name="SettingsClearLogButton.Content" xml:space="preserve">
+    <value>Protokoll löschen</value>
+  </data>
+  <data name="SettingsMachineInfoButton.Content" xml:space="preserve">
+    <value>Geräteinfos anzeigen</value>
+  </data>
+  <data name="SettingsAboutButton.Content" xml:space="preserve">
+    <value>Über HourSync</value>
+  </data>
+  <data name="RequestMakerPageTitle.Text" xml:space="preserve">
+    <value>eHours anfragen</value>
+  </data>
+  <data name="RequestMakerDraftLoadedInfo.Title" xml:space="preserve">
+    <value>Entwurf geladen</value>
+  </data>
+  <data name="RequestMakerDraftLoadedInfo.Message" xml:space="preserve">
+    <value>Ihr letzter Entwurf wurde geladen.</value>
+  </data>
+  <data name="RequestMakerDraftDeletedInfo.Title" xml:space="preserve">
+    <value>Entwurf gelöscht</value>
+  </data>
+  <data name="RequestMakerDraftDeletedInfo.Message" xml:space="preserve">
+    <value>Ihr vorheriger Entwurf wurde gelöscht.</value>
+  </data>
+  <data name="RequestMakerDraftCorruptInfo.Title" xml:space="preserve">
+    <value>Entwurf konnte nicht geladen werden</value>
+  </data>
+  <data name="RequestMakerDraftCorruptInfo.Message" xml:space="preserve">
+    <value>Der Entwurf in Ihrem %localappdata%-Ordner ist beschädigt, veraltet oder ungültig und wurde nicht geladen.</value>
+  </data>
+  <data name="RequestMakerOpenDraftButton.Content" xml:space="preserve">
+    <value>Entwurf öffnen</value>
+  </data>
+  <data name="RequestMakerDeleteDraftButton.Content" xml:space="preserve">
+    <value>Entwurf löschen</value>
+  </data>
+  <data name="RequestMakerEventTitleLabel.Text" xml:space="preserve">
+    <value>Titel der Veranstaltung eingeben:</value>
+  </data>
+  <data name="RequestMakerEventTitleBox.PlaceholderText" xml:space="preserve">
+    <value>Veranstaltungstitel</value>
+  </data>
+  <data name="RequestMakerEventDayLabel.Text" xml:space="preserve">
+    <value>Tag der Veranstaltung:</value>
+  </data>
+  <data name="RequestMakerRequestedHoursLabel.Text" xml:space="preserve">
+    <value>Angeforderte Anzahl eHours:</value>
+  </data>
+  <data name="RequestMakerRequestedHoursBox.PlaceholderText" xml:space="preserve">
+    <value>Angeforderte Anzahl eHours</value>
+  </data>
+  <data name="RequestMakerDetailsLabel.Text" xml:space="preserve">
+    <value>Details zur Einreichung eingeben:</value>
+  </data>
+  <data name="RequestMakerDetailsBox.PlaceholderText" xml:space="preserve">
+    <value>Veranstaltungsdetails</value>
+  </data>
+  <data name="RequestMakerSubmitButton.Content" xml:space="preserve">
+    <value>Absenden</value>
+  </data>
+  <data name="RequestMakerImageUploadButton.Content" xml:space="preserve">
+    <value>Bilder hochladen</value>
+  </data>
+  <data name="RequestMakerSaveToOneDriveText.Text" xml:space="preserve">
+    <value>In OneDrive speichern</value>
+  </data>
+  <data name="RequestMakerLoadDraftButton.Content" xml:space="preserve">
+    <value>Entwurf laden...</value>
+  </data>
+  <data name="RequestMakerClearButton.Content" xml:space="preserve">
+    <value>Leeren</value>
+  </data>
+  <data name="RequestMakerFilesSelectedText.Text" xml:space="preserve">
+    <value>Keine Dateien ausgewählt.</value>
+  </data>
+  <data name="RequestMakerSelectedImagesLabel.Text" xml:space="preserve">
+    <value>Ausgewählte Bilder:</value>
+  </data>
+  <data name="RequestMakerRemoveImageButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>Bild entfernen</value>
+  </data>
+  <data name="RequestMakerPopOutButton.Content" xml:space="preserve">
+    <value>Browser auskoppeln</value>
+  </data>
+  <data name="Home.AcceptedHoursText" xml:space="preserve">
+    <value>Angenommen Stunden</value>
+  </data>
+  <data name="Home.PendingHoursText" xml:space="preserve">
+    <value>Bevorstehend Stunden</value>
+  </data>
+  <data name="Home.DeniedHoursText" xml:space="preserve">
+    <value>Abgelehnt Stunden</value>
+  </data>
+  <data name="Home.ReturnedHoursText" xml:space="preserve">
+    <value>Zurückgegebene Stunden</value>
+  </data>
+  <data name="LoginTitleText.Text" xml:space="preserve">
+    <value>Anmeldung</value>
+  </data>
+  <data name="LoginUsername.PlaceholderText" xml:space="preserve">
+    <value>Distrikt-Benutzername</value>
+  </data>
+  <data name="LoginPassword.PlaceholderText" xml:space="preserve">
+    <value>Distrikt-Passwort</value>
+  </data>
+  <data name="LoginButton.Content" xml:space="preserve">
+    <value>Einloggen</value>
+  </data>
+  <data name="LoginForgotPassword.Content" xml:space="preserve">
+    <value>Passwort Vergessen?</value>
+  </data>
+  <data name="Home.AcceptRateText" xml:space="preserve">
+    <value>Zustimmungquote</value>
+  </data>
+  <data name="ClearLogTitleText" xml:space="preserve">
+    <value>Bestätigen</value>
+  </data>
+  <data name="ClearLogContentText" xml:space="preserve">
+    <value>Klicken Sie "Löschen", um zu bestätigen, dass Sie das Protokoll löschen möchten. Diese sind für diagnostischen Zwecken hilfreich, und werden im deinen AppData Ordner gespeichert.</value>
+  </data>
+  <data name="GenericCancelText" xml:space="preserve">
+    <value>Abbrechen</value>
+  </data>
+  <data name="GenericOKText" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="ClearLogPrimaryText" xml:space="preserve">
+    <value>Protokoll löschen</value>
+  </data>
+  <data name="ClearLogSecondaryText" xml:space="preserve">
+    <value>Protokoll öffnen</value>
+  </data>
+  <data name="OpenLogErrorTitle" xml:space="preserve">
+    <value>Fehler beim des Protkolls Öffnen</value>
+  </data>
+  <data name="OpenLogErrorContent" xml:space="preserve">
+    <value>Es gibt ein Fehler, um das Protokoll öffnen machen.</value>
+  </data>
+  <data name="GenericLoadingText" xml:space="preserve">
+    <value>Laden</value>
+  </data>
+  <data name="SettingsDeviceInfoPopupTitle" xml:space="preserve">
+    <value>Geräte Information</value>
+  </data>
+  <data name="SettingsReleaseNotesTitle" xml:space="preserve">
+    <value>Release-Notes</value>
+  </data>
+  <data name="NoNotesFoundText" xml:space="preserve">
+    <value>Keine Release-Notes für XXX gefunden</value>
+  </data>
+  <data name="WhatsNewInVersionText" xml:space="preserve">
+    <value>Was ist neu in XXX</value>
+  </data>
+  <data name="GenericVersionString" xml:space="preserve">
+    <value>Version XXX</value>
+  </data>
+  <data name="ProgressToEndorsementLabel.Text" xml:space="preserve">
+    <value>Fortschritt zur Befürwortung</value>
+  </data>
+  <data name="LogoutButton.Content" xml:space="preserve">
+    <value>Abmelden</value>
+  </data>
+  <data name="SortDateOtoN.Text" xml:space="preserve">
+    <value>Datum (Alt bis Neu)</value>
+  </data>
+  <data name="SortDateNtoO.Text" xml:space="preserve">
+    <value>Datum (Neu bis Alt)</value>
+  </data>
+  <data name="SortNameAtoZ.Text" xml:space="preserve">
+    <value>Name (A bis Z)</value>
+  </data>
+  <data name="SortNameZtoA.Text" xml:space="preserve">
+    <value>Name (Z bis A)</value>
+  </data>
+  <data name="SortHoursLtoH.Text" xml:space="preserve">
+    <value>Stunden (Niedrig bis Hoch)</value>
+  </data>
+  <data name="SortHoursHtoL.Text" xml:space="preserve">
+    <value>Stunden (Hoch bis Niedrig)</value>
+  </data>
+  <data name="OpenReSyncButton.Content" xml:space="preserve">
+    <value>ReSync Öffnen</value>
+  </data>
+  <data name="ReloadHomeButton.Content" xml:space="preserve">
+    <value>Nachladen</value>
+  </data>
+  <data name="AcceptedRequestsLabel.Text" xml:space="preserve">
+    <value>Angenommen Anfragen -</value>
+  </data>
+  <data name="DeniedRequestsLabel.Text" xml:space="preserve">
+    <value>Abgelehnt Anfragen -</value>
+  </data>
+  <data name="PendingRequestsLabel.Text" xml:space="preserve">
+    <value>Bevorstehend Anfragen -</value>
+  </data>
+  <data name="ReturnedRequestsLabel.Text" xml:space="preserve">
+    <value>Zurückgegebene Anfragen -</value>
+  </data>
+  <data name="SortDropDown.Content" xml:space="preserve">
+    <value>Sortieren nach</value>
+  </data>
+  <data name="SearchBox.PlaceholderText" xml:space="preserve">
+    <value>Suchanfragen...</value>
+  </data>
+  <data name="VM.SerialNumber" xml:space="preserve">
+    <value>Seriennummer</value>
+  </data>
+  <data name="VM.Manufacturer" xml:space="preserve">
+    <value>Hersteller*in</value>
+  </data>
+  <data name="VM.Model" xml:space="preserve">
+    <value>Modell</value>
+  </data>
+  <data name="VM.WindowsVersion" xml:space="preserve">
+    <value>Windows-Version</value>
+  </data>
+  <data name="VM.VirtualMachine" xml:space="preserve">
+    <value>Virtuelle Maschine</value>
+  </data>
+  <data name="True" xml:space="preserve">
+    <value>Wahr</value>
+  </data>
+  <data name="False" xml:space="preserve">
+    <value>Falsch</value>
+  </data>
+  <data name="DefaultStringText" xml:space="preserve">
+    <value>Standardzeichenfolge</value>
+  </data>
+  <data name="TimeAgo_JustNow" xml:space="preserve">
+    <value>Gerade eben eingereicht.</value>
+  </data>
+  <data name="TimeAgo_Submitted" xml:space="preserve">
+    <value>Vor</value>
+  </data>
+  <data name="TimeAgo_Day" xml:space="preserve">
+    <value>XXX Tag</value>
+  </data>
+  <data name="TimeAgo_Days" xml:space="preserve">
+    <value>XXX Tagen</value>
+  </data>
+  <data name="TimeAgo_Hour" xml:space="preserve">
+    <value>XXX Stunde</value>
+  </data>
+  <data name="TimeAgo_Hours" xml:space="preserve">
+    <value>XXX Stunden</value>
+  </data>
+  <data name="TimeAgo_Minute" xml:space="preserve">
+    <value>XXX Minute</value>
+  </data>
+  <data name="TimeAgo_Minutes" xml:space="preserve">
+    <value>XXX Minuten</value>
+  </data>
+  <data name="TimeAgo_Ago" xml:space="preserve">
+    <value>eingereicht.</value>
+  </data>
+  <data name="GenericAt" xml:space="preserve">
+    <value>um</value>
+  </data>
+  <data name="HomeRequestButtonHours.Text" xml:space="preserve">
+    <value>Stunden:</value>
+  </data>
+  <data name="HomeRequestButtonDate.Text" xml:space="preserve">
+    <value>Datum:</value>
+  </data>
+  <data name="LeaderboardNameHeader.Text" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="LeaderboardHoursHeader.Text" xml:space="preserve">
+    <value># der Stunden</value>
+  </data>
+  <data name="Yes" xml:space="preserve">
+    <value>Ja</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>Nein</value>
+  </data>
+  <data name="ConfirmDeleteMessage" xml:space="preserve">
+    <value>Sind Sie sicher, dass Sie "XXX" löschen möchten?</value>
+  </data>
+  <data name="ConfirmDeleteTitle" xml:space="preserve">
+    <value>Löschen Bestätigen</value>
+  </data>
+  <data name="DeletingTitle" xml:space="preserve">
+    <value>Wird löschen</value>
+  </data>
+  <data name="IncorrectCredentialsTitle" xml:space="preserve">
+    <value>Falsche Anmeldedaten</value>
+  </data>
+  <data name="IncorrectCredentialsMessage" xml:space="preserve">
+    <value>Ihre Anmeldedaten für den Benutzer XXX sind falsch. Bitte loggen Sie sich erneut ein.</value>
+  </data>
+  <data name="GenericErrorTitle" xml:space="preserve">
+    <value>Fehler</value>
+  </data>
+  <data name="GenericErrorMessage" xml:space="preserve">
+    <value>Ein Fehler ist aufgetreten. Bitte überprüfen Sie das Protokoll für weitere Informationen.</value>
+  </data>
+  <data name="GenericCloseText" xml:space="preserve">
+    <value>Schließen</value>
+  </data>
+  <data name="DeletedSuccessfullyTitle" xml:space="preserve">
+    <value>Erfolgreich gelöscht</value>
+  </data>
+  <data name="ErrorDeletingTitle" xml:space="preserve">
+    <value>Fehler beim Löschen. Überprüfe das Protokoll für mehr Infos.</value>
+  </data>
+  <data name="CannotDeleteTitle" xml:space="preserve">
+    <value>Kann nicht gelöscht werden</value>
+  </data>
+  <data name="CannotDeleteMessage" xml:space="preserve">
+    <value>Sie können diese Anfrage nicht löschen, da sie bereits von Ihrem Academy-Ausbilder akzeptiert oder abgelehnt wurde. Bitte kontaktieren Sie den Ausbilder der XXX für weitere Anweisungen.</value>
+  </data>
+  <data name="MaxEditorsReachedTitle" xml:space="preserve">
+    <value>Maximale Anzahl an Editoren erreicht</value>
+  </data>
+  <data name="MaxEditorsReachedMessage" xml:space="preserve">
+    <value>Diese Anfrage ist bereits in einem anderen Editor geöffnet. Bitte schließen Sie diesen Editor oder arbeiten Sie dort weiter.</value>
+  </data>
+  <data name="GoToExistingEditorText" xml:space="preserve">
+    <value>Gehe zum vorhandenen Editor</value>
+  </data>
+  <data name="ConfirmEditTitle" xml:space="preserve">
+    <value>Bearbeitung bestätigen</value>
+  </data>
+  <data name="ConfirmEditMessage" xml:space="preserve">
+    <value>Sind Sie sicher, dass Sie diese Anfrage aktualisieren möchten?</value>
+  </data>
+  <data name="UpdateButtonText" xml:space="preserve">
+    <value>Aktualisieren</value>
+  </data>
+  <data name="UpdatingTitle" xml:space="preserve">
+    <value>Aktualisieren</value>
+  </data>
+  <data name="UpdatedSuccessfullyTitle" xml:space="preserve">
+    <value>Erfolgreich aktualisiert</value>
+  </data>
+  <data name="UnknownErrorMessage" xml:space="preserve">
+    <value>Etwas anderes ist schiefgelaufen, aber wir können die Ursache nicht ermitteln. Versuchen Sie es erneut über das offizielle Portal.</value>
+  </data>
+  <data name="GenericConfirmTitle" xml:space="preserve">
+    <value>Bestätigen</value>
+  </data>
+  <data name="ConfirmStopEditingMessage" xml:space="preserve">
+    <value>Sind Sie sicher, dass Sie die Bearbeitung abbrechen möchten? Ihre Änderungen werden verworfen.</value>
+  </data>
+  <data name="DiscardText" xml:space="preserve">
+    <value>Verwerfen</value>
+  </data>
+  <data name="RequestPageReqdEHLabel.Text" xml:space="preserve">
+    <value>Angeforderte Anzahl eHours:</value>
+  </data>
+  <data name="RequestPageStatusLabel.Text" xml:space="preserve">
+    <value>Status: </value>
+  </data>
+  <data name="RequestPageDelReqButton.Content" xml:space="preserve">
+    <value>Anfrage löschen</value>
+  </data>
+  <data name="RequestPageEditReqButton.Content" xml:space="preserve">
+    <value>Anfrage bearbeiten</value>
+  </data>
+  <data name="RequestPageOpenBrowserButton.Content" xml:space="preserve">
+    <value>Im Browser öffnen</value>
+  </data>
+  <data name="RequestPageDateSubLabel.Text" xml:space="preserve">
+    <value>Eingereicht am: </value>
+  </data>
+  <data name="RequestPageEditEnabledBar.Title" xml:space="preserve">
+    <value>Bearbeitung wurde aktiviert</value>
+  </data>
+  <data name="RequestPageEditEnabledBar.Message" xml:space="preserve">
+    <value>Nehmen Sie die gewünschten Änderungen vor und klicken Sie auf 'Aktualisieren', wenn Sie fertig sind.</value>
+  </data>
+  <data name="RequestPageEventDescLabel.Text" xml:space="preserve">
+    <value>Veranstaltungsbeschreibung:</value>
+  </data>
+  <data name="RequestPageEventBodyBox.Text" xml:space="preserve">
+    <value>Wenn es nach einer Weile immer noch 'Laden' anzeigt, versuchen Sie, die Anfrage zu schließen und erneut zu öffnen. Versuchen Sie andernfalls, sich erneut anzumelden.</value>
+  </data>
+  <data name="RequestPageUpdateBtn.Content" xml:space="preserve">
+    <value>Aktualisieren</value>
+  </data>
+  <data name="RequestPageCancelBtn.Content" xml:space="preserve">
+    <value>Abbrechen</value>
+  </data>
+  <data name="RequestPageImagesUploadedLabel.Text" xml:space="preserve">
+    <value>Hochgeladene Bilder:</value>
+  </data>
+  <data name="OpenRequest" xml:space="preserve">
+    <value>Anfragen Öffnen</value>
+  </data>
+  <data name="DeleteRequest" xml:space="preserve">
+    <value>Anfragen Löschen</value>
+  </data>
+  <data name="RequestMakerReadySubmit" xml:space="preserve">
+    <value>Bereit zum Absenden? Klicken Sie auf "Absenden", um fortzufahren.</value>
+  </data>
+  <data name="SortDropDown.ToolTipService.ToolTip" xml:space="preserve">
+    <value>Sortieren</value>
+  </data>
+  <data name="StudentEHourProgressBar.ToolTipService.ToolTip" xml:space="preserve">
+    <value>Dein Fortschritt zur Befürwortung</value>
+  </data>
+  <data name="NewUpdateAvailableTitle" xml:space="preserve">
+    <value>Neue Update Verfügbar</value>
+  </data>
+  <data name="NewUpdateAvailableContent" xml:space="preserve">
+    <value>Ein neuer Version ist verfügbar. Möchten Sie aktualisieren?</value>
+  </data>
+  <data name="LaterText" xml:space="preserve">
+    <value>Später</value>
+  </data>
+  <data name="UpdateText" xml:space="preserve">
+    <value>Aktualisieren</value>
+  </data>
+  <data name="PassTooShort" xml:space="preserve">
+    <value>Passwortgroße ist zu kurz</value>
+  </data>
+  <data name="UseYourUsernameTitle" xml:space="preserve">
+    <value>Verwenden Sie Ihren Benutzernamen</value>
+  </data>
+  <data name="UseYourUsernameContent" xml:space="preserve">
+    <value>Verwenden Sie denselben Benutzernamen, den Sie für das reguläre eHours-Portal verwenden! Sie müssen nicht Ihre Gmail-Addresse verwenden. Dies wird hier nicht funktionieren.</value>
+  </data>
+  <data name="Status.Accepted" xml:space="preserve">
+    <value>Angenommen</value>
+  </data>
+  <data name="Status.Denied" xml:space="preserve">
+    <value>Abgelehnt</value>
+  </data>
+  <data name="Status.Returned" xml:space="preserve">
+    <value>Zurückgegebene </value>
+  </data>
+  <data name="Status.Pending" xml:space="preserve">
+    <value>Bevorstehend</value>
+  </data>
+  <data name="ReloadHomeButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>Ruft die Inhalte der Startseite erneut ab.</value>
+  </data>
+  <data name="RequestMakerTripCalculatorButton.Content" xml:space="preserve">
+    <value>Reisedauern Berechnen</value>
+  </data>
+  <data name="TripCalculatorTitle" xml:space="preserve">
+    <value>Reisedauern Berechnen</value>
+  </data>
+  <data name="RequestMakerIncludeStartDate" xml:space="preserve">
+    <value>Startdatum Einbeziehen</value>
+  </data>
+  <data name="RequestMakerIncludeEndDate" xml:space="preserve">
+    <value>Enddatum Einbeziehen</value>
+  </data>
+  <data name="RequestMakerIncludesExplanation" xml:space="preserve">
+    <value>Zum Beispiel: Eine Reise vom 1. bis zum 5. Juni umfasst mit Start- und Enddatum insgesamt 5 Tage. lässt man den Start- oder Endtag weg, bleiben 4 Tage übrig; schließt man beide aus sing es 3 Tage. Das ist hilfreich, wenn man die Reisetage nicht mitzählen möchte.</value>
+  </data>
+  <data name="LocalizationDoesStNdRdTh" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="LocalizationDoesntDoStNdRdThExtension" xml:space="preserve">
+    <value>.</value>
+  </data>
+  <data name="RequestMakerISDTBoth" xml:space="preserve">
+    <value>(einschließlich des XXX als Startdatum</value>
+  </data>
+  <data name="RequestMakerISDTOnly" xml:space="preserve">
+    <value>(einschließlich des XXX als Startdatum)</value>
+  </data>
+  <data name="RequestMakerIEDTBoth" xml:space="preserve">
+    <value> und des XXX als Enddatum)</value>
+  </data>
+  <data name="RequestMakerIEDTOnly" xml:space="preserve">
+    <value>(einschließlich des XXX als Enddatum)</value>
+  </data>
+  <data name="RequestMakerEDBeforeSD" xml:space="preserve">
+    <value>Enddatum darf nicht vor dem Startdatum liegen.</value>
+  </data>
+  <data name="GenericEgText" xml:space="preserve">
+    <value>z.B.</value>
+  </data>
+  <data name="GenericExText" xml:space="preserve">
+    <value>z.B.</value>
+  </data>
+  <data name="GenericExampleText" xml:space="preserve">
+    <value>Zum Beispiel</value>
+  </data>
+  <data name="RequestMakerStartDateHeader" xml:space="preserve">
+    <value>Startdatum</value>
+  </data>
+  <data name="RequestMakerEndDateHeader" xml:space="preserve">
+    <value>Endatum</value>
+  </data>
+  <data name="HourSyncWillClose" xml:space="preserve">
+    <value>HourSync wird jetzt schließen.</value>
+  </data>
+  <data name="RequestMakerTotalHours" xml:space="preserve">
+    <value>Insgesamt Stunden</value>
+  </data>
+  <data name="RequestMakerSleepingTimeHeader" xml:space="preserve">
+    <value>Anzahl der Stunden Pro Tage Geschlafen</value>
+  </data>
+  <data name="RequestMakerDailyHoursHeader" xml:space="preserve">
+    <value>Stunden Anfordern Pro Tage</value>
+  </data>
+  <data name="SelectedFiles" xml:space="preserve">
+    <value>Ausgewählt Dateien</value>
+  </data>
+  <data name="MRW-TitlePage-TitleText.Text" xml:space="preserve">
+    <value>1: Titelstil Festlegen</value>
+  </data>
+  <data name="MRW-TitlePage-BracketsRadio.Content" xml:space="preserve">
+    <value>Klammern - [1], [2], [3]</value>
+  </data>
+  <data name="MRW-ReviewPage-Brackets" xml:space="preserve">
+    <value>Klammern</value>
+  </data>
+  <data name="MRW-ReviewPage-Fraction" xml:space="preserve">
+    <value>Fraktion</value>
+  </data>
+  <data name="MRW-TitlePage-FractionRadio.Content" xml:space="preserve">
+    <value>Fraktion - 1/3, 2/3, 3/3</value>
+  </data>
+  <data name="MRW-TitlePage-PartRadio.Content" xml:space="preserve">
+    <value>Teil - Part 1, Part 2, Part 3</value>
+  </data>
+  <data name="MRW-ReviewPage-Part" xml:space="preserve">
+    <value>Part</value>
+  </data>
+  <data name="MRW-TitlePage-NumberRadio.Content" xml:space="preserve">
+    <value>Nummer - 1, 2, 3</value>
+  </data>
+  <data name="MRW-ReviewPage-Number" xml:space="preserve">
+    <value>Nummer</value>
+  </data>
+  <data name="MRW-TitlePage-ExplanationText.Text" xml:space="preserve">
+    <value>Wählen Sie den Stil für den Titel.</value>
+  </data>
+  <data name="MRW-TitlePage-LW" xml:space="preserve">
+    <value>Titelstile werden nur auf Englisch angehängt</value>
+  </data>
+  <data name="MRW-SplitPage-TitleText.Text" xml:space="preserve">
+    <value>2: Stundenteilungstil</value>
+  </data>
+  <data name="MRW-SplitPage-FillRadio.Content" xml:space="preserve">
+    <value>Fülle</value>
+  </data>
+  <data name="MRW-SplitPage-MaxHoursInput.PlaceholderText" xml:space="preserve">
+    <value>Geben Sie die maximale Stundenzahl pro Anfrage ein.</value>
+  </data>
+  <data name="MRW-SplitPage-MaxPerRequestRadio.Content" xml:space="preserve">
+    <value>Maximal Pro Anfrage</value>
+  </data>
+  <data name="MRW-SplitPage-EvenlyRadio.Content" xml:space="preserve">
+    <value>Gleichmäßig</value>
+  </data>
+  <data name="MRW-SplitPage-ExplanationText.Text" xml:space="preserve">
+    <value>Wählen Sie aus, wie Sie den Stunden aufteilen möchten:</value>
+  </data>
+  <data name="MRW-ImagePage-TitleText.Text" xml:space="preserve">
+    <value>3: Bildanhangmodus</value>
+  </data>
+  <data name="MRW-ImagePage-FirstRequestOnlyRadio.Content" xml:space="preserve">
+    <value>Nur Ersten Anfrage</value>
+  </data>
+  <data name="MRW-ImagePage-AllRequestsRadio.Content" xml:space="preserve">
+    <value>Alle Anfragen</value>
+  </data>
+  <data name="MRW-ImagePage-ExplanationText.Text" xml:space="preserve">
+    <value>Wählen Sie aus, wie Bilder an Anfragen angehängt werden sollen:</value>
+  </data>
+  <data name="MRW-ReviewPage-TitleText.Text" xml:space="preserve">
+    <value>4: Überprüfen</value>
+  </data>
+  <data name="MRW-ReviewPage-SelectedSettingsText.Text" xml:space="preserve">
+    <value>Ausgewählt Einstellungen:</value>
+  </data>
+  <data name="MRW-ReviewPage-ExplanationText.Text" xml:space="preserve">
+    <value>Überprüfen Sie die ausgewählten Einstellungen und die Vorschau, bevor Sie die Anfragen absenden.</value>
+  </data>
+  <data name="GenericRequest" xml:space="preserve">
+    <value>anfrage</value>
+  </data>
+  <data name="GenericHrs" xml:space="preserve">
+    <value>std</value>
+  </data>
+  <data name="GenericRequests" xml:space="preserve">
+    <value>anfragen</value>
+  </data>
+  <data name="GenericBackText" xml:space="preserve">
+    <value>Züruck</value>
+  </data>
+  <data name="GenericContinueText" xml:space="preserve">
+    <value>Weiter</value>
+  </data>
+  <data name="GenericFinishText" xml:space="preserve">
+    <value>Fertig</value>
+  </data>
+  <data name="MRW-SplitPage-EvenlyRadioRecommended" xml:space="preserve">
+    <value>Gleichmäßig (empfohlen)</value>
+  </data>
+  <data name="MRW-SplitPage-FillRadioNotRecommended" xml:space="preserve">
+    <value>Fülle (nicht empfohlen)</value>
+  </data>
+  <data name="MRW-ReviewPage-TitleStyleText" xml:space="preserve">
+    <value>Titelstil</value>
+  </data>
+  <data name="MRW-ReviewPage-SplitModeText" xml:space="preserve">
+    <value>Stundenteilungstil</value>
+  </data>
+  <data name="MRW-ReviewPage-ImageModeText" xml:space="preserve">
+    <value>Bildanhangmodus</value>
+  </data>
+  <data name="HEICTitle" xml:space="preserve">
+    <value>HEIC Konvertieren</value>
+  </data>
+  <data name="HEICConvertContent" xml:space="preserve">
+    <value>Einige Dateien konnten nicht ohne Konvertierung hinzugefügt werden. Möchten Sie diese in PNG konvertieren?\n\nXXX</value>
+  </data>
+</root>

@@ -9,18 +9,22 @@
 		<RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &gt;= 8">win-x86;win-x64;win-arm64</RuntimeIdentifiers>
 		<RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &lt; 8">win10-x86;win10-x64;win10-arm64</RuntimeIdentifiers>
 		<UseWinUI>true</UseWinUI>
-		<EnableMsixTooling>true</EnableMsixTooling>
 		<SupportedOSPlatformVersion>10.0.20348.0</SupportedOSPlatformVersion>
 		<ApplicationIcon>logo.ico</ApplicationIcon>
 		<Nullable>disable</Nullable>
-		<PublishProfile>win-$(Platform).pubxml</PublishProfile>
+		<PublishProfile Condition="'$(Platform)'=='x64'">winx64.pubxml</PublishProfile>
 
-		<!-- Uncomment the following line to build an unpackaged (self-contained) app -->
+		<!--<WindowsPackageType>None</WindowsPackageType>-->
+		<EnableMsixTooling>true</EnableMsixTooling>
 		<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+		
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<PackageProjectUrl>https://hoursync.net</PackageProjectUrl>
 
 		<ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
+		<EnableDefaultPriItems>true</EnableDefaultPriItems>
+
+		<GenerateLibraryLayout>true</GenerateLibraryLayout>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -84,6 +88,10 @@
 		<None Remove="ImageViewer.xaml" />
 		<None Remove="LICENSE.txt" />
 		<None Remove="Login.xaml" />
+		<None Remove="MRW-ImagesPage.xaml" />
+		<None Remove="MRW-ReviewPage.xaml" />
+		<None Remove="MRW-TitlePage.xaml" />
+		<None Remove="MultiRequestControl.xaml" />
 		<None Remove="releaseNotes.json" />
 		<None Remove="RequestMaker.xaml" />
 		<None Remove="Settings.xaml" />
@@ -103,16 +111,18 @@
 		<Content Include="releaseNotes.json">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</Content>
+		<Content Include="$(NuGetPackageRoot)magick.net.native.q16.anycpu\**\win-x64\*.dll" CopyToPublishDirectory="PreserveNewest" Link="%(Filename)%(Extension)" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-		<PackageReference Include="hoursynccore" Version="1.3.2" />
+		<PackageReference Include="hoursynccore" Version="1.3.3" />
 		<PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
-		<PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.11.1" />
-		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.1721" />
-		<PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260317003" />
+		<PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.16.0" />
+		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" />
+		<PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+		<PackageReference Include="System.Management" Version="10.0.11" />
 		<Manifest Include="$(ApplicationManifest)" />
 	</ItemGroup>
 
@@ -127,12 +137,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Resource Include="DiscordRPC.dll">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Resource>
-	</ItemGroup>
-
-	<ItemGroup>
 		<Content Update="Assets\hoursync-light-login-banner.png">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
@@ -143,109 +147,30 @@
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</Content>
 		<Content Update="Assets\onedrive.ico">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-	</ItemGroup>
-
-	<ItemGroup>
-		<Page Update="Settings.xaml">
-			<Generator>MSBuild:Compile</Generator>
-		</Page>
-	</ItemGroup>
-
-	<ItemGroup>
-		<Page Update="ImageViewer.xaml">
-			<Generator>MSBuild:Compile</Generator>
-		</Page>
-	</ItemGroup>
-
-	<ItemGroup>
-		<Page Update="RequestManager.xaml">
-			<Generator>MSBuild:Compile</Generator>
-		</Page>
-	</ItemGroup>
-
-	<ItemGroup>
-		<Page Update="RequestMaker.xaml">
-			<Generator>MSBuild:Compile</Generator>
-		</Page>
-	</ItemGroup>
-
-	<ItemGroup>
-		<Page Update="Home.xaml">
-			<Generator>MSBuild:Compile</Generator>
-		</Page>
-	</ItemGroup>
-
-	<ItemGroup>
-		<Page Update="Login.xaml">
-			<Generator>MSBuild:Compile</Generator>
-		</Page>
-	</ItemGroup>
-
-	<PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
-		<HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
-	</PropertyGroup>
-
-	<ItemGroup>
-		<Reference Include="DiscordRPC">
-			<HintPath>DiscordRPC.dll</HintPath>
-		</Reference>
-	</ItemGroup>
-
-	<ItemGroup>
-		<Resource Include="DiscordRPC.dll">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Resource>
-	</ItemGroup>
-
-	<ItemGroup>
-		<Content Update="Assets\hoursync-light-login-banner.png">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</Content>
-		<Content Update="Assets\hoursync-dark-login-banner.png">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
 	</ItemGroup>
 
 	<ItemGroup>
+		<Page Update="MRW-SplitPage.xaml">
+		  <SubType>Designer</SubType>
+		</Page>
 		<Page Update="Settings.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</Page>
-	</ItemGroup>
-
-	<ItemGroup>
 		<Page Update="ImageViewer.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</Page>
-	</ItemGroup>
-
-	<ItemGroup>
 		<Page Update="RequestManager.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</Page>
-	</ItemGroup>
-
-	<ItemGroup>
 		<Page Update="RequestMaker.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</Page>
-	</ItemGroup>
-
-	<ItemGroup>
 		<Page Update="Home.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</Page>
-	</ItemGroup>
-
-	<ItemGroup>
 		<Page Update="Login.xaml">
-			<Generator>MSBuild:Compile</Generator>
-		</Page>
-	</ItemGroup>
-
-	<ItemGroup>
-		<Page Update="Leaderboard.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</Page>
 	</ItemGroup>
@@ -287,78 +212,89 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Page Update="BrowserView.xaml">
-			<Generator>MSBuild:Compile</Generator>
-		</Page>
+		<None Include=".github\copilot-instructions.md" />
 		<None Update="highlight-html\black.woff">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="highlight-html\black.woff2">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="highlight-html\bold.woff">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="highlight-html\bold.woff2">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="highlight-html\fluid-gradient.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="highlight-html\font.css">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="highlight-html\heavy.woff">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="highlight-html\heavy.woff2">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="highlight-html\highlight.html">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="highlight-html\index.html">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="highlight-html\logo.png">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="highlight-html\sfpro.woff">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="highlight-html\sfpro.woff2">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="highlight-html\three.module.js">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="linker.xml" CopyToOutputDirectory="PreserveNewest" />
-		<None Update="Strings\de-DE\Resources.resw">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="Strings\en-US\Resources.resw">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<Page Update="ReSync.xaml">
+		<Page Update="MRW-ReviewPage.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</Page>
-		<Page Update="RequestPage.xaml">
-			<Generator>MSBuild:Compile</Generator>
+		<Page Update="MRW-ImagesPage.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</Page>
+		<Page Update="MRW-TitlePage.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</Page>
+		<Page Update="MultiRequestControl.xaml">
+		  <Generator>MSBuild:Compile</Generator>
 		</Page>
 	</ItemGroup>
 
+	<ItemGroup>
+		<PRIResource Update="Strings\en-US\resources.resw">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</PRIResource>
+		<PRIResource Update="Strings\de-DE\resources.resw">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</PRIResource>
+	</ItemGroup>
+
 	<PropertyGroup>
-		<Version>1.8.0</Version>
-		<AssemblyVersion>1.8.0.0</AssemblyVersion>
+		<Version>1.9.0</Version>
+		<AssemblyVersion>1.9.0.0</AssemblyVersion>
 	</PropertyGroup>
 
 	<Target Name="UpdateAppxManifestVersion" BeforeTargets="GenerateAppxPackage">
 		<XmlPoke XmlInputPath="Package.appxmanifest" Query="/Package/Identity/@Version" Value="$(AssemblyVersion)" />
-	  <XmlPoke XmlInputPath="Package.appxmanifest" Query="/Package/Identity/@Version" Value="$(AssemblyVersion)" />
+		<XmlPoke XmlInputPath="Package.appxmanifest" Query="/Package/Identity/@Version" Value="$(AssemblyVersion)" />
 	</Target>
 
 	<Target Name="CustomActionAfterPublish" AfterTargets="Publish">
 		<Exec Command="&quot;C:\Program Files (x86)\Inno Setup 6\ISCC.exe&quot; /Dappver=$(Version) &quot;$(ProjectDir)setup.iss&quot;" />
 	</Target>
+
+	<PropertyGroup>
+		<PublishTrimmed>false</PublishTrimmed>
+	</PropertyGroup>
 
 </Project>

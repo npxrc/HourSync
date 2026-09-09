@@ -97,7 +97,7 @@ public sealed partial class RequestPage : Page
 
             progressBar.IsIndeterminate = false;
 
-            pendingStatus.Text = status.ToString();
+            pendingStatus.Text = LocalizationService.GetString("Status." + status.ToString());
             openBrowserButton.IsEnabled = true;
             if (status != Status.Returned)
             {
@@ -122,12 +122,12 @@ public sealed partial class RequestPage : Page
             eventBody.Text = response.Body;
             initialRequestBody = response.Body;
 
-            foreach (string ImagePath in response.Images)
+            foreach (var ImagePath in response.Images)
             {
                 LoadImage(ImagePath);
             }
 
-            dateSubtd.Text = response.Date.ToString();
+            dateSubtd.Text = LocalizationService.FormatLocalizedDate(response.Date.ToString());
             submittedTimeAgoText.Text = Utils.FormatTimeAgo(response.Date);
         }
         else if (!response.LoggedIn)
@@ -138,7 +138,7 @@ public sealed partial class RequestPage : Page
                 FileMgr.LogError("Too many log in attempts reached, check the code.");
                 throw new Exception("Too many log in attempts reached, check the code.");
             }
-            bool isLoggedInAgain = await LogInAgain();
+            var isLoggedInAgain = await LogInAgain();
             logInAgainAttempts++;
             if (isLoggedInAgain)
             {
@@ -146,7 +146,7 @@ public sealed partial class RequestPage : Page
             }
             else
             {
-                await dialogManager.ShowDialog("Incorrect Credentials", $"Your credentials for the user {username} are incorrect. Please log in again.", "OK");
+                await dialogManager.ShowDialog(LocalizationService.GetString("IncorrectCredentialsTitle"), LocalizationService.PrepareStatement("IncorrectCredentialsMessage", username), LocalizationService.GetString("GenericOKText"));
             }
         }
         else
@@ -154,7 +154,7 @@ public sealed partial class RequestPage : Page
             FileMgr.LogError($"Success: {response.Success}, Logged In: {response.LoggedIn}");
             FileMgr.LogError($"{response.Error}");
 
-            await dialogManager.ShowDialog("Error", "An error occurred. Please check the log for more information", "Okay");
+            await dialogManager.ShowDialog(LocalizationService.GetString("GenericErrorTitle"), LocalizationService.GetString("GenericErrorMessage"), LocalizationService.GetString("GenericOKText"));
 
         }
     }
@@ -266,26 +266,18 @@ public sealed partial class RequestPage : Page
     {
         if (doc.DocumentNode.SelectSingleNode("//*[@id='Delete']").InnerHtml.Length > 1)
         {
-            var dialog = new ContentDialog()
-            {
-                Title = "Confirm Delete",
-                Content = $"Are you sure you would like to delete {eventName.Split('\n')[0]}?",
-                PrimaryButtonText = "Yes",
-                CloseButtonText = "No",
-                XamlRoot = RootGrid.XamlRoot,
-            };
 #pragma warning disable RCS1118 // Mark local variable as const
-            ContentDialogResult result = ContentDialogResult.Primary;
+            var result = ContentDialogResult.Primary;
 #pragma warning restore RCS1118 // Mark local variable as const
             if (!bypassDelReqDialog)
             {
-                result = await dialog.ShowAsync();
+                result = await dialogManager.ShowDialog(LocalizationService.GetString("ConfirmDeleteTitle"), LocalizationService.PrepareStatement("ConfirmDeleteMessage", eventName.Split('\n')[0]), LocalizationService.GetString("No"), LocalizationService.GetString("Yes"), null, XamlRoot);
             }
             if (bypassDelReqDialog || result == ContentDialogResult.Primary)
             {
                 try
                 {
-                    ShowDeleteProgressBar();
+                    ShowDeleteProgressBar(LocalizationService.GetString("DeletingTitle"));
                     var values = new Dictionary<string, string> { { "del", id } };
 
                     var content = new FormUrlEncodedContent(values);
@@ -319,7 +311,7 @@ public sealed partial class RequestPage : Page
                         else
                         {
                             waitForDelete.Hide();
-                            await dialogManager.ShowDialog("Incorrect Credentials", $"Your credentials for the user {username} are incorrect. Please log in again.", "OK");
+                            await dialogManager.ShowDialog(LocalizationService.GetString("IncorrectCredentialsTitle"), LocalizationService.PrepareStatement("IncorrectCredentialsMessage", username), LocalizationService.GetString("GenericOKText"));
                         }
                     }
 
@@ -327,8 +319,8 @@ public sealed partial class RequestPage : Page
                     afterDelReqResp = responseString;
                     waitForDeleteProgressBar.IsIndeterminate = false;
                     waitForDeleteProgressBar.Value = 100;
-                    waitForDelete.Title = "Deleted Succesfully";
-                    waitForDelete.CloseButtonText = "Close";
+                    waitForDelete.Title = LocalizationService.GetString("DeletedSuccessfullyTitle");
+                    waitForDelete.CloseButtonText = LocalizationService.GetString("GenericCloseText");
                     waitForDelete.CloseButtonClick += GoBackToHomeAndUpdate;
                 }
                 catch (Exception ex)
@@ -337,8 +329,8 @@ public sealed partial class RequestPage : Page
                         "Error while deleting request: " + ex.Message
                     );
                     waitForDeleteProgressBar.ShowError = true;
-                    waitForDelete.Title = "Error Deleting. Check the log for more info.";
-                    waitForDelete.CloseButtonText = "Close";
+                    waitForDelete.Title = LocalizationService.GetString("ErrorDeletingTitle");
+                    waitForDelete.CloseButtonText = LocalizationService.GetString("GenericCloseText");
                 }
             }
         }
@@ -346,16 +338,12 @@ public sealed partial class RequestPage : Page
         {
             try
             {
-                _ = dialogManager.ShowDialog("Cannot Delete", "You cannot delete this request because it has already been accepted or denied by your academy instructor. Please contact the instructor of the "
-                        + nameOfAcademy
-                        + " for further instructions.", "OK");
+                _ = dialogManager.ShowDialog(LocalizationService.GetString("CannotDeleteTitle"), LocalizationService.PrepareStatement("CannotDeleteMessage", nameOfAcademy), LocalizationService.GetString("GenericOKText"));
             }
             catch (Exception ex)
             {
                 FileMgr.Log(ex.Message);
-                _ = dialogManager.ShowDialog("Cannot Delete", "You cannot delete this request because it has already been accepted or denied by your academy instructor. Please contact the instructor of the "
-                        + nameOfAcademy
-                        + " for further instructions.", "OK");
+                _ = dialogManager.ShowDialog(LocalizationService.GetString("CannotDeleteTitle"), LocalizationService.PrepareStatement("CannotDeleteMessage", nameOfAcademy), LocalizationService.GetString("GenericOKText"));
             }
         }
     }
@@ -381,7 +369,7 @@ public sealed partial class RequestPage : Page
         }
         else
         {
-            var contentRes = await dialogManager.ShowDialog("Max Editors Reached", "This request is already open in another editor. Please close that editor or continue working there.", "Close", "Go to Existing Editor");
+            var contentRes = await dialogManager.ShowDialog(LocalizationService.GetString("MaxEditorsReachedTitle"), LocalizationService.GetString("MaxEditorsReachedMessage"), LocalizationService.GetString("GenericCloseText"), LocalizationService.GetString("GoToExistingEditorText"));
             if (contentRes == ContentDialogResult.Primary)
             {
                 _mainWindow.FocusEditor(id);
@@ -395,12 +383,12 @@ public sealed partial class RequestPage : Page
         ContentDialogResult result = ContentDialogResult.None;
         if (!bypassUpdateReqDialog)
         {
-            result = await dialogManager.ShowDialog("Confirm Edit", "Are you sure you want to update this request?", "No", "Update");
+            result = await dialogManager.ShowDialog(LocalizationService.GetString("ConfirmEditTitle"), LocalizationService.GetString("ConfirmEditMessage"), LocalizationService.GetString("No"), LocalizationService.GetString("UpdateButtonText"));
         }
 
         if (bypassUpdateReqDialog || result == ContentDialogResult.Primary)
         {
-            ShowDeleteProgressBar("Updating");
+            ShowDeleteProgressBar(LocalizationService.GetString("UpdatingTitle"));
             UpdatedRequest request = new()
             {
                 NewContent = eventBody.Text,
@@ -412,8 +400,8 @@ public sealed partial class RequestPage : Page
             {
                 waitForDeleteProgressBar.IsIndeterminate = false;
                 waitForDeleteProgressBar.Value = 100;
-                waitForDelete.Title = "Updated Succesfully";
-                waitForDelete.CloseButtonText = "Close";
+                waitForDelete.Title = LocalizationService.GetString("UpdatedSuccessfullyTitle");
+                waitForDelete.CloseButtonText = LocalizationService.GetString("GenericCloseText");
 
                 MainWindow _mainWindow = (MainWindow)((App)Application.Current).m_window;
                 _mainWindow.ClosedEditor(id, this);
@@ -435,25 +423,25 @@ public sealed partial class RequestPage : Page
                 else
                 {
                     waitForDelete.Hide();
-                    await dialogManager.ShowDialog("Incorrect Credentials", $"Your credentials for the user {username} are incorrect. Please log in again.", "OK");
+                    await dialogManager.ShowDialog(LocalizationService.GetString("IncorrectCredentialsTitle"), LocalizationService.PrepareStatement("IncorrectCredentialsMessage", username), LocalizationService.GetString("GenericOKText"));
                 }
             }
             else if (response.Error != null)
             {
                 FileMgr.LogError("Error while updating a request:" + response.Error);
-                await dialogManager.ShowDialog("Error", "An error occurred, check the log for more info.", "OK");
+                await dialogManager.ShowDialog(LocalizationService.GetString("GenericErrorTitle"), LocalizationService.GetString("GenericErrorMessage"), LocalizationService.GetString("GenericOKText"));
             }
             else
             {
                 FileMgr.LogError("No error was provided, but editing was unsuccessful.");
-                await dialogManager.ShowDialog("Error", "Something else went wrong but we are unable to determine the cause. Try again using the official portal.", "OK");
+                await dialogManager.ShowDialog(LocalizationService.GetString("GenericErrorTitle"), LocalizationService.GetString("UnknownErrorMessage"), LocalizationService.GetString("GenericOKText"));
             }
         }
     }
 
     private async void CancelEdit(object _, RoutedEventArgs __)
     {
-        var resp = await dialogManager.ShowDialog("Confirm", "Are you sure you want to stop editing? Your edits will be discarded.", "No", "Discard");
+        var resp = await dialogManager.ShowDialog(LocalizationService.GetString("GenericConfirmTitle"), LocalizationService.GetString("ConfirmStopEditingMessage"), LocalizationService.GetString("No"), LocalizationService.GetString("DiscardText"));
         if (resp == ContentDialogResult.Primary)
         {
             eventBody.IsReadOnly = true;

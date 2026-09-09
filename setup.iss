@@ -46,17 +46,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; Root files in publish (no subfolders)
-Source: "D:\Code\HourSync\bin\publish\*"; DestDir: "{app}"; Flags: ignoreversion
-
-; Assets folder
-Source: "D:\Code\HourSync\bin\publish\Assets\*"; DestDir: "{app}\Assets"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; en-us localization folder
-Source: "D:\Code\HourSync\bin\publish\en-us\*"; DestDir: "{app}\en-us"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; Microsoft.UI.Xaml folder
-Source: "D:\Code\HourSync\bin\publish\Microsoft.UI.Xaml\*"; DestDir: "{app}\Microsoft.UI.Xaml"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Full publish output, including WinUI resources, language folders, and app asset subfolders.
+Source: "D:\Code\HourSync\bin\x64\Release\net9.0-windows10.0.26100.0\win-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\HourSync"; Filename: "{app}\HourSync.exe"

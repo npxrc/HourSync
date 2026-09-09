@@ -29,7 +29,8 @@
                         Margin="36, 29, 0, 0"
                         Style="{StaticResource TitleTextBlockStyle}"/>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Requested number of eHours:"
+                        <TextBlock x:Uid="RequestPageReqdEHLabel"
+                            Text="Requested number of eHours:"
                             Margin="36, 0, 5, 0"
                             Style="{StaticResource SubtitleTextBlockStyle}"/>
                         <TextBlock x:Name="reqdEHourCount"
@@ -39,7 +40,8 @@
                     <StackPanel Orientation="Vertical"
                         Margin="36, 0, 0, 0">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Status: "
+                            <TextBlock x:Uid="RequestPageStatusLabel"
+                                Text="Status: "
                                 Margin="0, 0, 5, 0"/>
                             <TextBlock x:Name="pendingStatus"
                                 Text="---"
@@ -52,16 +54,19 @@
                             HorizontalAlignment="Left"
                             Margin="0, 10, 0, 5"/>
                         <StackPanel Orientation="Horizontal" Margin="0,10,0,10">
-                            <Button Content="Delete Request"
+                            <Button x:Uid="RequestPageDelReqButton"
+                                Content="Delete Request"
                                 x:Name="delReqButton"
                                 IsEnabled="False"
                                 Click="DelReq"/>
-                            <Button Content="Edit Request"
+                            <Button x:Uid="RequestPageEditReqButton"
+                                Content="Edit Request"
                                 Margin="5,0"
                                 x:Name="editReqButton"
                                 IsEnabled="False"
                                 Click="EditReq"/>
-                            <Button Content="Open in Browser"
+                            <Button x:Uid="RequestPageOpenBrowserButton"
+                                Content="Open in Browser"
                                 x:Name="openBrowserButton"
                                 IsEnabled="False"
                                 Click="OpenBrowser"/>
@@ -70,7 +75,7 @@
                     <StackPanel Orientation="Vertical">
                         <StackPanel Orientation="Horizontal"
                             Margin="36, 0, 0, 0">
-                            <TextBlock Text="Date Submitted: " Margin="0,0,5,0"/>
+                            <TextBlock x:Uid="RequestPageDateSubLabel" Text="Date Submitted: " Margin="0,0,5,0"/>
                             <TextBlock x:Name="dateSubtd"
                                 Text="---"
                                 Style="{StaticResource BodyStrongTextBlockStyle}"/>
@@ -84,11 +89,13 @@
                     Orientation="Vertical"
                     Margin="36, 0">
                     <StackPanel x:Name="EditEnabled" Grid.Row="0" Visibility="Collapsed">
-                        <InfoBar x:Name="EditEnabledBar" IsOpen="True" Severity="Success" Title="Editing has been enabled" Message="Make any changes you need and click 'Update' when you're done." Margin="0, 10, 0, 5" IsClosable="False"/>
+                        <InfoBar x:Uid="RequestPageEditEnabledBar" x:Name="EditEnabledBar" IsOpen="True" Severity="Success" Title="Editing has been enabled" Message="Make any changes you need and click 'Update' when you're done." Margin="0, 10, 0, 5" IsClosable="False"/>
                     </StackPanel>
                     <TextBlock Grid.Row="1"
+                        x:Uid="RequestPageEventDescLabel"
                         Text="Event Description:"/>
                     <TextBox Grid.Row="1"
+                        x:Uid="RequestPageEventBodyBox"
                         Text="If it still says loading after a while, try closing and reopening the request. Otherwise, try logging in again."
                         x:Name="eventBody"
                         IsReadOnly="True"
@@ -99,15 +106,15 @@
                         ScrollViewer.IsScrollInertiaEnabled="True"
                         Margin="0, 10"/>
                     <StackPanel x:Name="editingControls" Visibility="Collapsed" Orientation="Horizontal" Margin="0,10">
-                        <Button Click="UpdateReqClick" Margin="0,0,5,0">Update</Button>
-                        <Button Click="CancelEdit">Cancel</Button>
+                        <Button x:Uid="RequestPageUpdateBtn" Click="UpdateReqClick" Margin="0,0,5,0" Content="Update" />
+                        <Button x:Uid="RequestPageCancelBtn" Click="CancelEdit" Content="Cancel" />
                     </StackPanel>
                 </StackPanel>
                 <StackPanel x:Name="ImageMainContainer"
                     Grid.Row="2"
                     Margin="36, 0"
                     Visibility="Collapsed">
-                    <TextBlock Text="Images uploaded:"/>
+                    <TextBlock x:Uid="RequestPageImagesUploadedLabel" Text="Images uploaded:"/>
                     <ScrollViewer HorizontalScrollMode="Auto"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollMode="Disabled"

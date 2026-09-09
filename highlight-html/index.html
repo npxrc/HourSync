@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<title>Fluid Gradient Background</title>
+		<style>
+			html,
+			body {
+				height: 100%;
+				margin: 0;
+				background: #000;
+				overflow: hidden;
+			}
+			#bg {
+				position: fixed;
+				inset: 0;
+			}
+			canvas {
+				width: 100%;
+				height: 100%;
+				display: block;
+			}
+			.overlay {
+				position: relative;
+				z-index: 2;
+				padding: 48px;
+				font:
+					16px/1.5 system-ui,
+					-apple-system,
+					Segoe UI,
+					Roboto,
+					sans-serif;
+				color: white;
+				mix-blend-mode: screen;
+				display: grid;
+				gap: 12px;
+				max-width: 20%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="bg"></div>
+
+		<div class="overlay" id="controls">
+			<label for="colorPicker">Reference color: </label>
+			<input id="colorPicker" type="color" value="#FF022E" />
+			<button id="recordBtn">Record 30s</button>
+			<div style="display: grid; grid-template-columns: 30% 70%">
+				<label for="recordSeconds"
+					>Duration: <b id="secondsToRecordLabel">30</b>s</label
+				>
+				<input
+					type="range"
+					name="recordSeconds"
+					id="recordSeconds"
+					min="0"
+					max="200"
+					value="30"
+					step="5"
+				/>
+			</div>
+			<!-- FPS slider uses same two-column grid style -->
+			<div style="display: grid; grid-template-columns: 30% 70%">
+				<label for="recordFps"> FPS: <b id="fpsLabel">30</b> </label>
+				<input
+					type="range"
+					id="recordFps"
+					min="1"
+					max="120"
+					value="30"
+					step="1"
+				/>
+			</div>
+			<button id="regenBtn">Regenerate</button>
+		</div>
+
+		<script type="module" src="./fluid-gradient.js"></script>
+		<script>
+			// Keep duration and fps labels and record button in sync whenever the sliders change
+			const recordSecondsInput = document.querySelector("#recordSeconds");
+			const secondsLabel = document.querySelector(
+				"#secondsToRecordLabel",
+			);
+			const recordFpsInput = document.querySelector("#recordFps");
+			const fpsLabel = document.querySelector("#fpsLabel");
+			const recordBtn = document.querySelector("#recordBtn");
+
+			function updateUI() {
+				const seconds = recordSecondsInput.value;
+				const fps = recordFpsInput.value;
+				secondsLabel.textContent = seconds;
+				fpsLabel.textContent = fps;
+				recordBtn.textContent = `Record ${seconds}s @ ${fps}fps`;
+			}
+
+			recordSecondsInput.addEventListener("input", updateUI);
+			recordFpsInput.addEventListener("input", updateUI);
+			updateUI();
+
+			window.addEventListener("fluidGradientReady", () => {
+				const gradient = window.fluidGradient;
+				const colorPicker = document.getElementById("colorPicker");
+				const recordBtn = document.getElementById("recordBtn");
+				const regenBtn = document.getElementById("regenBtn");
+
+				colorPicker.addEventListener("input", (e) => {
+					const hex = e.target.value;
+					gradient.setReferenceColor(hex);
+					gradient.updateColors(hex, {
+						blendSeconds: 1,
+						nowSeconds: performance.now() / 1000,
+					});
+				});
+
+				function startRecording(durationSeconds = 30, fps = 30) {
+					const canvas = document.querySelector("#bg canvas");
+					if (!canvas)
+						return alert("Canvas not found for recording.");
+
+					const stream = canvas.captureStream(fps);
+					const mime = MediaRecorder.isTypeSupported(
+						"video/webm;codecs=vp9",
+					)
+						? "video/webm;codecs=vp9"
+						: MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+							? "video/webm;codecs=vp8"
+							: "video/webm";
+
+					let chunks = [];
+					const recorder = new MediaRecorder(stream, {
+						mimeType: mime,
+					});
+					recorder.ondataavailable = (ev) => {
+						if (ev.data && ev.data.size) chunks.push(ev.data);
+					};
+					recorder.onstop = () => {
+						const blob = new Blob(chunks, { type: mime });
+						const url = URL.createObjectURL(blob);
+						const a = document.createElement("a");
+						a.style.display = "none";
+						a.href = url;
+						a.download = `fluid-gradient-${Date.now()}.${mime.includes("webm") ? "webm" : "video"}`;
+						document.body.appendChild(a);
+						a.click();
+						setTimeout(() => {
+							URL.revokeObjectURL(url);
+							a.remove();
+						}, 10000);
+						recordBtn.disabled = false;
+						const current = recordSecondsInput.value;
+						const currentFps = recordFpsInput.value;
+						recordBtn.textContent = `Record ${current}s @ ${currentFps}fps`;
+					};
+
+					recorder.start();
+					recordBtn.disabled = true;
+					recordBtn.textContent = "Recording...";
+					setTimeout(() => recorder.stop(), durationSeconds * 1000);
+				}
+
+				recordBtn.addEventListener("click", () => {
+					const duration = parseInt(recordSecondsInput.value);
+					const fps = parseInt(recordFpsInput.value);
+					startRecording(duration, fps);
+				});
+
+				// helper: upload a WebM blob to the server for conversion
+				// (requires the server from this repository running on the same origin or CORS-enabled)
+				function uploadWebm(blob) {
+					const form = new FormData();
+					form.append("video", blob, "recording.webm");
+					return fetch("/convert", {
+						method: "POST",
+						body: form,
+					})
+						.then((resp) => resp.blob())
+						.then((mp4Blob) => {
+							// create download link
+							const url = URL.createObjectURL(mp4Blob);
+							const a = document.createElement("a");
+							a.href = url;
+							a.download = "converted.mp4";
+							document.body.appendChild(a);
+							a.click();
+							setTimeout(() => URL.revokeObjectURL(url), 10000);
+						});
+				}
+			});
+		</script>
+	</body>
+</html>

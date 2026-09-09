@@ -26,8 +26,7 @@
                            Margin="0,0,10,0"/>
                 <ComboBox x:Name="LanguageSelector"
                           Width="220"
-                          SelectionChanged="LanguageSelector_SelectionChanged"
-                          IsEnabled="False">
+                          SelectionChanged="LanguageSelector_SelectionChanged">
                     <ComboBoxItem x:Uid="SettingsLanguageSystem" Content="System default" Tag="system"/>
                     <ComboBoxItem x:Uid="SettingsLanguageEnglish" Content="English" Tag="en-US"/>
                     <ComboBoxItem x:Uid="SettingsLanguageGerman" Content="Deutsch" Tag="de-DE"/>

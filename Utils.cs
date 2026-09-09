@@ -62,21 +62,31 @@ internal static class Utils
 
         if (days == 0 && hours == 0 && minutes == 0)
         {
-            return "Submitted just now.";
+            return LocalizationService.GetString("TimeAgo_JustNow");
         }
 
-        var result = "Submitted ";
+        var result = LocalizationService.GetString("TimeAgo_Submitted");
+        if (!string.IsNullOrEmpty(result) && !result.EndsWith(" "))
+        {
+            result += " ";
+        }
+
         if (days > 0)
         {
-            result += $"{days} day{(days > 1 ? "s" : "")}, ";
+            var dayKey = days == 1 ? "TimeAgo_Day" : "TimeAgo_Days";
+            result += $"{LocalizationService.PrepareStatement(dayKey, days.ToString())}, ";
         }
 
         if (hours > 0 || days > 0)
         {
-            result += $"{hours} hour{(hours > 1 ? "s" : "")}, ";
+            var hourKey = hours == 1 ? "TimeAgo_Hour" : "TimeAgo_Hours";
+            result += $"{LocalizationService.PrepareStatement(hourKey, hours.ToString())}, ";
         }
 
-        result += $"{minutes} minute{(minutes > 1 ? "s" : "")} ago.";
+        var minuteKey = minutes == 1 ? "TimeAgo_Minute" : "TimeAgo_Minutes";
+        result += $"{LocalizationService.PrepareStatement(minuteKey, minutes.ToString())} ";
+
+        result += LocalizationService.GetString("TimeAgo_Ago");
 
         return result;
     }
@@ -84,6 +94,7 @@ internal static class Utils
     {
         return string.Join(":", dateArray.Skip(1));
     }
+
     public static string FixMojibake(string text)
     {
         return text.Replace("â??", "'")

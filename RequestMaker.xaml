@@ -51,11 +51,20 @@
                     <DatePicker x:Name="eventDate" Margin="0,0,0,10"/>
                 </StackPanel>
                 <StackPanel Orientation="Vertical" Grid.Row="4">
-                    <TextBlock x:Uid="RequestMakerRequestedHoursLabel" Text="Requested Number of eHours:" Margin="0,0,0,5"/>
-                    <TextBox Name="NumericTextBox"
-                         x:Uid="RequestMakerRequestedHoursBox"
-                         PlaceholderText="Requested # of eHours"
-                         TextChanging="NumericTextBox_TextChanging" LostFocus="NumericTextBox_LostFocus" Margin="0,0,0,10"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="5*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Vertical">
+                            <TextBlock x:Uid="RequestMakerRequestedHoursLabel" Text="Requested Number of eHours:" Margin="0,0,0,5"/>
+                            <TextBox Name="NumericTextBox"
+                                         x:Uid="RequestMakerRequestedHoursBox"
+                                         PlaceholderText="Requested # of eHours"
+                                         TextChanging="NumericTextBox_TextChanging" LostFocus="NumericTextBox_LostFocus" Margin="0,0,0,10"/>
+                        </StackPanel>
+                        <Button Margin="5,15,0,0" Grid.Column="1" x:Uid="RequestMakerTripCalculatorButton" Click="TripCalculator">Calculate Trip Length</Button>
+                    </Grid>
                 </StackPanel>
                 <StackPanel Orientation="Vertical" Grid.Row="5">
                     <TextBlock x:Uid="RequestMakerDetailsLabel" Text="Enter your submission details:" Margin="0,0,0,10"/>
@@ -87,7 +96,7 @@
                     </StackPanel>
                 </Grid>
 
-                <TextBlock x:Name="filesSelectedTextBlock" x:Uid="RequestMakerFilesSelectedText" Grid.Row="7" Margin="0, 10, 0, 0" Text="No files selected." TextWrapping="Wrap"/>
+                <TextBlock x:Name="filesSelectedTextBlock" x:Uid="RequestMakerFilesSelectedText" Grid.Row="7" Margin="0, 10, 0, 0" TextWrapping="Wrap"/>
 
                 <!-- Image Preview Section -->
                 <StackPanel x:Name="ImagePreviewSection" Grid.Row="8" Margin="0, 10, 0, 0" Visibility="Collapsed">

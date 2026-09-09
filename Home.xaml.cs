@@ -23,8 +23,23 @@ using Microsoft.UI.Xaml.Navigation;
 
 namespace HourSync;
 
-public sealed partial class Home : Page
+public sealed partial class Home : Page, System.ComponentModel.INotifyPropertyChanged
 {
+    public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+
+    public string TotalReturnedCount => ReturnedRequests.Sum(g => g.SubRequests.Count).ToString();
+    public string TotalPendingCount => PendingRequests.Sum(g => g.SubRequests.Count).ToString();
+    public string TotalAcceptedCount => AcceptedRequests.Sum(g => g.SubRequests.Count).ToString();
+    public string TotalDeniedCount => DeniedRequests.Sum(g => g.SubRequests.Count).ToString();
+
+    private void NotifyCountChanges()
+    {
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(TotalReturnedCount)));
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(TotalPendingCount)));
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(TotalAcceptedCount)));
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(TotalDeniedCount)));
+    }
+
     private LoginResult loginResult;
     private string username;
     private string password;
@@ -32,10 +47,10 @@ public sealed partial class Home : Page
     private HtmlDocument doc = new();
 
     // Change these to ObservableCollection for UI binding
-    public ObservableCollection<EHourRequest> ReturnedRequests = [];
-    public ObservableCollection<EHourRequest> PendingRequests = [];
-    public ObservableCollection<EHourRequest> AcceptedRequests = [];
-    public ObservableCollection<EHourRequest> DeniedRequests = [];
+    public ObservableCollection<EHourRequestGroup> ReturnedRequests = [];
+    public ObservableCollection<EHourRequestGroup> PendingRequests = [];
+    public ObservableCollection<EHourRequestGroup> AcceptedRequests = [];
+    public ObservableCollection<EHourRequestGroup> DeniedRequests = [];
 
     // Master lists that never change unless you actually fetch new data
     private List<EHourRequest> AllReturned = [];
@@ -110,19 +125,76 @@ public sealed partial class Home : Page
     {
         ParseProgressTo200();
 
-        var parsed = HourSyncCore.ParseRequests(getresp);  // static call from the DLL
+        var unformatted = HourSyncCore.ParseRequests(getresp);  // static call from the DLL
+
+        var acceptedFormatted = new List<EHourRequest>();
+        var deniedFormatted = new List<EHourRequest>();
+        var pendingFormatted = new List<EHourRequest>();
+        var returnedFormatted = new List<EHourRequest>();
+
+        for (int i=0; i<unformatted.Accepted.Count; i++)
+        {
+            acceptedFormatted.Add(new EHourRequest()
+            {
+                Date = LocalizationService.FormatLocalizedDate(unformatted.Accepted[i].Date),
+                Description = unformatted.Accepted[i].Description,
+                Hours = LocalizationService.FormatNumber(unformatted.Accepted[i].Hours),
+                Value = unformatted.Accepted[i].Value,
+                State = unformatted.Accepted[i].State,
+                DateTime = unformatted.Accepted[i].DateTime
+            });
+        }
+
+        for (int i = 0; i < unformatted.Denied.Count; i++)
+        {
+            deniedFormatted.Add(new EHourRequest()
+            {
+                Date = LocalizationService.FormatLocalizedDate(unformatted.Denied[i].Date),
+                Description = unformatted.Denied[i].Description,
+                Hours = LocalizationService.FormatNumber(unformatted.Denied[i].Hours),
+                Value = unformatted.Denied[i].Value,
+                State = unformatted.Denied[i].State,
+                DateTime = unformatted.Denied[i].DateTime
+            });
+        }
+
+        for (int i = 0; i < unformatted.Pending.Count; i++)
+        {
+            pendingFormatted.Add(new EHourRequest()
+            {
+                Date = LocalizationService.FormatLocalizedDate(unformatted.Pending[i].Date),
+                Description = unformatted.Pending[i].Description,
+                Hours = LocalizationService.FormatNumber(unformatted.Pending[i].Hours),
+                Value = unformatted.Pending[i].Value,
+                State = unformatted.Pending[i].State,
+                DateTime = unformatted.Pending[i].DateTime
+            });
+        }
+
+        for (int i = 0; i < unformatted.Returned.Count; i++)
+        {
+            returnedFormatted.Add(new EHourRequest()
+            {
+                Date = LocalizationService.FormatLocalizedDate(unformatted.Returned[i].Date),
+                Description = unformatted.Returned[i].Description,
+                Hours = LocalizationService.FormatNumber(unformatted.Returned[i].Hours),
+                Value = unformatted.Returned[i].Value,
+                State = unformatted.Returned[i].State,
+                DateTime = unformatted.Returned[i].DateTime
+            });
+        }
 
         // Convert Lists to ObservableCollections
-        PopulateObservableCollection(ReturnedRequests, parsed.Returned ?? []);
-        PopulateObservableCollection(PendingRequests, parsed.Pending ?? []);
-        PopulateObservableCollection(AcceptedRequests, parsed.Accepted ?? []);
-        PopulateObservableCollection(DeniedRequests, parsed.Denied ?? []);
+        PopulateObservableCollection(ReturnedRequests, returnedFormatted);
+        PopulateObservableCollection(PendingRequests, pendingFormatted);
+        PopulateObservableCollection(AcceptedRequests, acceptedFormatted);
+        PopulateObservableCollection(DeniedRequests, deniedFormatted);
 
         // Keep master lists as regular Lists
-        AllReturned = [.. (parsed.Returned ?? [])];
-        AllPending = [.. (parsed.Pending ?? [])];
-        AllAccepted = [.. (parsed.Accepted ?? [])];
-        AllDenied = [.. (parsed.Denied ?? [])];
+        AllReturned = returnedFormatted;
+        AllPending = pendingFormatted;
+        AllAccepted = acceptedFormatted;
+        AllDenied = deniedFormatted;
 
         ((App)Application.Current).SetRequests(AllReturned, AllPending, AllAccepted, AllDenied);
 
@@ -167,13 +239,68 @@ public sealed partial class Home : Page
     }
 
     // Helper method to populate ObservableCollection from List
-    private void PopulateObservableCollection(ObservableCollection<EHourRequest> target, List<EHourRequest> source)
+    private void PopulateObservableCollection(ObservableCollection<EHourRequestGroup> target, List<EHourRequest> source)
     {
         target.Clear();
-        foreach (var item in source)
+        var groups = GroupRequests(source);
+        foreach (var group in groups)
         {
-            target.Add(item);
+            target.Add(group);
         }
+        NotifyCountChanges();
+    }
+
+    private List<EHourRequestGroup> GroupRequests(List<EHourRequest> requests)
+    {
+        var groups = new List<EHourRequestGroup>();
+        if (requests == null || requests.Count == 0) return groups;
+
+        var sorted = requests.OrderBy(r => r.DateTime).ToList();
+        var regex = new System.Text.RegularExpressions.Regex(@"(?i)\s*(?:\[\d+\]|(?:Submission|Part|Pt\.?|Request)\s*\d+|\d+)\s*$");
+
+        foreach (var req in sorted)
+        {
+            string baseDesc = regex.Replace(req.Description, "").Trim();
+            if (string.IsNullOrWhiteSpace(baseDesc)) baseDesc = req.Description;
+
+            var existingGroup = groups.LastOrDefault(g =>
+                g.BaseDescription == baseDesc &&
+                Math.Abs((req.DateTime - g.LatestDateTime).TotalHours) <= 2.0);
+
+            if (existingGroup != null)
+            {
+                existingGroup.SubRequests.Add(req);
+                existingGroup.TotalHours += TryParseHours(req.Hours);
+                if (req.DateTime > existingGroup.LatestDateTime)
+                {
+                    existingGroup.LatestDateTime = req.DateTime;
+                    existingGroup.DisplayDate = req.Date;
+                }
+            }
+            else
+            {
+                var newGroup = new EHourRequestGroup
+                {
+                    BaseDescription = baseDesc,
+                    TotalHours = TryParseHours(req.Hours),
+                    LatestDateTime = req.DateTime,
+                    DisplayDate = req.Date
+                };
+                newGroup.SubRequests.Add(req);
+                groups.Add(newGroup);
+            }
+        }
+
+        // Return to newest-first to match portal defaults
+        groups.Reverse();
+        return groups;
+    }
+
+    private double TryParseHours(string hoursStr)
+    {
+        if (double.TryParse(hoursStr.Replace(",", "."), CultureInfo.InvariantCulture, out double h))
+            return h;
+        return 0;
     }
 
     private async void ParseProgressTo200()
@@ -237,32 +364,46 @@ public sealed partial class Home : Page
         double pendingHours = 0;
         double returnedHours = 0;
 
-        foreach (var request in AcceptedRequests)
+        static double parseToEnUsDouble(string hours) => double.Parse(hours.Replace(",", "."), CultureInfo.InvariantCulture);
+
+        foreach (var group in AcceptedRequests)
         {
-            acceptedHours += double.TryParse(request.Hours, out var hrs) ? hrs : 0;
-            CreateMenuItem(request);
+            foreach (var request in group.SubRequests)
+            {
+                acceptedHours += parseToEnUsDouble(request.Hours);
+                CreateMenuItem(request);
+            }
         }
-        foreach (var request in DeniedRequests)
+        foreach (var group in DeniedRequests)
         {
-            deniedHours += double.TryParse(request.Hours, out var hrs) ? hrs : 0;
-            CreateMenuItem(request);
+            foreach (var request in group.SubRequests)
+            {
+                deniedHours += parseToEnUsDouble(request.Hours);
+                CreateMenuItem(request);
+            }
         }
-        foreach (var request in PendingRequests)
+        foreach (var group in PendingRequests)
         {
-            pendingHours += double.TryParse(request.Hours, out var hrs) ? hrs : 0;
-            CreateMenuItem(request);
+            foreach (var request in group.SubRequests)
+            {
+                pendingHours += parseToEnUsDouble(request.Hours);
+                CreateMenuItem(request);
+            }
         }
-        foreach (var request in ReturnedRequests)
+        foreach (var group in ReturnedRequests)
         {
-            returnedHours += double.TryParse(request.Hours, out var hrs) ? hrs : 0;
-            CreateMenuItem(request);
+            foreach (var request in group.SubRequests)
+            {
+                returnedHours += parseToEnUsDouble(request.Hours);
+                CreateMenuItem(request);
+            }
         }
         string pending = "";
         if (pendingHours > 0)
         {
-            pending = $"Pending Hours: {pendingHours}\r\n";
+            pending = $"{LocalizationService.GetString("Home.PendingHoursText")}: {LocalizationService.FormatNumber(pendingHours.ToString())}\r\n";
         }
-        StudentEHours.Text = $"Accepted Hours: {acceptedHours}\r\n{pending}Accept Rate: {(acceptedHours / (returnedHours + deniedHours + acceptedHours)) * 100}% ({acceptedHours}/{returnedHours + deniedHours + acceptedHours})";
+        StudentEHours.Text = $"{LocalizationService.GetString("Home.AcceptedHoursText")}: {LocalizationService.FormatNumber(acceptedHours.ToString())}\r\n{pending}{LocalizationService.GetString("Home.AcceptRateText")}: {LocalizationService.FormatNumber((Math.Round((acceptedHours / (returnedHours + deniedHours + acceptedHours)) * 100, 2)).ToString(),0)}% ({LocalizationService.FormatNumber(acceptedHours.ToString())}/{LocalizationService.FormatNumber((returnedHours + deniedHours + acceptedHours).ToString())})";
 
         ((App)Application.Current).NavigationViewModel.MenuItems[1].MenuItems.Clear();
     }
@@ -314,10 +455,10 @@ public sealed partial class Home : Page
         Button clickedButton = (Button)sender;
         string value = (string)clickedButton.Tag;
 
-        var request = ReturnedRequests
-            .Concat(PendingRequests)
-            .Concat(AcceptedRequests)
-            .Concat(DeniedRequests)
+        var request = AllReturned
+            .Concat(AllPending)
+            .Concat(AllAccepted)
+            .Concat(AllDenied)
             .FirstOrDefault(r => r.Value == value);
 
         _mainWindow.OpenRequestViewer(
@@ -350,16 +491,16 @@ public sealed partial class Home : Page
     {
         Button clickedButton = (Button)sender;
         string value = (string)clickedButton.Tag;
-        var request = ReturnedRequests
-            .Concat(PendingRequests)
-            .Concat(AcceptedRequests)
-            .Concat(DeniedRequests)
+        var request = AllReturned
+            .Concat(AllPending)
+            .Concat(AllAccepted)
+            .Concat(AllDenied)
             .FirstOrDefault(r => r.Value == value);
 
         // Create context menu
         MenuFlyout contextMenu = new MenuFlyout();
 
-        MenuFlyoutItem openItem = new MenuFlyoutItem { Text = "Open Request" };
+        MenuFlyoutItem openItem = new MenuFlyoutItem { Text = LocalizationService.GetString("OpenRequest") };
         openItem.Click += (s, args) =>
         {
             _mainWindow = (MainWindow)((App)Application.Current).m_window;
@@ -374,12 +515,12 @@ public sealed partial class Home : Page
             );
         };
 
-        MenuFlyoutItem deleteRequest = new MenuFlyoutItem { Text = "Delete Request", IsEnabled = request.State == Status.Pending};
+        MenuFlyoutItem deleteRequest = new MenuFlyoutItem { Text = LocalizationService.GetString("DeleteRequest"), IsEnabled = request.State == Status.Pending};
         deleteRequest.Click += async(_, __) =>
         {
             if (request.State == Status.Pending) //redundant but just in case
             {
-                ContentDialogResult res = await dialogManager.ShowDialog("Confirm Delete", $"Are you sure you would like to delete {request.Description.Split('\n')[0]}?", "No", "Yes", null, XamlRoot);
+                ContentDialogResult res = await dialogManager.ShowDialog(LocalizationService.GetString("ConfirmDeleteTitle"), LocalizationService.PrepareStatement("ConfirmDeleteMessage", request.Description.Split('\n')[0]), LocalizationService.GetString("No"), LocalizationService.GetString("Yes"), null, XamlRoot);
                 if (res == ContentDialogResult.Primary)
                 {
                     try
@@ -521,12 +662,12 @@ public sealed partial class Home : Page
 
     private void Sort(string way, string from)
     {
-        Func<EHourRequest, object> keySelector = way switch
+        Func<EHourRequestGroup, object> keySelector = way switch
         {
-            "date" => request => DateTime.Parse(request.Date),
-            "name" => request => request.Description,
-            "hours" => request => decimal.Parse(request.Hours),
-            _ => request => request.Description
+            "date" => group => group.LatestDateTime,
+            "name" => group => group.BaseDescription,
+            "hours" => group => group.TotalHours,
+            _ => group => group.BaseDescription
         };
 
         bool ascending = from == "old" || from == "a" || from == "low";
@@ -538,8 +679,8 @@ public sealed partial class Home : Page
         ApplySort(DeniedRequests, keySelector, !ascending);
     }
 
-    private void ApplySort(ObservableCollection<EHourRequest> collection,
-                           Func<EHourRequest, object> keySelector,
+    private void ApplySort(ObservableCollection<EHourRequestGroup> collection,
+                           Func<EHourRequestGroup, object> keySelector,
                            bool descending)
     {
         var sorted = descending
@@ -574,28 +715,18 @@ public sealed partial class Home : Page
 
         FileMgr.Log("Found " + (searchResults["returned"].Count + searchResults["pending"].Count + +searchResults["accepted"].Count + +searchResults["denied"].Count) + " results");
 
-        ReplaceCollection(ReturnedRequests, searchResults["returned"]);
-        ReplaceCollection(PendingRequests, searchResults["pending"]);
-        ReplaceCollection(AcceptedRequests, searchResults["accepted"]);
-        ReplaceCollection(DeniedRequests, searchResults["denied"]);
+        PopulateObservableCollection(ReturnedRequests, searchResults["returned"].ToList());
+        PopulateObservableCollection(PendingRequests, searchResults["pending"].ToList());
+        PopulateObservableCollection(AcceptedRequests, searchResults["accepted"].ToList());
+        PopulateObservableCollection(DeniedRequests, searchResults["denied"].ToList());
     }
 
     private void ReloadAllRequests()
     {
-        ReplaceCollection(ReturnedRequests, AllReturned);
-        ReplaceCollection(PendingRequests, AllPending);
-        ReplaceCollection(AcceptedRequests, AllAccepted);
-        ReplaceCollection(DeniedRequests, AllDenied);
-    }
-
-    private void ReplaceCollection(ObservableCollection<EHourRequest> target,
-                                   IEnumerable<EHourRequest> items)
-    {
-        target.Clear();
-        foreach (var item in items)
-        {
-            target.Add(item);
-        }
+        PopulateObservableCollection(ReturnedRequests, AllReturned);
+        PopulateObservableCollection(PendingRequests, AllPending);
+        PopulateObservableCollection(AcceptedRequests, AllAccepted);
+        PopulateObservableCollection(DeniedRequests, AllDenied);
     }
 
     public void OnWindowSizeChanged(double windowWidth)
@@ -653,4 +784,32 @@ public sealed partial class Home : Page
         //re-enable button
         ReloadHomeButton.IsEnabled = true;
     }
+
+    private void HandleRightClick()
+    {
+
+    }
+}
+
+public class EHourRequestGroup
+{
+    public string BaseDescription { get; set; }
+    public double TotalHours { get; set; }
+    public string FormattedTotalHours => LocalizationService.FormatNumber(TotalHours.ToString(CultureInfo.InvariantCulture));
+    public string DisplayDate { get; set; }
+    public DateTime LatestDateTime { get; set; }
+    public ObservableCollection<EHourRequest> SubRequests { get; set; } = new();
+
+    public bool IsGroup => SubRequests.Count > 1;
+    public bool IsSingle => SubRequests.Count == 1;
+    public EHourRequest SingleRequest => SubRequests.FirstOrDefault();
+}
+
+public partial class HomeBoolToVisConverter : Microsoft.UI.Xaml.Data.IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => value is bool b && b ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => (value is Visibility v && v == Visibility.Visible);
 }

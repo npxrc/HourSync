@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="HourSync.MRW_ReviewPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:HourSync"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+    <UserControl.Resources>
+        <DataTemplate x:Key="RequestTemplate">
+            <StackPanel Orientation="Vertical" Margin="0,5,0,5">
+                <TextBlock Text="{Binding Title}" FontWeight="Bold"/>
+                <TextBlock Text="{Binding Body}" TextWrapping="WrapWholeWords"/>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Uid="MRW-ReviewPage-IncludeImages" Margin="0,0,3,0">Hours:</TextBlock>
+                    <TextBlock Text="{Binding Hours}" FontWeight="Bold"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Uid="MRW-ReviewPage-IncludeImages" Margin="0,0,3,0">Include Images:</TextBlock>
+                    <TextBlock Text="{Binding IncludeImages}" FontWeight="Bold"/>
+                </StackPanel>
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock x:Uid="MRW-ReviewPage-TitleText" Style="{ThemeResource SubtitleTextBlockStyle}">4: Review</TextBlock>
+
+        <StackPanel Orientation="Vertical" Grid.Row="1">
+            <TextBlock TextWrapping="WrapWholeWords" x:Uid="MRW-ReviewPage-ExplanationText" Margin="0,5,0,0">Review your selected settings and the preview before submitting.</TextBlock>
+            <TextBlock TextWrapping="WrapWholeWords" x:Uid="MRW-ReviewPage-SelectedSettingsText" Margin="0,5">Selected Settings:</TextBlock>
+            <StackPanel x:Name="SelectedSettingsPanel" Orientation="Vertical" Margin="0,5"/>
+            <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Visible" VerticalScrollMode="Enabled" IsScrollInertiaEnabled="True">
+                <ListView ItemsSource="{x:Bind requests}" ItemTemplate="{StaticResource RequestTemplate}" Margin="0,0,0,5"/>
+            </ScrollViewer>
+        </StackPanel>
+    </Grid>
+</UserControl>

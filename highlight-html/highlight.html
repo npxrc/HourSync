@@ -1,0 +1,1076 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Highlight Reel</title>
+		<link rel="stylesheet" href="font.css" />
+		<style>
+			:root {
+				--ink: #07090f;
+				--surface: rgba(255, 255, 255, 0.04);
+				--surface-strong: rgba(255, 255, 255, 0.08);
+				--text: #f5f7fb;
+				--muted: #99a3b8;
+				--pill: #2b2b2b;
+				--pill-active: #f6c245;
+				--border: rgba(255, 255, 255, 0.12);
+			}
+
+			html,
+			body {
+				height: 100%;
+				margin: 0;
+				font-family:
+					"sfpro",
+					"Segoe UI",
+					system-ui,
+					-apple-system,
+					sans-serif;
+				background: radial-gradient(
+					circle at 50% -10%,
+					#13204b,
+					#07090f 45%,
+					#05060c 75%
+				);
+				color: var(--text);
+				overflow-x: hidden;
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			.bg {
+				position: fixed;
+				inset: 0;
+				pointer-events: none;
+				filter: saturate(1.2) brightness(1.05);
+			}
+
+			.body-bg {
+				opacity: 0.4;
+				z-index: 0;
+			}
+
+			.hero-bg {
+				position: absolute;
+				top: -8%;
+				left: -5%;
+				right: -5%;
+				bottom: -8%;
+				z-index: 0;
+				opacity: 0.9;
+				filter: blur(0px) saturate(1.15);
+			}
+
+			.bg canvas {
+				width: 100%;
+				height: 100%;
+				display: block;
+			}
+
+			.page-shell {
+				position: relative;
+				z-index: 1;
+				min-height: 100%;
+				display: flex;
+				flex-direction: column;
+				padding: 32px clamp(20px, 4vw, 48px) 64px;
+				backdrop-filter: blur(2px);
+			}
+
+			header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 14px 18px;
+				background: linear-gradient(
+					90deg,
+					rgba(255, 255, 255, 0.06),
+					rgba(255, 255, 255, 0.02)
+				);
+				border: 1px solid var(--border);
+				border-radius: 16px;
+				box-shadow:
+					0 20px 60px rgba(0, 0, 0, 0.35),
+					inset 0 1px 0 rgba(255, 255, 255, 0.05);
+				margin-bottom: 28px;
+			}
+
+			.brand {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				font-family: "sfpro-bold";
+				font-size: 18px;
+				letter-spacing: -0.02em;
+			}
+
+			.hamburger {
+				width: 32px;
+				height: 22px;
+				display: flex;
+				flex-direction: column;
+				justify-content: space-between;
+				cursor: pointer;
+			}
+
+			.hamburger span {
+				display: block;
+				height: 3px;
+				border-radius: 999px;
+				background: var(--text);
+			}
+
+			.months-bar {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				flex: 1;
+				justify-content: center;
+				min-width: 0;
+			}
+
+			.months {
+				list-style: none;
+				padding: 0;
+				margin: 0;
+				display: grid;
+				grid-auto-flow: column;
+				grid-auto-columns: max-content;
+				gap: 8px;
+				overflow-x: auto;
+				scrollbar-width: none;
+			}
+
+			.months::-webkit-scrollbar {
+				display: none;
+			}
+
+			.months button {
+				border: 1px solid transparent;
+				background: var(--pill);
+				color: var(--muted);
+				padding: 10px 14px;
+				border-radius: 999px;
+				font-size: 14px;
+				font-weight: 600;
+				cursor: pointer;
+				transition:
+					background 0.2s ease,
+					color 0.2s ease,
+					border-color 0.2s ease,
+					transform 0.2s ease;
+				white-space: nowrap;
+			}
+
+			.months button.active {
+				background: var(--pill-active);
+				color: #101118;
+				border-color: rgba(0, 0, 0, 0.08);
+				box-shadow: 0 10px 28px rgba(246, 194, 69, 0.35);
+				transform: translateY(-1px);
+			}
+
+			.months button:hover {
+				border-color: rgba(255, 255, 255, 0.16);
+				color: var(--text);
+			}
+
+			.top-right {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				font-weight: 600;
+				color: var(--muted);
+			}
+
+			.hero {
+				position: relative;
+				margin-top: 12px;
+				border-radius: 28px;
+				overflow: hidden;
+				isolation: isolate;
+				box-shadow:
+					0 30px 80px rgba(0, 0, 0, 0.5),
+					inset 0 1px 0 rgba(255, 255, 255, 0.08);
+				min-height: clamp(320px, 46vw, 520px);
+				background:
+					radial-gradient(
+						circle at 18% 22%,
+						rgba(94, 252, 198, 0.9),
+						rgba(94, 252, 198, 0) 28%
+					),
+					radial-gradient(
+						circle at 82% 28%,
+						rgba(255, 105, 180, 0.85),
+						rgba(255, 105, 180, 0) 30%
+					),
+					radial-gradient(
+						circle at 32% 78%,
+						rgba(255, 198, 84, 0.9),
+						rgba(255, 198, 84, 0) 35%
+					),
+					radial-gradient(
+						circle at 74% 76%,
+						rgba(90, 167, 255, 0.85),
+						rgba(90, 167, 255, 0) 38%
+					),
+					#0d101a;
+				border: 1px solid rgba(255, 255, 255, 0.06);
+				backdrop-filter: blur(4px);
+			}
+
+			.hero-content {
+				position: relative;
+				z-index: 1;
+				padding: clamp(32px, 5vw, 56px) clamp(28px, 6vw, 72px);
+				display: grid;
+				grid-template-rows: repeat(auto-fit, minmax(260px, 1fr));
+				gap: 18px;
+				align-items: center;
+			}
+
+			.hero h1 {
+				margin: 0 0 10px;
+				font-family: "sfpro-bold";
+				font-size: clamp(32px, 5vw, 52px);
+				line-height: 1.05;
+			}
+
+			.hero p {
+				margin: 0 0 18px;
+				color: white;
+				font-weight: 600;
+				font-size: 18px;
+				max-width: 520px;
+				font-family: "sfpro";
+				font-weight: 100;
+			}
+
+			.actions {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+			}
+
+			.btn-primary {
+				border: none;
+				background: #0c0d12;
+				color: #fff;
+				padding: 12px 18px;
+				border-radius: 999px;
+				font-weight: 700;
+				letter-spacing: -0.01em;
+				cursor: pointer;
+				box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+				transition:
+					transform 0.2s ease,
+					box-shadow 0.2s ease;
+				font-family: "sfpro-bold";
+				font-weight: 400;
+				transition:
+					background-color 350ms ease,
+					color 350ms ease;
+			}
+
+			.btn-primary:hover {
+				transform: translateY(-1px);
+				box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+				background-color: #fff;
+				color: #0c0d12;
+			}
+
+			.btn-outline {
+				border: 1px solid white;
+				background: none;
+				color: #fff;
+				padding: 12px 18px;
+				border-radius: 999px;
+				font-weight: 700;
+				letter-spacing: -0.01em;
+				cursor: pointer;
+				box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+				transition:
+					transform 0.2s ease,
+					box-shadow 0.2s ease;
+				font-family: "sfpro-bold";
+				font-weight: 400;
+				transition:
+					background-color 350ms ease,
+					color 350ms ease;
+			}
+
+			.btn-outline:hover {
+				transform: translateY(-1px);
+				box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+				background-color: #eee;
+				color: #000;
+			}
+
+			.badges {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 8px;
+			}
+
+			.badge {
+				background: rgba(12, 13, 18, 0.65);
+				border: 1px solid rgba(255, 255, 255, 0.14);
+				padding: 8px 12px;
+				border-radius: 12px;
+				font-weight: 600;
+				color: #e7eaf2;
+				min-width: 140px;
+			}
+
+			.badge strong {
+				display: block;
+				font-size: 18px;
+				color: #fff;
+			}
+
+			.section-title {
+				margin: 32px 4px 16px;
+				font-weight: 700;
+				letter-spacing: -0.01em;
+				color: var(--text);
+			}
+
+			.stats-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+				gap: 12px;
+			}
+
+			.stat-card {
+				padding: 14px 16px;
+				border-radius: 14px;
+				border: 1px solid var(--border);
+				background: rgba(255, 255, 255, 0.04);
+				backdrop-filter: blur(6px);
+				box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+			}
+
+			.stat-title {
+				margin: 0 0 6px;
+				font-size: 13px;
+				text-transform: uppercase;
+				letter-spacing: 0.04em;
+				color: var(--muted);
+			}
+
+			.stat-value {
+				margin: 0;
+				font-size: 22px;
+				font-family: "sfpro-bold";
+			}
+
+			.stat-detail {
+				margin: 6px 0 0;
+				color: var(--muted);
+				font-size: 13px;
+			}
+
+			.feed {
+				display: grid;
+				gap: 12px;
+				max-height: 520px;
+				overflow: auto;
+				padding-right: 4px;
+			}
+
+			.card {
+				padding: 14px 16px;
+				background: var(--surface);
+				border: 1px solid var(--border);
+				border-radius: 14px;
+				backdrop-filter: blur(6px);
+				box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+				cursor: pointer;
+				transition:
+					transform 0.2s ease,
+					border-color 0.2s ease,
+					background 0.2s ease,
+					box-shadow 0.2s ease;
+			}
+
+			.card:hover {
+				transform: translateY(-2px);
+				background: var(--surface-strong);
+				border-color: rgba(255, 255, 255, 0.22);
+				box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+			}
+
+			.card:focus-visible {
+				outline: 2px solid var(--pill-active);
+				outline-offset: 2px;
+				background: var(--surface-strong);
+			}
+
+			.card h3 {
+				margin: 0 0 4px;
+				font-size: 16px;
+				color: #fff;
+			}
+
+			.card .meta {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				color: var(--muted);
+				font-size: 13px;
+			}
+
+			.card .pill {
+				padding: 4px 10px;
+				border-radius: 999px;
+				background: rgba(255, 255, 255, 0.08);
+				border: 1px solid rgba(255, 255, 255, 0.1);
+				color: #fff;
+				font-weight: 600;
+				font-size: 12px;
+			}
+
+			.empty-state {
+				text-align: center;
+				color: var(--muted);
+				padding: 24px 12px;
+				border: 1px dashed var(--border);
+				border-radius: 12px;
+				background: rgba(255, 255, 255, 0.02);
+			}
+
+			.menu-overlay {
+				position: fixed;
+				inset: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: rgba(7, 8, 15, 0.8);
+				backdrop-filter: blur(8px);
+				z-index: 20;
+			}
+
+			.menu-overlay.hidden {
+				display: none;
+			}
+
+			.menu-content {
+				background: #0c0e15;
+				border: 1px solid var(--border);
+				border-radius: 20px;
+				padding: 22px 24px;
+				width: min(420px, 90vw);
+				box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+				text-align: center;
+			}
+
+			.menu-content h2 {
+				margin: 0 0 12px;
+				font-family: "sfpro-bold";
+			}
+
+			#yearList {
+				list-style: none;
+				padding: 0;
+				margin: 12px 0 20px;
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+				gap: 10px;
+			}
+
+			#yearList li {
+				border: 1px solid var(--border);
+				background: rgba(255, 255, 255, 0.04);
+				border-radius: 12px;
+				padding: 10px;
+				cursor: pointer;
+				font-weight: 700;
+				transition:
+					border-color 0.2s ease,
+					background 0.2s ease;
+			}
+
+			#yearList li.active {
+				background: var(--pill-active);
+				color: #0b0c12;
+				border-color: transparent;
+			}
+
+			#yearList li:hover {
+				border-color: rgba(255, 255, 255, 0.24);
+			}
+
+			#closeMenu {
+				border: none;
+				background: #fff;
+				color: #0a0b10;
+				padding: 10px 14px;
+				border-radius: 12px;
+				font-weight: 700;
+				cursor: pointer;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="bg body-bg"></div>
+		<div class="page-shell">
+			<header>
+				<div class="brand">
+					<div
+						id="hamburger"
+						class="hamburger"
+						aria-label="Menu"
+						tabindex="0"
+					>
+						<span></span>
+						<span></span>
+						<span></span>
+					</div>
+					<span id="brandLabel">ReSync'25</span>
+				</div>
+
+				<div class="months-bar">
+					<ul class="months" id="monthRow"></ul>
+				</div>
+
+				<div class="top-right">
+					<img src="./logo.png" style="max-height: 25px" />
+				</div>
+			</header>
+
+			<section class="hero">
+				<div class="bg hero-bg"></div>
+				<div class="hero-content">
+					<div>
+						<h1 id="heroTitle">Replay your year in eHours.</h1>
+						<p id="heroSubtitle">
+							Dive into the requests that defined your year. Pick
+							a month or stay on the full highlight reel.
+						</p>
+						<div
+							class="actions"
+							style="display: block; max-width: fit-content"
+						>
+							<button class="btn-primary" id="playBtn">
+								▶ Play Your Highlight Reel
+							</button>
+							<br />
+							<br />
+							<buttons class="btn-outline" style="width: auto">
+								Scroll Down
+							</buttons>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<h2 class="section-title" id="highlightsTitle">Highlights</h2>
+			<div class="stats-grid" id="highlightsGrid">
+				<div class="stat-card">
+					<p class="stat-title">Total eHours</p>
+					<p class="stat-value" id="statTotalHours">–</p>
+					<p class="stat-detail" id="statHoursDays">&nbsp;</p>
+				</div>
+				<div class="stat-card">
+					<p class="stat-title">Total requests</p>
+					<p class="stat-value" id="statTotalRequests">–</p>
+					<p class="stat-detail" id="statStatusBreakdown">&nbsp;</p>
+				</div>
+				<div class="stat-card">
+					<p class="stat-title">First request</p>
+					<p class="stat-value" id="statFirstRequest">–</p>
+					<p class="stat-detail" id="statFirstDesc">&nbsp;</p>
+				</div>
+				<div class="stat-card">
+					<p class="stat-title">Biggest request</p>
+					<p class="stat-value" id="statBiggest">–</p>
+					<p class="stat-detail" id="statBiggestMeta">&nbsp;</p>
+				</div>
+				<div class="stat-card">
+					<p class="stat-title">Active streak</p>
+					<p class="stat-value" id="statStreak">–</p>
+					<p class="stat-detail" id="statStreakDetail">&nbsp;</p>
+				</div>
+				<div class="stat-card">
+					<p class="stat-title">Top month</p>
+					<p class="stat-value" id="statTopMonth">–</p>
+					<p class="stat-detail" id="statTopMonthDetail">&nbsp;</p>
+				</div>
+			</div>
+
+			<h2 class="section-title">Your requests</h2>
+			<div id="requests" class="feed"></div>
+		</div>
+
+		<div
+			id="menuOverlay"
+			class="menu-overlay hidden"
+			role="dialog"
+			aria-modal="true"
+		>
+			<div class="menu-content">
+				<h2>Select year</h2>
+				<ul id="yearList"></ul>
+				<button id="closeMenu">Close</button>
+			</div>
+		</div>
+
+		<script type="module" src="./fluid-gradient.js"></script>
+		<script>
+			let currentYear = 0;
+			let yearsAvailable = [];
+			let allRequests = [];
+			let currentMonth = "all";
+			let studentName = "";
+
+			const monthNames = [
+				"All",
+				"Jan",
+				"Feb",
+				"Mar",
+				"Apr",
+				"May",
+				"Jun",
+				"Jul",
+				"Aug",
+				"Sep",
+				"Oct",
+				"Nov",
+				"Dec",
+			];
+
+			window.addEventListener("fluidGradientReady", () => {
+				updateBgForYear();
+			});
+
+			let d = "";
+			function receiveData(data) {
+				const jsonData = JSON.parse(data);
+				currentYear = jsonData.CurrentYear;
+				yearsAvailable = jsonData.YearsAvailable || [];
+				allRequests = (jsonData.AllRequests || []).flat();
+				studentName = jsonData.StudentName || "";
+
+				populateYearList();
+				renderMonthRow();
+				updateRequests();
+				updateHero();
+				updateBgForYear();
+				d = data;
+			}
+
+			function recallData() {
+				console.log(d);
+			}
+
+			function postMessageToApp(message) {
+				if (window.chrome?.webview) {
+					window.chrome.webview.postMessage(message);
+				}
+			}
+
+			function openRequest(request) {
+				const requestId = request?.Value;
+				if (!requestId) {
+					return;
+				}
+
+				postMessageToApp({
+					type: "openRequest",
+					requestId,
+				});
+			}
+
+			function filteredRequests() {
+				return allRequests.filter((request) => {
+					if (currentYear) {
+						const reqYear = new Date(request.Date).getFullYear();
+						if (reqYear !== currentYear) return false;
+					}
+					if (currentMonth !== "all") {
+						const reqMonth = new Date(request.Date).getMonth() + 1;
+						return reqMonth === currentMonth;
+					}
+					return true;
+				});
+			}
+
+			function filteredRequestsByYear(year) {
+				return allRequests.filter((request) => {
+					const reqYear = new Date(request.Date).getFullYear();
+					return reqYear === year;
+				});
+			}
+
+			function renderMonthRow() {
+				const row = document.getElementById("monthRow");
+				row.innerHTML = "";
+				monthNames.forEach((name, idx) => {
+					const btn = document.createElement("button");
+					btn.textContent = name;
+					btn.className = idx === 0 ? "active" : "";
+					btn.addEventListener("click", () => {
+						currentMonth = idx === 0 ? "all" : idx;
+						document
+							.querySelectorAll("#monthRow button")
+							.forEach((b) => b.classList.remove("active"));
+						btn.classList.add("active");
+						updateRequests();
+						updateHero();
+					});
+					row.appendChild(btn);
+				});
+			}
+
+			function updateHero() {
+				const heroTitle = document.getElementById("heroTitle");
+				const heroSubtitle = document.getElementById("heroSubtitle");
+				const brand = document.getElementById("brandLabel");
+				const highlightsTitle =
+					document.getElementById("highlightsTitle");
+
+				const list = filteredRequests();
+				const totalHours = list.reduce(
+					(sum, r) => sum + (Number(r.Hours) || 0),
+					0,
+				);
+				const totalRequests = list.length;
+				const labelMonth =
+					currentMonth === "all"
+						? "All months"
+						: monthNames[currentMonth];
+				const yearLabel = currentYear || "year";
+
+				const namePrefix = studentName ? `${studentName}, ` : "";
+				heroTitle.textContent = `${namePrefix}replay your ${yearLabel} in eHours.`;
+				heroSubtitle.textContent = `Currently viewing ${labelMonth.toLowerCase()} for ${yearLabel}.`;
+				if (brand && currentYear) {
+					brand.textContent = `Replay'${String(currentYear).slice(-2)}`;
+				}
+				if (highlightsTitle) {
+					highlightsTitle.textContent = currentYear
+						? `Highlights for ${currentYear}`
+						: "Highlights";
+				}
+
+				updateHighlights();
+			}
+
+			function updateRequests() {
+				const container = document.getElementById("requests");
+				container.innerHTML = "";
+				const list = filteredRequests();
+
+				if (!list.length) {
+					const empty = document.createElement("div");
+					empty.className = "empty-state";
+					empty.textContent = "No requests for this view yet.";
+					container.appendChild(empty);
+					return;
+				}
+
+				list.sort(
+					(a, b) => new Date(b.Date) - new Date(a.Date),
+				).forEach((request) => {
+					const card = document.createElement("div");
+					card.className = "card";
+					card.tabIndex = 0;
+					card.setAttribute("role", "button");
+					card.setAttribute("aria-label", `Open request ${request.Description || "Request"}`);
+					card.addEventListener("click", () => openRequest(request));
+					card.addEventListener("keydown", (event) => {
+						if (event.key === "Enter" || event.key === " ") {
+							event.preventDefault();
+							openRequest(request);
+						}
+					});
+
+					const title = document.createElement("h3");
+					title.textContent = request.Description || "Request";
+
+					const meta = document.createElement("div");
+					meta.className = "meta";
+					const date = new Date(request.Date);
+					const dateText = date.toLocaleDateString(undefined, {
+						month: "short",
+						day: "numeric",
+						year: "numeric",
+					});
+
+					const hoursPill = document.createElement("span");
+					hoursPill.className = "pill";
+					hoursPill.textContent = `${request.Hours} eHours`;
+
+					const datePill = document.createElement("span");
+					datePill.className = "pill";
+					datePill.textContent = dateText;
+
+					meta.appendChild(hoursPill);
+					meta.appendChild(datePill);
+
+					card.appendChild(title);
+					card.appendChild(meta);
+					container.appendChild(card);
+				});
+
+				updateHighlights();
+			}
+
+			function updateBgForYear() {
+				const gradients = window.fluidGradients || [
+					window.fluidGradient,
+				];
+				let referenceColor = "#f6c245";
+				switch (currentYear % 5) {
+					case 0:
+						referenceColor = "#f6c245";
+						break;
+					case 1:
+						referenceColor = "#30c7ec";
+						break;
+					case 2:
+						referenceColor = "#ff5c8a";
+						break;
+					case 3:
+						referenceColor = "#7df3a6";
+						break;
+					case 4:
+						referenceColor = "#d5a7ff";
+						break;
+				}
+				// keep active pill/button color in sync with the year's palette
+				document.documentElement.style.setProperty(
+					"--pill-active",
+					referenceColor,
+				);
+				gradients.forEach((gradient) => {
+					if (gradient) {
+						gradient.setReferenceColor(referenceColor);
+						gradient.updateColors(referenceColor, {
+							blendSeconds: 1,
+							nowSeconds: performance.now() / 1000,
+						});
+					}
+				});
+
+				updateHighlights();
+			}
+
+			function computeYearStats(year) {
+				const list = filteredRequestsByYear(year);
+				if (!list.length) return null;
+
+				const sortedByDate = [...list].sort(
+					(a, b) => new Date(a.Date) - new Date(b.Date),
+				);
+
+				const totalHours = list.reduce(
+					(sum, r) => sum + (parseFloat(r.Hours) || 0),
+					0,
+				);
+				const statusCounts = list.reduce((acc, r) => {
+					acc[r.State] = (acc[r.State] || 0) + 1;
+					return acc;
+				}, {});
+
+				let biggest = null;
+				list.forEach((r) => {
+					const h = parseFloat(r.Hours) || 0;
+					if (!biggest || h > biggest.h) {
+						biggest = { h, r };
+					}
+				});
+
+				const months = new Array(12).fill(0);
+				list.forEach((r) => {
+					const m = new Date(r.Date).getMonth();
+					months[m] += 1;
+				});
+				const topMonthIndex = months.reduce(
+					(acc, count, idx) =>
+						count > acc.count ? { idx, count } : acc,
+					{ idx: 0, count: 0 },
+				);
+
+				const monthsWithActivity = months
+					.map((count, idx) => ({ idx, count }))
+					.filter((m) => m.count > 0)
+					.map((m) => m.idx)
+					.sort((a, b) => a - b);
+				let bestStreak = 0;
+				let currentStreak = 0;
+				let streakEnd = null;
+				monthsWithActivity.forEach((m, i) => {
+					if (i === 0 || m === monthsWithActivity[i - 1] + 1) {
+						currentStreak += 1;
+					} else {
+						currentStreak = 1;
+					}
+					if (currentStreak > bestStreak) {
+						bestStreak = currentStreak;
+						streakEnd = m;
+					}
+				});
+
+				return {
+					totalRequests: list.length,
+					totalHours,
+					first: sortedByDate[0],
+					biggest,
+					statusCounts,
+					topMonthIndex,
+					months,
+					bestStreak,
+					streakEnd,
+				};
+			}
+
+			function updateHighlights() {
+				const year = currentYear;
+				const stats = computeYearStats(year);
+				const setText = (id, value) => {
+					const el = document.getElementById(id);
+					if (el) el.textContent = value;
+				};
+
+				if (!stats) {
+					[
+						"statTotalHours",
+						"statHoursDays",
+						"statTotalRequests",
+						"statStatusBreakdown",
+						"statFirstRequest",
+						"statFirstDesc",
+						"statBiggest",
+						"statBiggestMeta",
+						"statStreak",
+						"statStreakDetail",
+						"statTopMonth",
+						"statTopMonthDetail",
+					].forEach((id) => setText(id, "–"));
+					return;
+				}
+
+				const hours =
+					Math.round((stats.totalHours + Number.EPSILON) * 10) / 10;
+				setText("statTotalHours", `${hours} eHours`);
+				setText(
+					"statHoursDays",
+					`${(hours / 24).toFixed(1)} days worth`,
+				);
+				setText("statTotalRequests", `${stats.totalRequests}`);
+				const statuses = ["Accepted", "Pending", "Denied", "Returned"]
+					.map(
+						(s) =>
+							`${s.substring(0, 1)}:${stats.statusCounts[s] || 0}`,
+					)
+					.join(" • ");
+				setText("statStatusBreakdown", statuses);
+
+				const dateFmt = (d) =>
+					new Date(d).toLocaleDateString(undefined, {
+						month: "short",
+						day: "numeric",
+						year: "numeric",
+					});
+				if (stats.first) {
+					setText("statFirstRequest", dateFmt(stats.first.Date));
+					setText(
+						"statFirstDesc",
+						stats.first.Description || "First submission",
+					);
+				}
+
+				if (stats.biggest) {
+					setText("statBiggest", `${stats.biggest.h} eHours`);
+					setText(
+						"statBiggestMeta",
+						`${stats.biggest.r.Description || "Top request"} — ${dateFmt(stats.biggest.r.Date)}`,
+					);
+				}
+
+				const streakMonths = stats.bestStreak;
+				if (streakMonths > 1 && stats.streakEnd != null) {
+					const startIdx = stats.streakEnd - streakMonths + 1;
+					const startName =
+						monthNames[startIdx + 1] || monthNames[startIdx];
+					const endName =
+						monthNames[stats.streakEnd + 1] ||
+						monthNames[stats.streakEnd];
+					setText("statStreak", `${streakMonths}-month streak`);
+					setText("statStreakDetail", `${startName} – ${endName}`);
+				} else {
+					setText("statStreak", "No streak yet");
+					setText(
+						"statStreakDetail",
+						"Log requests across months to build a streak.",
+					);
+				}
+
+				if (stats.topMonthIndex.count > 0) {
+					const label =
+						monthNames[stats.topMonthIndex.idx + 1] ||
+						monthNames[stats.topMonthIndex.idx];
+					setText("statTopMonth", label);
+					setText(
+						"statTopMonthDetail",
+						`${stats.topMonthIndex.count} requests in that month`,
+					);
+				} else {
+					setText("statTopMonth", "No top month yet");
+					setText(
+						"statTopMonthDetail",
+						"Submit some requests to see the peak month.",
+					);
+				}
+			}
+
+			function populateYearList() {
+				const list = document.getElementById("yearList");
+				list.innerHTML = "";
+				const years = Array.from(new Set(yearsAvailable)).filter(
+					(y) => y,
+				);
+				years.sort((a, b) => b - a);
+				years.forEach((yr) => {
+					const li = document.createElement("li");
+					li.textContent = yr;
+					if (yr === currentYear) li.classList.add("active");
+					li.addEventListener("click", () => selectYear(yr));
+					list.appendChild(li);
+				});
+				const highlightsTitle =
+					document.getElementById("highlightsTitle");
+				if (highlightsTitle) {
+					highlightsTitle.textContent = currentYear
+						? `Highlights for ${currentYear}`
+						: "Highlights";
+				}
+			}
+
+			function toggleMenu(show) {
+				const overlay = document.getElementById("menuOverlay");
+				overlay.classList.toggle("hidden", !show);
+			}
+
+			function selectYear(yr) {
+				currentYear = yr;
+				populateYearList();
+				updateBgForYear();
+				updateRequests();
+				updateHero();
+				toggleMenu(false);
+			}
+
+			document
+				.getElementById("hamburger")
+				.addEventListener("click", () => toggleMenu(true));
+			document
+				.getElementById("closeMenu")
+				.addEventListener("click", () => toggleMenu(false));
+		</script>
+	</body>
+</html>

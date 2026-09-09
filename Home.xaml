@@ -5,7 +5,81 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:core="using:HourSyncCoreLib"
+    xmlns:local="using:HourSync"
     mc:Ignorable="d">
+
+    <Page.Resources>
+        <local:HomeBoolToVisConverter x:Key="HomeBoolToVis"/>
+        <DataTemplate x:Key="GroupedRequestTemplate" x:DataType="local:EHourRequestGroup">
+            <Grid Margin="0,0,0,10">
+                <Button
+                    Visibility="{x:Bind IsSingle, Converter={StaticResource HomeBoolToVis}}"
+                    Tag="{x:Bind SingleRequest.Value}" 
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Left"
+                    Height="80"
+                    Click="RequestButton_Click"
+                    RightTapped="HandleRightClick">
+                    <Button.Content>
+                        <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap">
+                            <Run Text="{x:Bind SingleRequest.Description}"/>
+                            <LineBreak/>
+                            <Run x:Uid="HomeRequestButtonHours"/>
+                            <Run Text="{x:Bind SingleRequest.Hours}"/>
+                            <LineBreak/>
+                            <Run x:Uid="HomeRequestButtonDate"/>
+                            <Run Text="{x:Bind SingleRequest.Date}"/>
+                        </TextBlock>
+                    </Button.Content>
+                </Button>
+
+                <Expander
+                    Visibility="{x:Bind IsGroup, Converter={StaticResource HomeBoolToVis}}"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch">
+                    <Expander.Header>
+                        <TextBlock TextWrapping="Wrap" Margin="0,10">
+                            <Run Text="{x:Bind BaseDescription}" FontWeight="SemiBold"/>
+                            <LineBreak/>
+                            <Run x:Uid="HomeRequestButtonHours"/>
+                            <Run Text="{x:Bind FormattedTotalHours}"/>
+                            <LineBreak/>
+                            <Run Text="Latest: "/>
+                            <Run Text="{x:Bind DisplayDate}"/>
+                        </TextBlock>
+                    </Expander.Header>
+                    <Expander.Content>
+                        <ItemsControl ItemsSource="{x:Bind SubRequests}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="core:EHourRequest">
+                                    <Button
+                                        Tag="{x:Bind Value}" 
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Height="80"
+                                        Margin="0,0,0,10"
+                                        Click="RequestButton_Click"
+                                        RightTapped="HandleRightClick">
+                                        <Button.Content>
+                                            <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap">
+                                                <Run Text="{x:Bind Description}"/>
+                                                <LineBreak/>
+                                                <Run x:Uid="HomeRequestButtonHours"/>
+                                                <Run Text="{x:Bind Hours}"/>
+                                                <LineBreak/>
+                                                <Run x:Uid="HomeRequestButtonDate"/>
+                                                <Run Text="{x:Bind Date}"/>
+                                            </TextBlock>
+                                        </Button.Content>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Expander.Content>
+                </Expander>
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
 
     <Grid Margin="36, 40">
         <Grid.RowDefinitions>
@@ -19,35 +93,35 @@
             <TextBlock x:Name="StudentAcademy" Style="{ThemeResource SubtitleTextBlockStyle}"/>
             <TextBlock x:Name="StudentEHours" Style="{ThemeResource BodyTextBlockStyle}"/>
             <StackPanel Orientation="Horizontal">
-                <TextBlock Text="Progress to Endorsement:"/>
+                <TextBlock x:Uid="ProgressToEndorsementLabel"/>
                 <TextBlock x:Name="progressToEndorsementText" Text="0%" Style="{ThemeResource BodyStrongTextBlockStyle}" Margin="4, 0, 0, 0"/>
             </StackPanel>
-            <ProgressBar x:Name="StudentEHourProgress" Margin="0,10" Width="500px" HorizontalAlignment="Left" ToolTipService.ToolTip="Your progress towards 200 eHours"/>
+            <ProgressBar x:Name="StudentEHourProgress" x:Uid="StudentEHourProgressBar" Margin="0,10" Width="500px" HorizontalAlignment="Left" ToolTipService.ToolTip="Your progress towards 200 eHours"/>
             <StackPanel Orientation="Horizontal">
-                <Button Content="Logout" Click="Logout_Click" Margin="0, 0, 10, 0"/>
+                <Button x:Uid="LogoutButton" Click="Logout_Click" Margin="0, 0, 10, 0"/>
 
-                <DropDownButton x:Name="SortDropDown" Content="Sort by" ToolTipService.ToolTip="Sort" AutomationProperties.Name="Sort" Margin="0,0,10,0">
+                <DropDownButton x:Name="SortDropDown" x:Uid="SortDropDown" ToolTipService.ToolTip="Sort" AutomationProperties.Name="Sort" Margin="0,0,10,0">
                     <DropDownButton.Flyout>
                         <MenuFlyout Placement="Bottom">
-                            <MenuFlyoutItem Text="Date (Old to New)" Click="SortDateOtoN"/>
-                            <MenuFlyoutItem Text="Date (New to Old)" Click="SortDateNtoO"/>
-                            <MenuFlyoutItem Text="Name (A to Z)" Click="SortNameAtoZ"/>
-                            <MenuFlyoutItem Text="Name (Z to A)" Click="SortNameZtoA"/>
-                            <MenuFlyoutItem Text="Hours (Low to High)" Click="SortHoursLtoH"/>
-                            <MenuFlyoutItem Text="Hours (High to Low)" Click="SortHoursHtoL"/>
+                            <MenuFlyoutItem x:Uid="SortDateOtoN" Click="SortDateOtoN"/>
+                            <MenuFlyoutItem x:Uid="SortDateNtoO" Click="SortDateNtoO"/>
+                            <MenuFlyoutItem x:Uid="SortNameAtoZ" Click="SortNameAtoZ"/>
+                            <MenuFlyoutItem x:Uid="SortNameZtoA" Click="SortNameZtoA"/>
+                            <MenuFlyoutItem x:Uid="SortHoursLtoH" Click="SortHoursLtoH"/>
+                            <MenuFlyoutItem x:Uid="SortHoursHtoL" Click="SortHoursHtoL"/>
                         </MenuFlyout>
                     </DropDownButton.Flyout>
                 </DropDownButton>
 
-                <Button x:Name="OpenReSyncButton" IsEnabled="False" Content="View ReSync" Click="OpenReSync_Click" ToolTipService.ToolTip="Open ReSync" Margin="0, 0, 10, 0"/>
+                <Button x:Name="OpenReSyncButton" IsEnabled="False" x:Uid="OpenReSyncButton" Click="OpenReSync_Click" ToolTipService.ToolTip="Open ReSync" Margin="0, 0, 10, 0"/>
 
-                <Button x:Name="ReloadHomeButton" Content="Reload" Click="ReloadHomeContent_Click" ToolTipService.ToolTip="Fetches the home content again."/>
+                <Button x:Name="ReloadHomeButton" x:Uid="ReloadHomeButton" Click="ReloadHomeContent_Click" ToolTipService.ToolTip="Fetches the home content again."/>
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" Margin="0 10">
                 <TextBox x:Name="SearchBox" 
                      Width="300"
-                     PlaceholderText="Search requests..."
+                     x:Uid="SearchBox"
                          TextChanged="Search"/>
             </StackPanel>
         </StackPanel>
@@ -63,125 +137,28 @@
             <ScrollViewer Grid.Column="0" VerticalScrollMode="Auto" VerticalScrollBarVisibility="Auto">
                 <StackPanel x:Name="RequestsPanel" Margin="0, 0, 0, 10">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Pending Requests -" Margin="0,0,5,0"/>
-                        <TextBlock Text="{x:Bind PendingRequests.Count, Mode=OneWay}"/>
+                        <TextBlock x:Uid="PendingRequestsLabel" Margin="0,0,5,0"/>
+                        <TextBlock Text="{x:Bind TotalPendingCount, Mode=OneWay}"/>
                     </StackPanel>
-                    <ListView ItemsSource="{x:Bind PendingRequests, Mode=OneWay}" SelectionMode="None" Margin="-15, 5, 0, 0">
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="core:EHourRequest">
-                                <Button
-                                    Tag="{x:Bind Value}" 
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Left"
-                                    Height="80"
-                                    Margin="0,0,0,10"
-                                    Click="RequestButton_Click"
-                                    RightTapped="HandleRightClick">
-                                    <Button.Content>
-                                        <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap">
-                                            <Run Text="{x:Bind Description}"/>
-                                            <LineBreak/>
-                                            <Run Text="Hours:"/>
-                                            <Run Text="{x:Bind Hours}"/>
-                                            <LineBreak/>
-                                            <Run Text="Date:"/>
-                                            <Run Text="{x:Bind Date}"/>
-                                        </TextBlock>
-                                    </Button.Content>
-                                </Button>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                    <ListView ItemsSource="{x:Bind PendingRequests, Mode=OneWay}" SelectionMode="None" Margin="-15, 5, 0, 0" ItemTemplate="{StaticResource GroupedRequestTemplate}" />
+
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Accepted Requests -" Margin="0,0,5,0"/>
-                        <TextBlock Text="{x:Bind AcceptedRequests.Count, Mode=OneWay}"/>
+                        <TextBlock x:Uid="AcceptedRequestsLabel" Margin="0,0,5,0"/>
+                        <TextBlock Text="{x:Bind TotalAcceptedCount, Mode=OneWay}"/>
                     </StackPanel>
-                    <ListView ItemsSource="{x:Bind AcceptedRequests, Mode=OneWay}" SelectionMode="None" Margin="-15, 5, 0, 0">
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="core:EHourRequest">
-                                <Button
-                                    Tag="{x:Bind Value}" 
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Left"
-                                    Height="80"
-                                    Margin="0,0,0,10"
-                                    Click="RequestButton_Click"
-                                    RightTapped="HandleRightClick">
-                                    <Button.Content>
-                                        <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap">
-                                            <Run Text="{x:Bind Description}"/>
-                                            <LineBreak/>
-                                            <Run Text="Hours:"/>
-                                            <Run Text="{x:Bind Hours}"/>
-                                            <LineBreak/>
-                                            <Run Text="Date:"/>
-                                            <Run Text="{x:Bind Date}"/>
-                                        </TextBlock>
-                                    </Button.Content>
-                                </Button>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                    <ListView ItemsSource="{x:Bind AcceptedRequests, Mode=OneWay}" SelectionMode="None" Margin="-15, 5, 0, 0" ItemTemplate="{StaticResource GroupedRequestTemplate}" />
+
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Returned Requests -" Margin="0,0,5,0"/>
-                        <TextBlock Text="{x:Bind ReturnedRequests.Count, Mode=OneWay}"/>
+                        <TextBlock x:Uid="ReturnedRequestsLabel" Margin="0,0,5,0"/>
+                        <TextBlock Text="{x:Bind TotalReturnedCount, Mode=OneWay}"/>
                     </StackPanel>
-                    <ListView ItemsSource="{x:Bind ReturnedRequests, Mode=OneWay}" SelectionMode="None" Margin="-15, 5, 0, 0">
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="core:EHourRequest">
-                                <Button
-                                    Tag="{x:Bind Value}" 
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Left"
-                                    Height="80"
-                                    Margin="0,0,0,10"
-                                    Click="RequestButton_Click"
-                                    RightTapped="HandleRightClick">
-                                    <Button.Content>
-                                        <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap">
-                                            <Run Text="{x:Bind Description}"/>
-                                            <LineBreak/>
-                                            <Run Text="Hours:"/>
-                                            <Run Text="{x:Bind Hours}"/>
-                                            <LineBreak/>
-                                            <Run Text="Date:"/>
-                                            <Run Text="{x:Bind Date}"/>
-                                        </TextBlock>
-                                    </Button.Content>
-                                </Button>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                    <ListView ItemsSource="{x:Bind ReturnedRequests, Mode=OneWay}" SelectionMode="None" Margin="-15, 5, 0, 0" ItemTemplate="{StaticResource GroupedRequestTemplate}" />
+
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Denied Requests -" Margin="0,0,5,0"/>
-                        <TextBlock Text="{x:Bind DeniedRequests.Count, Mode=OneWay}"/>
+                        <TextBlock x:Uid="DeniedRequestsLabel" Margin="0,0,5,0"/>
+                        <TextBlock Text="{x:Bind TotalDeniedCount, Mode=OneWay}"/>
                     </StackPanel>
-                    <ListView ItemsSource="{x:Bind DeniedRequests, Mode=OneWay}" SelectionMode="None" Margin="-15, 5, 0, 0">
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="core:EHourRequest">
-                                <Button
-                                    Tag="{x:Bind Value}" 
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Left"
-                                    Height="80"
-                                    Margin="0,0,0,10"
-                                    Click="RequestButton_Click"
-                                    RightTapped="HandleRightClick">
-                                    <Button.Content>
-                                        <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap">
-                                            <Run Text="{x:Bind Description}"/>
-                                            <LineBreak/>
-                                            <Run Text="Hours:"/>
-                                            <Run Text="{x:Bind Hours}"/>
-                                            <LineBreak/>
-                                            <Run Text="Date:"/>
-                                            <Run Text="{x:Bind Date}"/>
-                                        </TextBlock>
-                                    </Button.Content>
-                                </Button>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                    <ListView ItemsSource="{x:Bind DeniedRequests, Mode=OneWay}" SelectionMode="None" Margin="-15, 5, 0, 0" ItemTemplate="{StaticResource GroupedRequestTemplate}" />
                 </StackPanel>
             </ScrollViewer>
         </Grid>

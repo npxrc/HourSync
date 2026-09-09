@@ -23,6 +23,12 @@ public class DialogService
 
         DialogManager.IsDialogOpen = true;
 
+        title ??= "";
+        content ??= "";
+        primaryButtonText ??= "";
+        secondaryButtonText ??= "";
+        closeButtonText ??= "";
+
         var dialog = new ContentDialog
         {
             Title = title,
@@ -41,22 +47,26 @@ public class DialogService
     public async Task<bool> ShowErrorDialog(string content, bool shouldAppExit, XamlRoot xamlRoot)
     {
         FileMgr.LogError(content);
+        var title = LocalizationService.GetString("GenericErrorTitle");
         if (shouldAppExit)
         {
+            var applicationWillClose = LocalizationService.GetString("HourSyncWillClose");
+            var closeText = LocalizationService.GetString("GenericCloseText");
             if (content.EndsWith('.') || content.Trim().EndsWith('.')) // Checks if the sentence ends with a period
             {
-                await ShowDialog("Error", content.Trim() + " The application will now close.", "Close", null, null, xamlRoot);
+                await ShowDialog(title, content.Trim() + " " + applicationWillClose + ".", closeText, null, null, xamlRoot);
             }
             else
             {
-                await ShowDialog("Error", content.Trim() + ". The application will now close.", "Close", null, null, xamlRoot);
+                await ShowDialog(title, content.Trim() + ". " + applicationWillClose + ".", closeText, null, null, xamlRoot);
             }
             Application.Current.Exit();
             return false; // not sure why this is needed if the app is closing
         }
         else
         {
-            await ShowDialog("Error", content.Trim(), "Okay", null, null, xamlRoot);
+            var okay = LocalizationService.GetString("GenericOKText");
+            await ShowDialog(title, content.Trim(), okay, null, null, xamlRoot);
             return true;
         }
     }
